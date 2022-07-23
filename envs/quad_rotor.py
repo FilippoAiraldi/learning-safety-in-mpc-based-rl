@@ -94,7 +94,7 @@ class QuadRotorEnv(BaseEnv):
     def __init__(
         self,
         pars: dict | QuadRotorPars = None,
-        tol: float = 1e0
+        tol: float = 1e1
     ) -> None:
         '''
         This environment simulates a 10-state quadrotor system with limited 
@@ -178,7 +178,28 @@ class QuadRotorEnv(BaseEnv):
     @property
     def error(self) -> float:
         '''Error of the current state to the final position.'''
-        return np.linalg.norm(self.x - self.xf)
+        return np.linalg.norm(self._x - self._xf)
+
+    @property
+    def x(self) -> np.ndarray:
+        '''Gets the current state of the quadrotor.'''
+        return self._x
+
+    @x.setter
+    def x(self, val: np.ndarray) -> None:
+        '''Sets the current state of the quadrotor.'''
+        assert self.observation_space.contains(val), f'Invalid state {val}.'
+        self._x = val
+
+    @property
+    def x0(self) -> np.ndarray:
+        '''Gets the initial state of the episode.'''
+        return self._x0
+
+    @property
+    def xf(self) -> np.ndarray:
+        '''Gets the termination state of the episode.'''
+        return self._xf
 
     def phi(self, alt: float | np.ndarray) -> np.ndarray:
         '''
@@ -237,9 +258,9 @@ class QuadRotorEnv(BaseEnv):
             xf[:2] = 20  # x, y
             xf[2] = -20  # altitude
             xf[6:8] = np.deg2rad(10)  # pitch, roll
-        self.x, self.x0, self.xf = x0, x0, xf
-        assert (self.observation_space.contains(self.x0) and
-                self.observation_space.contains(self.xf)), \
+        self.x, self._x0, self._xf = x0, x0, xf
+        assert (self.observation_space.contains(self._x0) and
+                self.observation_space.contains(self._xf)), \
             'Invalid initial or final state.'
         return self.x
 
