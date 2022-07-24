@@ -1,6 +1,7 @@
 import envs
 import numpy as np
-import plot
+import util
+import mpc
 
 
 if __name__ == '__main__':
@@ -8,6 +9,11 @@ if __name__ == '__main__':
 
     #
     env = envs.QuadRotorEnv.get_wrapped()
+
+    dyn = util.quadrotor_dynamics(env)
+    Q = mpc.GenericMPC(dyn, 20, name='Q')
+
+    #
     env.reset(seed=42)
     done = False
     while not done:
@@ -15,7 +21,7 @@ if __name__ == '__main__':
         obs, r, done, _ = env.step(a)
 
     #
-    plot.plot_trajectory(env, 0)
-    plot.show()
+    util.plot.plot_trajectory(env, 0)
+    util.plot.show()
 
     print('DONE')
