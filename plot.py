@@ -58,6 +58,10 @@ def plot_trajectory(env: RecordData, i: int):
 
     fig.subplots_adjust(wspace=0.3, hspace=0.3)
 
+
+def show():
+    return plt.show()
+
 ###############################################################################
 # import numpy as np
 # import casadi as cs
