@@ -250,6 +250,8 @@ class QuadRotorEnv(BaseEnv):
             The value of the functions.
         '''
         super().reset(seed=seed)
+        self.observation_space.seed(seed=seed)
+        self.action_space.seed(seed=seed)
         if x0 is None:
             x0 = np.zeros(self.nx)
             x0[2] = 50  # altitude
@@ -265,15 +267,29 @@ class QuadRotorEnv(BaseEnv):
         return self.x
 
     def step(self, u: np.ndarray) -> tuple[np.ndarray, float, bool, dict]:
+        '''
+        Steps the quadrotor environment. 
+
+        # Parameters
+        ----------
+        u : array_like
+            Action to apply to the quadrotor.
+
+        Returns
+        -------
+        new_state, cost, done, info : array_like, float, bool, dict
+            A tuple containing the new state of the quadrotor, the 
+            instantenuous cost of taking this action in this state, the 
+            termination flag and a dictionary of information.
+        '''
         u = np.squeeze(u)  # in case a row or col was passed
         assert self.action_space.contains(u), 'Invalid action.'
 
         # compute new state: x+ = A*x + B*u + C*phi(s[2])*w + e
-        # TODO: remove 0
         self.x = (
             self._A @ self.x.reshape((-1, 1)) +
             self._B @ u.reshape((-1, 1)) +
-            self._C @ self.phi(self.x[2]) * self.np_random.random() * 0 +
+            self._C @ self.phi(self.x[2]) * self.np_random.random() +
             self._e
         ).flatten()
         assert self.observation_space.contains(self.x), 'Invalid state.'
@@ -285,7 +301,7 @@ class QuadRotorEnv(BaseEnv):
 
         # check if done
         done = self.error <= self.tol
-
+        #
         return self.x, cost, done, {}
 
     def render(self):
