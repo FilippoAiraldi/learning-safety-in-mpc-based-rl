@@ -164,6 +164,7 @@ class QuadRotorEnv(BaseEnv):
             np.zeros((5, 1)), - pars.T * pars.g, np.zeros((4, 1))))
 
         # create spaces
+        self.soft_constrained = soft_state_con
         self.observation_space = spaces.Box(
             low=-np.inf if soft_state_con else self.x_bounds[:, 0],
             high=np.inf if soft_state_con else self.x_bounds[:, 1],
@@ -315,8 +316,9 @@ class QuadRotorEnv(BaseEnv):
         assert self.observation_space.contains(self.x), 'Invalid state.'
 
         # compute cost
-        # TODO: check how Cai did it in his naval mission application
-        # and remember to penalizde constraint violation
+        # TODO: squared norm to desired position (no need to normalize) 
+        # + input usage (we can normalize here) 
+        # + constraint violation
         cost = np.nan
 
         # check if done
