@@ -46,7 +46,7 @@ class GenericMPC:
         self.x, self.lbx, self.ubx = cs.SX(), cs.DM(), cs.DM()
         self.lam_lbx, self.lam_ubx = cs.SX(), cs.SX()
         self.g, self.lbg, self.ubg = cs.SX(), cs.DM(), cs.DM()
-        self.lam_g = cs.SX(), cs.SX()
+        self.lam_g = cs.SX()
         self.Ig_eq, self.Ig_ineq = set(), set()
 
         # initialize solver
