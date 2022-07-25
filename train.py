@@ -8,12 +8,9 @@ if __name__ == '__main__':
     # TODO: parse arguments
 
     #
-    env = envs.QuadRotorEnv.get_wrapped()
+    env = envs.QuadRotorEnv.get_wrapped(soft_state_con=True)
+    V = mpc.QuadRotorMPC(Np=20, type='V')
 
-    dyn = util.quadrotor_dynamics(env)
-    Q = mpc.GenericMPC(dyn, 20, name='Q')
-
-    #
     env.reset(seed=42)
     done = False
     while not done:

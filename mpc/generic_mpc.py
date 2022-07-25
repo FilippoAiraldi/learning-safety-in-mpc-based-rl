@@ -71,8 +71,8 @@ class GenericMPC:
         '''Lagrangian of the MPC problem.'''
         return (self.f +
                 cs.dot(self.lam_g, self.g) +
-                cs.dot(self.lam_lbx.T, self.lbx - self.x) +
-                cs.dot(self.lam_ubx.T, self.x - self.ubx))
+                cs.dot(self.lam_lbx, self.lbx - self.x) +
+                cs.dot(self.lam_ubx, self.x - self.ubx))
 
     def add_par(self, name: str, *dims: int) -> cs.SX:
         '''

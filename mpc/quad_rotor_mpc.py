@@ -16,10 +16,10 @@ class QuadRotorMPC(GenericMPC):
 
         # create variables - states are softly constrained
         nx, nu = QuadRotorEnv.nx, QuadRotorEnv.nu
+        x, _, _ = self.add_var('x', nx, Np + 1)
         u, _, _ = self.add_var('u', nu, Nc,
                                lb=QuadRotorEnv.u_bounds[:, 0, None],
                                ub=QuadRotorEnv.u_bounds[:, 1, None])
-        x, _, _ = self.add_var('x', nx, Np + 1)
         slack, _, _ = self.add_var('slack', nx, Np, lb=0)
 
         # create model parameters
