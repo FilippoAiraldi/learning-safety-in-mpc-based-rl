@@ -1,8 +1,25 @@
 import casadi as cs
 import numpy as np
 from itertools import count
+from functools import partial
+from dataclasses import dataclass
+
 
 # NOTE: np.flatten and cs.vec operate on row- and column-wise, respectively!
+
+
+@dataclass(frozen=True)
+class Solution:
+    '''A class containing information on the solution of an MPC run.'''
+    f: float
+    vals: dict[str, np.ndarray]
+    msg: str
+    success: bool
+    _get_value: partial
+
+    def value(self, x: cs.SX) -> np.ndarray:
+        '''Gets the value of the expression.'''
+        return self._get_value(x)
 
 
 class GenericMPC:
@@ -20,11 +37,11 @@ class GenericMPC:
         '''Creates an MPC controller instance with a given name.'''
         self.id = next(self._ids)
         self.name = f'MPC{self.id}' if name is None else name
-        self._init_fields()
 
         # initialize empty class parameters
-        self.f = None  # objective
-        self.vars, self.pars = {}, {}
+        self.f: cs.SX = None  # objective
+        self.vars: dict[str, cs.SX] = {}
+        self.pars: dict[str, cs.SX] = {}
         self.p = cs.SX()
         self.x, self.lbx, self.ubx = cs.SX(), cs.SX(), cs.SX()
         self.lam_lbx, self.lam_ubx = cs.SX(), cs.SX()
@@ -33,7 +50,8 @@ class GenericMPC:
         self.Ig_eq, self.Ig_ineq = set(), set()
 
         # initialize solver
-        self.solver, self.opts = None, None
+        self.solver: cs.Function = None
+        self.opts: dict = None
 
         # others
         self.failures = 0
@@ -172,25 +190,71 @@ class GenericMPC:
         self.solver = cs.nlpsol(f'nlpsol_{self.name}', 'ipopt', nlp, opts)
         self.opts = opts
 
-    def solve():
-        # TODO: write solve method
-        pass
+    def solve(
+        self, pars: dict[str, np.ndarray], vals0: dict[str, np.ndarray]
+    ) -> tuple[dict[str, np.ndarray], dict]:
+        '''
+        Solves the MPC optimization problem.
+
+        Parameters
+        ----------
+        pars : dict[str, array_like]
+            Dictionary containing, for each parameter in the problem, the 
+            corresponding numerical value.
+        vals0 : dict[str, array_like]
+            Dictionary containing, for each variable in the problem, the 
+            corresponding initial guess.
+
+        Returns
+        -------
+        sol : Solution
+            A solution object containing all the information.
+        '''
+        assert self.solver is not None, 'Solver uninitialized.'
+
+        # convert to nlp format and solve
+        p = subsevalf(self.p, self.pars, pars)
+        x0 = np.clip(subsevalf(self.x, self.vars, vals0), self.lbx, self.ubx)
+        sol: dict[str, np.ndarray] = self.solver(
+            x0=x0,
+            p=p,
+            lbx=self.lbx, ubx=self.ubx,
+            lbg=self.lbg, ubg=self.ubg)
+
+        # get return status
+        status = self.solver.stats()['return_status']
+        success = status in ('Solve_Succeeded', 'Solved_To_Acceptable_Level')
+        self.failures += int(not success)
+
+        # build info
+        lam_lbx_ = -np.minimum(sol['lam_x'], 0)
+        lam_ubx_ = np.maximum(sol['lam_x'], 0)
+        S = cs.vertcat(self.p, self.x, self.lam_g, self.lam_lbx, self.lam_ubx)
+        D = cs.vertcat(p, sol['x'], sol['lam_g'], lam_lbx_, lam_ubx_)
+        get_value = partial(subsevalf, old=S, new=D)
+
+        # build vals
+        vals = {name: get_value(var) for name, var in self.vars.items()}
+
+        # build solution
+        return Solution(f=float(sol['f']), vals=vals, msg=status, 
+                        success=success, _get_value=get_value)
 
 
 def subsevalf(
     expr: cs.SX, old: cs.SX, new: cs.SX, eval: bool = True
-    ) -> cs.SX | np.ndarray:
+) -> cs.SX | np.ndarray:
     '''
     Substitute in the expression the old variable with
     the new one, evaluating the expression if required.
-    
+
     Parameters
     ----------
     expr : casadi.SX
         Expression for substitution and, possibly, evaluation.
-    old : casadi.SX, or collection of
+    old : casadi.SX (or collection of)
         Old variable to be substituted.
-    new : casadi.SX, or collection of
+    new : numpy array or casadi.SX (or collection of)
         New variable that substitutes the old one.
     eval : bool, optional
         Evaluates also the new expression. By default, true.
