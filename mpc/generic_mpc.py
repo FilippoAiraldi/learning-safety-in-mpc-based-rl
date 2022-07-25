@@ -43,9 +43,9 @@ class GenericMPC:
         self.vars: dict[str, cs.SX] = {}
         self.pars: dict[str, cs.SX] = {}
         self.p = cs.SX()
-        self.x, self.lbx, self.ubx = cs.SX(), cs.SX(), cs.SX()
+        self.x, self.lbx, self.ubx = cs.SX(), cs.DM(), cs.DM()
         self.lam_lbx, self.lam_ubx = cs.SX(), cs.SX()
-        self.g, self.lbg, self.ubg = cs.SX(), cs.SX(), cs.SX()
+        self.g, self.lbg, self.ubg = cs.SX(), cs.DM(), cs.DM()
         self.lam_g = cs.SX(), cs.SX()
         self.Ig_eq, self.Ig_ineq = set(), set()
 
@@ -136,9 +136,9 @@ class GenericMPC:
 
         # create also the multiplier associated to the variable
         lam_lb = cs.SX.sym(f'lam_lb_{name}', *dims)
-        self.lam_lbx = cs.vertcat(self.lam_lbx, lam_lb)
+        self.lam_lbx = cs.vertcat(self.lam_lbx, cs.vec(lam_lb))
         lam_ub = cs.SX.sym(f'lam_ub{name}', *dims)
-        self.lam_ubx = cs.vertcat(self.lam_ubx, lam_ub)
+        self.lam_ubx = cs.vertcat(self.lam_ubx, cs.vec(lam_ub))
         return var, lam_lb, lam_ub
 
     def add_con(
@@ -177,7 +177,7 @@ class GenericMPC:
 
         # create also the multiplier associated to the constraint
         lam = cs.SX.sym(f'lam_g_{name}', *dims)
-        self.lam_g = cs.vertcat(self.lam_g, lam)
+        self.lam_g = cs.vertcat(self.lam_g, cs.vec(lam))
         return lam
 
     def minimize(self, objective: cs.SX) -> None:
@@ -192,7 +192,7 @@ class GenericMPC:
 
     def solve(
         self, pars: dict[str, np.ndarray], vals0: dict[str, np.ndarray]
-    ) -> tuple[dict[str, np.ndarray], dict]:
+    ) -> Solution:
         '''
         Solves the MPC optimization problem.
 
