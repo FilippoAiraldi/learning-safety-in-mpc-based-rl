@@ -111,7 +111,7 @@ class QuadRotorEnv(BaseEnv):
     def __init__(
         self,
         pars: dict | QuadRotorPars = None,
-        soft_state_con: bool = False,
+        soft_state_con: bool = True,
         tol: float = 1e1
     ) -> None:
         '''

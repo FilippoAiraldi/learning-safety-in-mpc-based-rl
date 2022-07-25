@@ -9,7 +9,7 @@ if __name__ == '__main__':
 
     #
     env = envs.QuadRotorEnv.get_wrapped(soft_state_con=True)
-    V = mpc.QuadRotorMPC(Np=20, type='V')
+    # V = mpc.QuadRotorMPC(Np=20, type='V')
 
     env.reset(seed=42)
     done = False
@@ -19,6 +19,6 @@ if __name__ == '__main__':
 
     #
     util.plot.plot_trajectory(env, 0)
-    util.plot.show()
+    
 
     print('DONE')
