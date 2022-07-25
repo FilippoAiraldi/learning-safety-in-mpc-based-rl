@@ -47,16 +47,18 @@ class QuadRotorEnv(BaseEnv):
     correspond to the following states of the quadrotor:
     | Num | Observation                          | Min  | Max | Unit          |
     |-----|--------------------------------------|------|-----|---------------|
-    | 0   | position along the x-axis            | -Inf | Inf | position (m)  |
-    | 1   | position along the y-axis            | -Inf | Inf | position (m)  |
-    | 2   | position along the z-axis (altitude) | -Inf | Inf | position (m)  |
+    | 0   | position along the x-axis            | -25  | 25  | position (m)  |
+    | 1   | position along the y-axis            | -25  | 25  | position (m)  |
+    | 2   | position along the z-axis (altitude) | -25  | 25  | position (m)  |
     | 3   | velocity along the x-axis            | -Inf | Inf | speed (m/s)   |
     | 4   | velocity along the y-axis            | -Inf | Inf | speed (m/s)   |
     | 5   | velocity along the z-axis            | -Inf | Inf | speed (m/s)   |
-    | 6   | pitch                                | -Inf | Inf | angle (rad)   |
-    | 7   | roll                                 | -Inf | Inf | angle (rad)   |
+    | 6   | pitch                                | -30° | 30° | angle (rad)   |
+    | 7   | roll                                 | -30° | 30° | angle (rad)   |
     | 8   | pitch rate                           | -Inf | Inf | speed (rad/s) |
     | 8   | roll rate                            | -Inf | Inf | speed (rad/s) |
+    The constraints can be made soft with the appropriate flag. In this case, 
+    the observation space becomes unbounded.
 
     ### Action Space
     There are 3 continuous deterministic actions:
@@ -90,10 +92,26 @@ class QuadRotorEnv(BaseEnv):
     ```
     '''
     spec: dict = None
+    nx: int = 10
+    nu: int = 3
+    x_bounds: np.ndarray = np.array([[-25, 25],
+                                     [-25, 25],
+                                     [-25, 25],
+                                     [-np.inf, np.inf],
+                                     [-np.inf, np.inf],
+                                     [-np.inf, np.inf],
+                                     [np.deg2rad(-30), np.deg2rad(30)],
+                                     [np.deg2rad(-30), np.deg2rad(30)],
+                                     [-np.inf, np.inf],
+                                     [-np.inf, np.inf]])
+    u_bounds: np.ndarray = np.array([[-np.pi, np.pi],
+                                     [-np.pi, np.pi],
+                                     [0, 2 * QuadRotorPars.g]])
 
     def __init__(
         self,
         pars: dict | QuadRotorPars = None,
+        soft_state_con: bool = False,
         tol: float = 1e1
     ) -> None:
         '''
@@ -106,7 +124,10 @@ class QuadRotorEnv(BaseEnv):
         pars : dict, QuadRotorPars
             A set of parmeters for the quadrotor model and disturbances. If not
             given, the default ones are used.
-        tol : float
+        soft_state_con : bool, optional
+            A flag that tells the environment whether to treat the state 
+            constraints as hard (throwing error if violated) or soft.
+        tol : float, optional
             Numerical tolerance used to check episode termination.
         '''
         super().__init__()
@@ -118,7 +139,6 @@ class QuadRotorEnv(BaseEnv):
 
         # create dynamics matrices
         self.pars = pars
-        self.nx, self.nu = 10, 3
         self.nw = len(pars.winds)
         self._A = pars.T * np.block([
             [np.zeros((3, 3)), np.eye(3), np.zeros((3, 4))],
@@ -145,13 +165,13 @@ class QuadRotorEnv(BaseEnv):
 
         # create spaces
         self.observation_space = spaces.Box(
-            low=-np.inf,
-            high=np.inf,
+            low=-np.inf if soft_state_con else self.x_bounds[:, 0],
+            high=np.inf if soft_state_con else self.x_bounds[:, 1],
             shape=(self.nx,),
             dtype=np.float64)
         self.action_space = spaces.Box(
-            low=np.array([-np.pi, -np.pi, 0]),
-            high=np.array([np.pi, np.pi, 2 * pars.g]),
+            low=self.u_bounds[:, 0],
+            high=self.u_bounds[:, 1],
             shape=(self.nu,),
             dtype=np.float64)
 
@@ -254,7 +274,7 @@ class QuadRotorEnv(BaseEnv):
         self.action_space.seed(seed=seed)
         if x0 is None:
             x0 = np.zeros(self.nx)
-            x0[2] = 50  # altitude
+            x0[2] = 20  # altitude
         if xf is None:
             xf = np.zeros(self.nx)
             xf[:2] = 20  # x, y

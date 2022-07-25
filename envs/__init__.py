@@ -1,1 +1,1 @@
-from envs.quad_rotor import QuadRotorPars, QuadRotorEnv
+from envs.quad_rotor_env import QuadRotorPars, QuadRotorEnv
