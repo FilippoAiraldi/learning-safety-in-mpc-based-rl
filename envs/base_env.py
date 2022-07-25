@@ -1,7 +1,7 @@
 import gym
 from abc import ABC
 from gym.wrappers import TimeLimit, OrderEnforcing
-from wrappers.record_data import RecordData
+from envs.wrappers.record_data import RecordData
 
 
 class BaseEnv(gym.Env, ABC):
