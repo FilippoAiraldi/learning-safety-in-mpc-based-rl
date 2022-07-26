@@ -61,8 +61,8 @@ class RecordData(gym.Wrapper):
             r = self.current_rewards
             if self.as_numpy:
                 o = np.stack(o, axis=-1)
-                a = np.stack(o, axis=-1)
-                r = np.stack(o, axis=-1)
+                a = np.stack(a, axis=-1)
+                r = np.stack(r, axis=-1)
             self.observations_history.append(o)
             self.actions_history.append(a)
             self.rewards_history.append(r)
