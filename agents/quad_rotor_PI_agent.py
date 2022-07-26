@@ -6,6 +6,14 @@ class QuadRotorPIAgent(QuadRotorBaseAgent):
     '''Quad rotor agent with perfect information available.'''
 
     def __init__(self, *args, **kwargs) -> None:
+        '''
+        Initializes a perfect-information agent for the quad rotor env.
+
+        Parameters
+        ----------
+        *args, **kwargs
+            See QuadRotorBaseAgent.
+        '''
         # do not instantiate parameters as they will be overwritten
         kwargs['init_pars'] = None
         super().__init__(*args, **kwargs)
