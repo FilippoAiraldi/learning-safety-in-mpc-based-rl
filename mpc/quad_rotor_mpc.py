@@ -3,16 +3,61 @@ from mpc.generic_mpc import GenericMPC
 import numpy as np
 import casadi as cs
 from util import quad_form
+from dataclasses import dataclass, field
+
+
+@dataclass(frozen=True)
+class QuadRotorMPCPars:
+    '''Quadrotor MPC parameters, such as horizons and IPOPT options.'''
+    # horizons
+    Np: int = 20
+    Nc: int = None
+
+    # solver options
+    opts: dict = field(default_factory=lambda: {
+        'expand': True, 'print_time': False,
+        'ipopt': {
+            'print_level': False, 'max_iter': 1e3, 'tol': 1e-8
+        }})
+
+    def __post_init__(self):
+        if self.Nc is None:
+            self.__dict__['Nc'] = self.Np
 
 
 class QuadRotorMPC(GenericMPC):
     '''An MPC controller specifically designed for the quadrotor dynamics.'''
 
-    def __init__(self, env: QuadRotorEnv, Np: int, Nc: int = None, type: str = 'V') -> None:
+    def __init__(
+        self,
+        env: QuadRotorEnv,
+        pars: dict | QuadRotorMPCPars = None,
+        type: str = 'V'
+    ) -> None:
+        '''
+        Instantiates an MPC for the quad rotor env.
+
+        Parameters
+        ----------
+        env : QuadRotorEnv
+            Environment for which to create the MPC.
+        pars : dict, QuadRotorPars
+            A set of parameters for the MPC. If not given, the default ones are
+            used.
+        type : 'Q' or 'V'
+            Type of MPC to instantiate, either state value function or action 
+            value function.
+        '''
         assert type in {'V', 'Q'}, \
             'MPC must be either V (state value func) or Q (action value func)'
         super().__init__(name=type)
-        Nc = Np if Nc is None else Nc
+        if pars is None:
+            pars = QuadRotorMPCPars()
+        elif isinstance(pars, dict):
+            keys = QuadRotorMPCPars.__dataclass_fields__.keys()
+            pars = QuadRotorMPCPars(**{k: pars[k] for k in keys if k in pars})
+        self.pars = pars
+        Np, Nc = pars.Np, pars.Nc
 
         # create variables - states are softly constrained
         nx, nu = env.nx, env.nu
@@ -43,7 +88,7 @@ class QuadRotorMPC(GenericMPC):
         backoff = self.add_par('backoff', 1, 1)  # constraint backoff parameter
         m = env.pars.x_bounds[:, 0, None]
         M = env.pars.x_bounds[:, 1, None]
-        for k in range(1, Np + 1):
+        for k in range(1, pars.Np + 1):
             # soft-backedoff minimum constraint: (1+back)*m - slack <= x
             self.add_con(f'state_min_{k}',
                          x[:, k] + slack[:, k - 1] - backoff * m, m, 0)
@@ -77,14 +122,16 @@ class QuadRotorMPC(GenericMPC):
             perturbation = self.add_par('perturbation', nu, 1)
             self.f += cs.dot(perturbation, u[:, 0])
 
+        # initialize solver
+        self.init_solver(pars.opts)
+
     def _get_dynamics_matrices(self, env: QuadRotorEnv):
         T, g = env.pars.T, env.pars.g  # fixed
         Ad = cs.diag(cs.vertcat(self.pars['pitch_d'], self.pars['roll_d']))
         Add = cs.diag(cs.vertcat(self.pars['pitch_dd'], self.pars['roll_dd']))
         A = T * cs.vertcat(
             cs.horzcat(np.zeros((3, 3)), np.eye(3), np.zeros((3, 4))),
-            cs.horzcat(np.zeros((2, 6)), np.eye(2) * g,
-                       np.zeros((2, 2))),
+            cs.horzcat(np.zeros((2, 6)), np.eye(2) * g, np.zeros((2, 2))),
             np.zeros((1, 10)),
             cs.horzcat(np.zeros((2, 6)), -Ad, np.eye(2)),
             cs.horzcat(np.zeros((2, 6)), -Add, np.zeros((2, 2)))

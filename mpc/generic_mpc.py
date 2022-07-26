@@ -250,7 +250,7 @@ class GenericMPC:
 
     def __str__(self):
         '''Returns the MPC name and a short description.'''
-        msg = 'not initialized' if self.solver is None else 'initialized.'
+        msg = 'not initialized' if self.solver is None else 'initialized'
         return f'{type(self).__name__} {{\n' \
                f'  name: {self.name}\n' \
                f'  #variables: {len(self.vars)} (nx = {self.nx})\n' \
@@ -297,5 +297,5 @@ def subsevalf(
         expr = cs.substitute(expr, old, new)
 
     if eval:
-        expr = _np.array(cs.evalf(expr))
+        expr = _np.squeeze(_np.array(cs.evalf(expr)))
     return expr
