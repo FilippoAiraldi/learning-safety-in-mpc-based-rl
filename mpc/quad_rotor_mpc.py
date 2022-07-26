@@ -1,4 +1,4 @@
-from envs.quad_rotor_env import QuadRotorPars, QuadRotorEnv
+from envs.quad_rotor_env import QuadRotorEnv
 from mpc.generic_mpc import GenericMPC
 import numpy as np
 import casadi as cs
@@ -8,18 +8,18 @@ from util import quad_form
 class QuadRotorMPC(GenericMPC):
     '''An MPC controller specifically designed for the quadrotor dynamics.'''
 
-    def __init__(self, Np: int, Nc: int = None, type: str = 'V') -> None:
+    def __init__(self, env: QuadRotorEnv, Np: int, Nc: int = None, type: str = 'V') -> None:
         assert type in {'V', 'Q'}, \
             'MPC must be either V (state value func) or Q (action value func)'
         super().__init__(name=type)
         Nc = Np if Nc is None else Nc
 
         # create variables - states are softly constrained
-        nx, nu = QuadRotorEnv.nx, QuadRotorEnv.nu
+        nx, nu = env.nx, env.nu
         x, _, _ = self.add_var('x', nx, Np + 1)
         u, _, _ = self.add_var('u', nu, Nc,
-                               lb=QuadRotorEnv.u_bounds[:, 0, None],
-                               ub=QuadRotorEnv.u_bounds[:, 1, None])
+                               lb=env.pars.u_bounds[:, 0, None],
+                               ub=env.pars.u_bounds[:, 1, None])
         slack, _, _ = self.add_var('slack', nx, Np, lb=0)
 
         # create model parameters
@@ -28,12 +28,12 @@ class QuadRotorMPC(GenericMPC):
             self.add_par(name, 1, 1)
 
         # constraint on initial conditions
-        x0 = self.add_par('x0', QuadRotorEnv.nx, 1)  # initial conditions
+        x0 = self.add_par('x0', env.nx, 1)  # initial conditions
         self.add_con('init_state', x[:, 0] - x0, 0, 0)
 
         # constraints on dynamics
         u_exp = cs.horzcat(u, cs.repmat(u[:, -1], 1, Np - Nc))
-        A, B, e = self._get_dynamics_matrices()
+        A, B, e = self._get_dynamics_matrices(env)
         for k in range(Np):
             self.add_con(f'dyn_{k}',
                          x[:, k + 1] - (A @ x[:, k] + B @ u_exp[:, k] + e),
@@ -41,8 +41,8 @@ class QuadRotorMPC(GenericMPC):
 
         # constraint on state (soft)
         backoff = self.add_par('backoff', 1, 1)  # constraint backoff parameter
-        m = QuadRotorEnv.x_bounds[:, 0, None]
-        M = QuadRotorEnv.x_bounds[:, 1, None]
+        m = env.pars.x_bounds[:, 0, None]
+        M = env.pars.x_bounds[:, 1, None]
         for k in range(1, Np + 1):
             # soft-backedoff minimum constraint: (1+back)*m - slack <= x
             self.add_con(f'state_min_{k}',
@@ -58,7 +58,7 @@ class QuadRotorMPC(GenericMPC):
         xf = self.add_par('xf', nx, 1)
         w_L = self.add_par('w_L', nx, 1)  # weights for stage
         w_s = self.add_par('w_s', nx, 1)  # weights for slack
-        J += sum(quad_form(w_L, x[:, k] - xf) + cs.dot(w_s, slack[:, k - 1]) 
+        J += sum(quad_form(w_L, x[:, k] - xf) + cs.dot(w_s, slack[:, k - 1])
                  for k in range(1, Np))
 
         # terminal cost
@@ -77,8 +77,8 @@ class QuadRotorMPC(GenericMPC):
             perturbation = self.add_par('perturbation', nu, 1)
             self.f += cs.dot(perturbation, u[:, 0])
 
-    def _get_dynamics_matrices(self):
-        T, g = QuadRotorPars.T, QuadRotorPars.g  # fixed
+    def _get_dynamics_matrices(self, env: QuadRotorEnv):
+        T, g = env.pars.T, env.pars.g  # fixed
         Ad = cs.diag(cs.vertcat(self.pars['pitch_d'], self.pars['roll_d']))
         Add = cs.diag(cs.vertcat(self.pars['pitch_dd'], self.pars['roll_dd']))
         A = T * cs.vertcat(

@@ -1,4 +1,3 @@
-import gym
 from gym import spaces
 import numpy as np
 from envs.base_env import BaseEnv
@@ -12,7 +11,8 @@ class QuadRotorPars:
     nonnegative, whereas the disturbance parameter 'winds' is a dictionary with 
     each wind's altitude and strength.
     '''
-    # model pars
+
+    # model parameters
     T: float = 0.2
     g: float = 9.81
     thrust_coeff: float = 1.4
@@ -22,14 +22,31 @@ class QuadRotorPars:
     roll_d: float = 10
     roll_dd: float = 8
     roll_gain: float = 10
+
     # disturbance parameters
     winds: dict[float, float] = field(
         default_factory=lambda: {-10: 0.95, 0: -0.35, 10: 0.3})
 
-    def __post_init__(self) -> None:
-        assert all(
-            p >= 0 for p in self.__dict__.values()
-            if not isinstance(p, dict)), 'Parameters must be nonnegative'
+    # constraints
+    soft_state_constraints: bool = True
+    x_bounds: np.ndarray = field(
+        default_factory=lambda: np.array([[-25, 25],
+                                          [-25, 25],
+                                          [-25, 25],
+                                          [-np.inf, np.inf],
+                                          [-np.inf, np.inf],
+                                          [-np.inf, np.inf],
+                                          [np.deg2rad(-30), np.deg2rad(30)],
+                                          [np.deg2rad(-30), np.deg2rad(30)],
+                                          [-np.inf, np.inf],
+                                          [-np.inf, np.inf]]))
+    u_bounds: np.ndarray = field(
+        default_factory=lambda: np.array([[-np.pi, np.pi],
+                                          [-np.pi, np.pi],
+                                          [0, 2 * 9.81]]))
+
+    # others
+    num_tol: float = 1e1
 
 
 class QuadRotorEnv(BaseEnv):
@@ -94,25 +111,10 @@ class QuadRotorEnv(BaseEnv):
     spec: dict = None
     nx: int = 10
     nu: int = 3
-    x_bounds: np.ndarray = np.array([[-25, 25],
-                                     [-25, 25],
-                                     [-25, 25],
-                                     [-np.inf, np.inf],
-                                     [-np.inf, np.inf],
-                                     [-np.inf, np.inf],
-                                     [np.deg2rad(-30), np.deg2rad(30)],
-                                     [np.deg2rad(-30), np.deg2rad(30)],
-                                     [-np.inf, np.inf],
-                                     [-np.inf, np.inf]])
-    u_bounds: np.ndarray = np.array([[-np.pi, np.pi],
-                                     [-np.pi, np.pi],
-                                     [0, 2 * QuadRotorPars.g]])
 
     def __init__(
         self,
         pars: dict | QuadRotorPars = None,
-        soft_state_con: bool = True,
-        tol: float = 1e1
     ) -> None:
         '''
         This environment simulates a 10-state quadrotor system with limited 
@@ -124,21 +126,18 @@ class QuadRotorEnv(BaseEnv):
         pars : dict, QuadRotorPars
             A set of parmeters for the quadrotor model and disturbances. If not
             given, the default ones are used.
-        soft_state_con : bool, optional
-            A flag that tells the environment whether to treat the state 
-            constraints as hard (throwing error if violated) or soft.
-        tol : float, optional
-            Numerical tolerance used to check episode termination.
         '''
         super().__init__()
         if pars is None:
             pars = QuadRotorPars()
         elif isinstance(pars, dict):
-            pars = QuadRotorPars(**pars)
-        self.tol = tol
+            pars = QuadRotorPars(**{
+                k: pars[k] for k in QuadRotorPars.__dataclass_fields__.keys()
+                if k in pars
+            })
+        self.pars = pars
 
         # create dynamics matrices
-        self.pars = pars
         self.nw = len(pars.winds)
         self._A = pars.T * np.block([
             [np.zeros((3, 3)), np.eye(3), np.zeros((3, 4))],
@@ -163,16 +162,16 @@ class QuadRotorEnv(BaseEnv):
         self._e = np.vstack((
             np.zeros((5, 1)), - pars.T * pars.g, np.zeros((4, 1))))
 
+
         # create spaces
-        self.soft_constrained = soft_state_con
         self.observation_space = spaces.Box(
-            low=-np.inf if soft_state_con else self.x_bounds[:, 0],
-            high=np.inf if soft_state_con else self.x_bounds[:, 1],
+            low=-np.inf if pars.soft_state_constraints else pars.x_bounds[:, 0],
+            high=np.inf if pars.soft_state_constraints else pars.x_bounds[:, 1],
             shape=(self.nx,),
             dtype=np.float64)
         self.action_space = spaces.Box(
-            low=self.u_bounds[:, 0],
-            high=self.u_bounds[:, 1],
+            low=pars.u_bounds[:, 0],
+            high=pars.u_bounds[:, 1],
             shape=(self.nu,),
             dtype=np.float64)
 
@@ -316,13 +315,13 @@ class QuadRotorEnv(BaseEnv):
         assert self.observation_space.contains(self.x), 'Invalid state.'
 
         # compute cost
-        # TODO: squared norm to desired position (no need to normalize) 
-        # + input usage (we can normalize here) 
+        # TODO: squared norm to desired position (no need to normalize)
+        # + input usage (we can normalize here)
         # + constraint violation
         cost = np.nan
 
         # check if done
-        done = self.error <= self.tol
+        done = self.error <= self.pars.num_tol
         #
         return self.x, cost, done, {}
 
