@@ -9,7 +9,7 @@ from itertools import product
 
 def plot_trajectory(env: RecordData, i: int):
     '''Plots the i-th trajecetory of the recorded data.'''
-    x0, xf = env.x0, env.xf
+    x0, xf = env.config.x0, env.config.xf
     data = env.observations_history[i][:3, :]  # x, y, z
 
     # prepare stuff for plotting
@@ -43,7 +43,7 @@ def plot_trajectory(env: RecordData, i: int):
 
             # plot state constraints
             # many thanks to: https://www.pythonpool.com/matplotlib-draw-rectangle/
-            Z = np.array(list(product(*env.x_bounds[:3, :])))
+            Z = np.array(list(product(*env.config.x_bounds[:3, :])))
             verts = [[Z[0], Z[4], Z[6], Z[2]],
                      [Z[1], Z[5], Z[7], Z[3]],
                      [Z[0], Z[4], Z[5], Z[1]],
@@ -66,8 +66,8 @@ def plot_trajectory(env: RecordData, i: int):
             ax.plot(*xf[inds], marker='x', color='k')
 
             # plot state constraints
-            ax.add_patch(plt.Rectangle(env.x_bounds[inds, 0],
-                                       *np.diff(env.x_bounds[inds, :]),
+            ax.add_patch(plt.Rectangle(env.config.x_bounds[inds, 0],
+                                       *np.diff(env.config.x_bounds[inds, :]),
                                        **patch_kwargs))
 
         # add labels and impose limits
@@ -75,8 +75,8 @@ def plot_trajectory(env: RecordData, i: int):
             getattr(ax, f'set_{axisname}label')(labels[ind])
             lim = getattr(ax, f'get_{axisname}lim')()
             getattr(ax, f'set_{axisname}lim')(
-                min(data[ind].min(), env.x_bounds[ind, 0], lim[0]),
-                max(data[ind].max(), env.x_bounds[ind, 1], lim[1])
+                min(data[ind].min(), env.config.x_bounds[ind, 0], lim[0]),
+                max(data[ind].max(), env.config.x_bounds[ind, 1], lim[1])
             )
 
     fig.subplots_adjust(wspace=0.3, hspace=0.3)
