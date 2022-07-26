@@ -44,9 +44,9 @@ class GenericMPC:
         self.pars: dict[str, cs.SX] = {}
         self.cons: dict[str, cs.SX] = {}
         self.p = cs.SX()
-        self.x, self.lbx, self.ubx = cs.SX(), cs.DM(), cs.DM()
+        self.x, self.lbx, self.ubx = cs.SX(), _np.array([]), _np.array([])
         self.lam_lbx, self.lam_ubx = cs.SX(), cs.SX()
-        self.g, self.lbg, self.ubg = cs.SX(), cs.DM(), cs.DM()
+        self.g, self.lbg, self.ubg = cs.SX(), _np.array([]), _np.array([])
         self.lam_g = cs.SX()
         self.Ig_eq, self.Ig_ineq = set(), set()
 
@@ -137,8 +137,8 @@ class GenericMPC:
         var = cs.SX.sym(name, *dims)
         self.vars[name] = var
         self.x = cs.vertcat(self.x, cs.vec(var))
-        self.lbx = _np.array(cs.vertcat(self.lbx, cs.vec(lb)))
-        self.ubx = _np.array(cs.vertcat(self.ubx, cs.vec(ub)))
+        self.lbx = _np.hstack((self.lbx, cs.vec(lb).full().flatten()))
+        self.ubx = _np.hstack((self.ubx, cs.vec(ub).full().flatten()))
 
         # create also the multiplier associated to the variable
         lam_lb = cs.SX.sym(f'lam_lb_{name}', *dims)
@@ -175,8 +175,8 @@ class GenericMPC:
 
         self.cons[name] = g
         self.g = cs.vertcat(self.g, cs.vec(g))
-        self.lbg = _np.array(cs.vertcat(self.lbg, cs.vec(lb)))
-        self.ubg = _np.array(cs.vertcat(self.ubg, cs.vec(ub)))
+        self.lbg = _np.hstack((self.lbg, cs.vec(lb).full().flatten()))
+        self.ubg = _np.hstack((self.ubg, cs.vec(ub).full().flatten()))
 
         # save indices of this constraint to either eq. or ineq. set
         ng, L = self.ng, g.numel()
@@ -223,7 +223,7 @@ class GenericMPC:
         # convert to nlp format and solve
         p = subsevalf(self.p, self.pars, pars)
         x0 = _np.clip(subsevalf(self.x, self.vars, vals0), self.lbx, self.ubx)
-        sol: dict[str, _np.ndarray] = self.solver(
+        sol: dict[str, cs.DM] = self.solver(
             x0=x0,
             p=p,
             lbx=self.lbx, ubx=self.ubx,
@@ -245,7 +245,7 @@ class GenericMPC:
         vals = {name: get_value(var) for name, var in self.vars.items()}
 
         # build solution
-        return Solution(f=float(sol['f']), vals=vals, msg=status, 
+        return Solution(f=float(sol['f']), vals=vals, msg=status,
                         success=success, _get_value=get_value)
 
     def __str__(self):
@@ -287,15 +287,15 @@ def subsevalf(
         New expression after substitution and, possibly, evaluation.
     '''
     if isinstance(old, dict):
-        old = tuple(old.values())
-        new = tuple(new.values())
-
-    if not isinstance(old, (tuple, list)):
+        for name, o in old.items():
+            expr = cs.substitute(expr, o, new[name])
+    elif isinstance(old, (tuple, list)):
         for o, n in zip(old, new):
             expr = cs.substitute(expr, o, n)
     else:
         expr = cs.substitute(expr, old, new)
 
     if eval:
-        expr = _np.squeeze(_np.array(cs.evalf(expr)))
+        expr = _np.squeeze(cs.DM(expr).full())  # faster
+        # expr = _np.squeeze(_np.array(cs.evalf(expr)))
     return expr
