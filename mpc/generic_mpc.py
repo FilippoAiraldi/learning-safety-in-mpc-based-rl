@@ -1,5 +1,5 @@
 import casadi as cs
-import numpy as np
+import numpy as _np
 from itertools import count
 from functools import partial
 from dataclasses import dataclass
@@ -12,12 +12,12 @@ from dataclasses import dataclass
 class Solution:
     '''A class containing information on the solution of an MPC run.'''
     f: float
-    vals: dict[str, np.ndarray]
+    vals: dict[str, _np.ndarray]
     msg: str
     success: bool
     _get_value: partial
 
-    def value(self, x: cs.SX) -> np.ndarray:
+    def value(self, x: cs.SX) -> _np.ndarray:
         '''Gets the value of the expression.'''
         return self._get_value(x)
 
@@ -42,6 +42,7 @@ class GenericMPC:
         self.f: cs.SX = None  # objective
         self.vars: dict[str, cs.SX] = {}
         self.pars: dict[str, cs.SX] = {}
+        self.cons: dict[str, cs.SX] = {}
         self.p = cs.SX()
         self.x, self.lbx, self.ubx = cs.SX(), cs.DM(), cs.DM()
         self.lam_lbx, self.lam_ubx = cs.SX(), cs.SX()
@@ -60,6 +61,11 @@ class GenericMPC:
     def nx(self) -> int:
         '''Number of variables in the MPC problem.'''
         return self.x.shape[0]
+
+    @property
+    def np(self) -> int:
+        '''Number of parameters in the MPC problem.'''
+        return self.p.shape[0]
 
     @property
     def ng(self) -> int:
@@ -99,7 +105,7 @@ class GenericMPC:
     def add_var(
         self, name: str,
         *dims: int,
-        lb: np.ndarray = -np.inf, ub: np.ndarray = np.inf
+        lb: _np.ndarray = -_np.inf, ub: _np.ndarray = _np.inf
     ) -> tuple[cs.SX, cs.SX, cs.SX]:
         '''
         Adds a variable to the MPC problem.
@@ -125,14 +131,14 @@ class GenericMPC:
             Same as above, for upper bound.
         '''
         assert name not in self.vars, f'Variable {name} already exists.'
-        lb, ub = np.broadcast_to(lb, dims), np.broadcast_to(ub, dims)
-        assert np.all(lb <= ub), 'Improper variable bounds.'
+        lb, ub = _np.broadcast_to(lb, dims), _np.broadcast_to(ub, dims)
+        assert _np.all(lb <= ub), 'Improper variable bounds.'
 
         var = cs.SX.sym(name, *dims)
         self.vars[name] = var
         self.x = cs.vertcat(self.x, cs.vec(var))
-        self.lbx = np.array(cs.vertcat(self.lbx, cs.vec(lb)))
-        self.ubx = np.array(cs.vertcat(self.ubx, cs.vec(ub)))
+        self.lbx = _np.array(cs.vertcat(self.lbx, cs.vec(lb)))
+        self.ubx = _np.array(cs.vertcat(self.ubx, cs.vec(ub)))
 
         # create also the multiplier associated to the variable
         lam_lb = cs.SX.sym(f'lam_lb_{name}', *dims)
@@ -142,7 +148,7 @@ class GenericMPC:
         return var, lam_lb, lam_ub
 
     def add_con(
-        self, name: str, g: cs.SX, lb: np.ndarray, ub: np.ndarray
+        self, name: str, g: cs.SX, lb: _np.ndarray, ub: _np.ndarray
     ) -> cs.SX:
         '''
         Adds a constraint to the MPC problem.
@@ -150,7 +156,7 @@ class GenericMPC:
         Parameters
         ----------
         name : str
-            Name of the new constraint.
+            Name of the new constraint. Must not be already in use.
         g : casadi.SX
             Symbolic expression of the new constraint.
         lb, ub: array_like
@@ -162,17 +168,19 @@ class GenericMPC:
         lam_g : casadi.SX
             The symbol corresponding to the new constraint's multipliers.
         '''
+        assert name not in self.cons, f'Constraint {name} already exists.'
         dims = g.shape
-        lb, ub = np.broadcast_to(lb, dims), np.broadcast_to(ub, dims)
-        assert np.all(lb <= ub), 'Improper variable bounds.'
+        lb, ub = _np.broadcast_to(lb, dims), _np.broadcast_to(ub, dims)
+        assert _np.all(lb <= ub), 'Improper variable bounds.'
 
+        self.cons[name] = g
         self.g = cs.vertcat(self.g, cs.vec(g))
-        self.lbg = np.array(cs.vertcat(self.lbg, cs.vec(lb)))
-        self.ubg = np.array(cs.vertcat(self.ubg, cs.vec(ub)))
+        self.lbg = _np.array(cs.vertcat(self.lbg, cs.vec(lb)))
+        self.ubg = _np.array(cs.vertcat(self.ubg, cs.vec(ub)))
 
         # save indices of this constraint to either eq. or ineq. set
         ng, L = self.ng, g.numel()
-        (self.Ig_eq if np.all(lb == ub) else self.Ig_ineq).update(
+        (self.Ig_eq if _np.all(lb == ub) else self.Ig_ineq).update(
             range(ng - L, ng))
 
         # create also the multiplier associated to the constraint
@@ -184,14 +192,14 @@ class GenericMPC:
         '''Sets the objective function to be minimized.'''
         self.f = objective
 
-    def init_solver(self, opts: ...) -> None:
+    def init_solver(self, opts: dict) -> None:
         '''Initializes the IPOPT solver for this MPC with the given options.'''
         nlp = {'x': self.x, 'p': self.p, 'g': self.g, 'f': self.f}
         self.solver = cs.nlpsol(f'nlpsol_{self.name}', 'ipopt', nlp, opts)
         self.opts = opts
 
     def solve(
-        self, pars: dict[str, np.ndarray], vals0: dict[str, np.ndarray]
+        self, pars: dict[str, _np.ndarray], vals0: dict[str, _np.ndarray]
     ) -> Solution:
         '''
         Solves the MPC optimization problem.
@@ -214,8 +222,8 @@ class GenericMPC:
 
         # convert to nlp format and solve
         p = subsevalf(self.p, self.pars, pars)
-        x0 = np.clip(subsevalf(self.x, self.vars, vals0), self.lbx, self.ubx)
-        sol: dict[str, np.ndarray] = self.solver(
+        x0 = _np.clip(subsevalf(self.x, self.vars, vals0), self.lbx, self.ubx)
+        sol: dict[str, _np.ndarray] = self.solver(
             x0=x0,
             p=p,
             lbx=self.lbx, ubx=self.ubx,
@@ -227,8 +235,8 @@ class GenericMPC:
         self.failures += int(not success)
 
         # build info
-        lam_lbx_ = -np.minimum(sol['lam_x'], 0)
-        lam_ubx_ = np.maximum(sol['lam_x'], 0)
+        lam_lbx_ = -_np.minimum(sol['lam_x'], 0)
+        lam_ubx_ = _np.maximum(sol['lam_x'], 0)
         S = cs.vertcat(self.p, self.x, self.lam_g, self.lam_lbx, self.lam_ubx)
         D = cs.vertcat(p, sol['x'], sol['lam_g'], lam_lbx_, lam_ubx_)
         get_value = partial(subsevalf, old=S, new=D)
@@ -240,10 +248,24 @@ class GenericMPC:
         return Solution(f=float(sol['f']), vals=vals, msg=status, 
                         success=success, _get_value=get_value)
 
+    def __str__(self):
+        '''Returns the MPC name and a short description.'''
+        msg = 'not initialized' if self.solver is None else 'initialized.'
+        return f'{type(self).__name__} {{\n' \
+               f'  name: {self.name}\n' \
+               f'  #variables: {len(self.vars)} (nx = {self.nx})\n' \
+               f'  #parameters: {len(self.pars)} (np = {self.np})\n' \
+               f'  #constraints: {len(self.cons)} (ng = {self.ng})\n' \
+               f'  CasADi solver {msg}.\n}}'
+
+    def __repr__(self):
+        '''Returns the string representation of the MPC instance.'''
+        return str(self)
+
 
 def subsevalf(
     expr: cs.SX, old: cs.SX, new: cs.SX, eval: bool = True
-) -> cs.SX | np.ndarray:
+) -> cs.SX | _np.ndarray:
     '''
     Substitute in the expression the old variable with
     the new one, evaluating the expression if required.
@@ -275,5 +297,5 @@ def subsevalf(
         expr = cs.substitute(expr, old, new)
 
     if eval:
-        expr = np.array(cs.evalf(expr))
+        expr = _np.array(cs.evalf(expr))
     return expr
