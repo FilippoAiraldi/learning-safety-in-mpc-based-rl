@@ -5,11 +5,12 @@ from dataclasses import dataclass, field
 
 
 @dataclass(frozen=True)
-class QuadRotorPars:
+class QuadRotorEnvPars:
     '''
     Quadrotor environments parameters. The model parameters must be 
     nonnegative, whereas the disturbance parameter 'winds' is a dictionary with 
-    each wind's altitude and strength.
+    each wind's altitude and strength. Also the bounds on state and action are 
+    included, as well as the numerical tolerance.
     '''
 
     # model parameters
@@ -26,6 +27,12 @@ class QuadRotorPars:
     # disturbance parameters
     winds: dict[float, float] = field(
         default_factory=lambda: {-10: 0.95, 0: -0.35, 10: 0.3})
+
+    # simulation
+    x0: np.ndarray = field(default_factory=lambda: np.array(
+        [0, 0, 20, 0, 0, 0, 0, 0, 0, 0]))
+    xf: np.ndarray = field(default_factory=lambda: np.array(
+        [20, 20, -20, 0, 0, 0, np.deg2rad(10), np.deg2rad(10), 0, 0]))
 
     # constraints
     soft_state_constraints: bool = True
@@ -114,7 +121,7 @@ class QuadRotorEnv(BaseEnv):
 
     def __init__(
         self,
-        pars: dict | QuadRotorPars = None,
+        pars: dict | QuadRotorEnvPars = None,
     ) -> None:
         '''
         This environment simulates a 10-state quadrotor system with limited 
@@ -124,17 +131,15 @@ class QuadRotorEnv(BaseEnv):
         Parameters
         ----------
         pars : dict, QuadRotorPars
-            A set of parmeters for the quadrotor model and disturbances. If not
-            given, the default ones are used.
+            A set of parameters for the quadrotor model and disturbances. If 
+            not given, the default ones are used.
         '''
         super().__init__()
         if pars is None:
-            pars = QuadRotorPars()
+            pars = QuadRotorEnvPars()
         elif isinstance(pars, dict):
-            pars = QuadRotorPars(**{
-                k: pars[k] for k in QuadRotorPars.__dataclass_fields__.keys()
-                if k in pars
-            })
+            keys = QuadRotorEnvPars.__dataclass_fields__.keys()
+            pars = QuadRotorEnvPars(**{k: pars[k] for k in keys if k in pars})
         self.pars = pars
 
         # create dynamics matrices
@@ -162,11 +167,14 @@ class QuadRotorEnv(BaseEnv):
         self._e = np.vstack((
             np.zeros((5, 1)), - pars.T * pars.g, np.zeros((4, 1))))
 
-
         # create spaces
         self.observation_space = spaces.Box(
-            low=-np.inf if pars.soft_state_constraints else pars.x_bounds[:, 0],
-            high=np.inf if pars.soft_state_constraints else pars.x_bounds[:, 1],
+            low=(-np.inf 
+                 if pars.soft_state_constraints else 
+                 pars.x_bounds[:, 0]),
+            high=(np.inf
+                  if pars.soft_state_constraints else 
+                  pars.x_bounds[:, 1]),
             shape=(self.nx,),
             dtype=np.float64)
         self.action_space = spaces.Box(
@@ -198,7 +206,7 @@ class QuadRotorEnv(BaseEnv):
     @property
     def error(self) -> float:
         '''Error of the current state to the final position.'''
-        return np.linalg.norm(self._x - self._xf)
+        return np.linalg.norm(self._x - self.pars.xf)
 
     @property
     def x(self) -> np.ndarray:
@@ -210,16 +218,6 @@ class QuadRotorEnv(BaseEnv):
         '''Sets the current state of the quadrotor.'''
         assert self.observation_space.contains(val), f'Invalid state {val}.'
         self._x = val
-
-    @property
-    def x0(self) -> np.ndarray:
-        '''Gets the initial state of the episode.'''
-        return self._x0
-
-    @property
-    def xf(self) -> np.ndarray:
-        '''Gets the termination state of the episode.'''
-        return self._xf
 
     def phi(self, alt: float | np.ndarray) -> np.ndarray:
         '''
@@ -257,12 +255,9 @@ class QuadRotorEnv(BaseEnv):
         ----------
         seed : int, optional
             Random number generator seed.
-        x0 : array_like, optional
-            Sets the initial state of the simulation. If not passed, the 
-            initial condition is automatically and deterministically chosen.
-        xf : array_like, optional
-            Sets the terminal state of the simulation. If not passed, the 
-            terminal condition is automatically and deterministically chosen.
+        x0, xf : array_like, optional
+            Sets the initial and terminal states of the simulation. If not 
+            passed, the conditions are chosen from default.
 
         Returns
         -------
@@ -273,18 +268,16 @@ class QuadRotorEnv(BaseEnv):
         self.observation_space.seed(seed=seed)
         self.action_space.seed(seed=seed)
         if x0 is None:
-            x0 = np.zeros(self.nx)
-            x0[2] = 20  # altitude
+            x0 = self.pars.x0
         if xf is None:
-            xf = np.zeros(self.nx)
-            xf[:2] = 20  # x, y
-            xf[2] = -20  # altitude
-            xf[6:8] = np.deg2rad(10)  # pitch, roll
-        self.x, self._x0, self._xf = x0, x0, xf
-        assert (self.observation_space.contains(self._x0) and
-                self.observation_space.contains(self._xf)), \
-            'Invalid initial or final state.'
-        return self.x
+            xf = self.pars.xf
+        assert (self.observation_space.contains(x0) and
+                self.observation_space.contains(xf)), \
+                    'Invalid initial or final state.'
+        self.x = x0
+        self.pars.__dict__['x0'] = x0
+        self.pars.__dict__['xf'] = xf
+        return x0
 
     def step(self, u: np.ndarray) -> tuple[np.ndarray, float, bool, dict]:
         '''
