@@ -25,7 +25,7 @@ class QuadRotorEnvConfig:
 
     # disturbance parameters
     winds: dict[float, float] = field(
-        default_factory=lambda: {-10: 0.95, 0: -0.35, 10: 0.3})
+        default_factory=lambda: {-10: 9.5, 0: -3.5, 10: 3})
 
     # simulation
     x0: np.ndarray = field(default_factory=lambda: np.array(
@@ -52,7 +52,7 @@ class QuadRotorEnvConfig:
                                           [0, 2 * 9.81]]))
 
     # others
-    num_tol: float = 1e1
+    tol: float = 1
 
 
 class QuadRotorEnv(BaseEnv):
@@ -169,11 +169,11 @@ class QuadRotorEnv(BaseEnv):
 
         # create spaces
         self.observation_space = spaces.Box(
-            low=(-np.inf 
-                 if config.soft_state_constraints else 
+            low=(-np.inf
+                 if config.soft_state_constraints else
                  config.x_bounds[:, 0]),
             high=(np.inf
-                  if config.soft_state_constraints else 
+                  if config.soft_state_constraints else
                   config.x_bounds[:, 1]),
             shape=(self.nx,),
             dtype=np.float64)
@@ -273,7 +273,7 @@ class QuadRotorEnv(BaseEnv):
             xf = self.config.xf
         assert (self.observation_space.contains(x0) and
                 self.observation_space.contains(xf)), \
-                    'Invalid initial or final state.'
+            'Invalid initial or final state.'
         self.x = x0
         self.config.__dict__['x0'] = x0
         self.config.__dict__['xf'] = xf
@@ -308,15 +308,20 @@ class QuadRotorEnv(BaseEnv):
         assert self.observation_space.contains(self.x), 'Invalid state.'
 
         # compute cost
-        # TODO: squared norm to desired position (no need to normalize)
-        # + input usage (we can normalize here)
-        # + constraint violation
-        cost = np.nan
+        error = self.error
+        cost = float(
+            error +
+            2 * np.linalg.norm(u) +
+            1e2 * (
+                np.maximum(0, self.config.x_bounds[:, 0] - self.x) +
+                np.maximum(0, self.x - self.config.x_bounds[:, 1])
+            ).sum()
+        )
 
         # check if done
-        done = self.error <= self.config.num_tol
+        done = error <= self.config.tol
         #
-        return self.x, cost, done, {}
+        return self.x, cost, done, {'error': error}
 
     def render(self):
         raise NotImplementedError('Render method unavailable.')
