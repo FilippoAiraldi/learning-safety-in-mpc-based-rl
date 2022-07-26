@@ -7,17 +7,19 @@ from dataclasses import dataclass, field
 
 
 @dataclass(frozen=True)
-class QuadRotorMPCPars:
-    '''Quadrotor MPC parameters, such as horizons and IPOPT options.'''
+class QuadRotorMPCConfig:
+    '''
+    Quadrotor MPC configuration, such as horizons and CasADi/IPOPT options.
+    '''
     # horizons
     Np: int = 20
     Nc: int = None
 
     # solver options
-    opts: dict = field(default_factory=lambda: {
+    solver_opts: dict = field(default_factory=lambda: {
         'expand': True, 'print_time': False,
         'ipopt': {
-            'print_level': False, 'max_iter': 1e3, 'tol': 1e-8
+            'print_level': False, 'max_iter': 1000, 'tol': 1e-8
         }})
 
     def __post_init__(self):
@@ -31,7 +33,7 @@ class QuadRotorMPC(GenericMPC):
     def __init__(
         self,
         env: QuadRotorEnv,
-        pars: dict | QuadRotorMPCPars = None,
+        config: dict | QuadRotorMPCConfig = None,
         type: str = 'V'
     ) -> None:
         '''
@@ -41,9 +43,9 @@ class QuadRotorMPC(GenericMPC):
         ----------
         env : QuadRotorEnv
             Environment for which to create the MPC.
-        pars : dict, QuadRotorPars
-            A set of parameters for the MPC. If not given, the default ones are
-            used.
+        config : dict, QuadRotorMPCConfig
+            A set of configuration parameters for the MPC. If not given, the 
+            default ones are used.
         type : 'Q' or 'V'
             Type of MPC to instantiate, either state value function or action 
             value function.
@@ -51,20 +53,21 @@ class QuadRotorMPC(GenericMPC):
         assert type in {'V', 'Q'}, \
             'MPC must be either V (state value func) or Q (action value func)'
         super().__init__(name=type)
-        if pars is None:
-            pars = QuadRotorMPCPars()
-        elif isinstance(pars, dict):
-            keys = QuadRotorMPCPars.__dataclass_fields__.keys()
-            pars = QuadRotorMPCPars(**{k: pars[k] for k in keys if k in pars})
-        self.pars = pars
-        Np, Nc = pars.Np, pars.Nc
+        if config is None:
+            config = QuadRotorMPCConfig()
+        elif isinstance(config, dict):
+            keys = QuadRotorMPCConfig.__dataclass_fields__.keys()
+            config = QuadRotorMPCConfig(
+                **{k: config[k] for k in keys if k in config})
+        self.config = config
+        Np, Nc = config.Np, config.Nc
 
         # create variables - states are softly constrained
         nx, nu = env.nx, env.nu
         x, _, _ = self.add_var('x', nx, Np + 1)
         u, _, _ = self.add_var('u', nu, Nc,
-                               lb=env.pars.u_bounds[:, 0, None],
-                               ub=env.pars.u_bounds[:, 1, None])
+                               lb=env.config.u_bounds[:, 0, None],
+                               ub=env.config.u_bounds[:, 1, None])
         slack, _, _ = self.add_var('slack', nx, Np, lb=0)
 
         # create model parameters
@@ -86,9 +89,9 @@ class QuadRotorMPC(GenericMPC):
 
         # constraint on state (soft)
         backoff = self.add_par('backoff', 1, 1)  # constraint backoff parameter
-        m = env.pars.x_bounds[:, 0, None]
-        M = env.pars.x_bounds[:, 1, None]
-        for k in range(1, pars.Np + 1):
+        m = env.config.x_bounds[:, 0, None]
+        M = env.config.x_bounds[:, 1, None]
+        for k in range(1, config.Np + 1):
             # soft-backedoff minimum constraint: (1+back)*m - slack <= x
             self.add_con(f'state_min_{k}',
                          x[:, k] + slack[:, k - 1] - backoff * m, m, 0)
@@ -123,10 +126,10 @@ class QuadRotorMPC(GenericMPC):
             self.f += cs.dot(perturbation, u[:, 0])
 
         # initialize solver
-        self.init_solver(pars.opts)
+        self.init_solver(config.solver_opts)
 
     def _get_dynamics_matrices(self, env: QuadRotorEnv):
-        T, g = env.pars.T, env.pars.g  # fixed
+        T, g = env.config.T, env.config.g  # fixed
         Ad = cs.diag(cs.vertcat(self.pars['pitch_d'], self.pars['roll_d']))
         Add = cs.diag(cs.vertcat(self.pars['pitch_dd'], self.pars['roll_dd']))
         A = T * cs.vertcat(

@@ -2,7 +2,7 @@ from abc import ABC
 from itertools import count
 import numpy as np
 import casadi as cs
-from mpc import QuadRotorMPC, QuadRotorMPCPars, Solution
+from mpc import QuadRotorMPC, QuadRotorMPCConfig, Solution
 from envs import QuadRotorEnv
 
 
@@ -15,10 +15,10 @@ class QuadRotorBaseAgent(ABC):
 
     def __init__(
         self,
-        env: QuadRotorEnv, 
+        env: QuadRotorEnv,
         agentname: str = None,
         init_pars: dict[str, np.ndarray] = None,
-        mpc_pars: dict | QuadRotorMPCPars = None,
+        mpc_pars: dict | QuadRotorMPCConfig = None,
     ) -> None:
         '''
         Instantiates an agent.
@@ -42,8 +42,8 @@ class QuadRotorBaseAgent(ABC):
         self.env = env
 
         # initialize MPCs
-        self.Q = QuadRotorMPC(env, pars=mpc_pars, type='Q')
-        self.V = QuadRotorMPC(env, pars=mpc_pars, type='V')
+        self.Q = QuadRotorMPC(env, config=mpc_pars, type='Q')
+        self.V = QuadRotorMPC(env, config=mpc_pars, type='V')
         self.last_solution: Solution = None
 
         # initialize learnable weights/parameters

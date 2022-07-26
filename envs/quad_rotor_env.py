@@ -5,14 +5,13 @@ from dataclasses import dataclass, field
 
 
 @dataclass(frozen=True)
-class QuadRotorEnvPars:
+class QuadRotorEnvConfig:
     '''
-    Quadrotor environments parameters. The model parameters must be 
-    nonnegative, whereas the disturbance parameter 'winds' is a dictionary with 
-    each wind's altitude and strength. Also the bounds on state and action are 
-    included, as well as the numerical tolerance.
+    Quadrotor environments configuration parameters. The model parameters must 
+    be nonnegative, whereas the disturbance parameter 'winds' is a dictionary 
+    with each gust's altitude and strength. Also the bounds on state and action
+    are included, as well as the numerical tolerance.
     '''
-
     # model parameters
     T: float = 0.2
     g: float = 9.81
@@ -121,7 +120,7 @@ class QuadRotorEnv(BaseEnv):
 
     def __init__(
         self,
-        pars: dict | QuadRotorEnvPars = None,
+        config: dict | QuadRotorEnvConfig = None,
     ) -> None:
         '''
         This environment simulates a 10-state quadrotor system with limited 
@@ -135,51 +134,52 @@ class QuadRotorEnv(BaseEnv):
             not given, the default ones are used.
         '''
         super().__init__()
-        if pars is None:
-            pars = QuadRotorEnvPars()
-        elif isinstance(pars, dict):
-            keys = QuadRotorEnvPars.__dataclass_fields__.keys()
-            pars = QuadRotorEnvPars(**{k: pars[k] for k in keys if k in pars})
-        self.pars = pars
+        if config is None:
+            config = QuadRotorEnvConfig()
+        elif isinstance(config, dict):
+            keys = QuadRotorEnvConfig.__dataclass_fields__.keys()
+            config = QuadRotorEnvConfig(
+                **{k: config[k] for k in keys if k in config})
+        self.config = config
 
         # create dynamics matrices
-        self.nw = len(pars.winds)
-        self._A = pars.T * np.block([
+        self.nw = len(config.winds)
+        self._A = config.T * np.block([
             [np.zeros((3, 3)), np.eye(3), np.zeros((3, 4))],
-            [np.zeros((2, 6)), np.eye(2) * pars.g, np.zeros((2, 2))],
+            [np.zeros((2, 6)), np.eye(2) * config.g, np.zeros((2, 2))],
             [np.zeros((1, 10))],
-            [np.zeros((2, 6)), -np.diag((pars.pitch_d, pars.roll_d)),
+            [np.zeros((2, 6)), -np.diag((config.pitch_d, config.roll_d)),
              np.eye(2)],
-            [np.zeros((2, 6)), -np.diag((pars.pitch_dd, pars.roll_dd)),
+            [np.zeros((2, 6)), -np.diag((config.pitch_dd, config.roll_dd)),
              np.zeros((2, 2))]
         ]) + np.eye(10)
-        self._B = pars.T * np.block([
+        self._B = config.T * np.block([
             [np.zeros((5, 3))],
-            [0, 0, pars.thrust_coeff],
+            [0, 0, config.thrust_coeff],
             [np.zeros((2, 3))],
-            [pars.pitch_gain, 0, 0],
-            [0, pars.roll_gain, 0]
+            [config.pitch_gain, 0, 0],
+            [0, config.roll_gain, 0]
         ])
-        self._C = pars.T * np.vstack((
-            list(pars.winds.values()),
+        self._C = config.T * np.vstack((
+            list(config.winds.values()),
             np.zeros((9, self.nw))
         ))
         self._e = np.vstack((
-            np.zeros((5, 1)), - pars.T * pars.g, np.zeros((4, 1))))
+            np.zeros((5, 1)), - config.T * config.g, np.zeros((4, 1))))
 
         # create spaces
         self.observation_space = spaces.Box(
             low=(-np.inf 
-                 if pars.soft_state_constraints else 
-                 pars.x_bounds[:, 0]),
+                 if config.soft_state_constraints else 
+                 config.x_bounds[:, 0]),
             high=(np.inf
-                  if pars.soft_state_constraints else 
-                  pars.x_bounds[:, 1]),
+                  if config.soft_state_constraints else 
+                  config.x_bounds[:, 1]),
             shape=(self.nx,),
             dtype=np.float64)
         self.action_space = spaces.Box(
-            low=pars.u_bounds[:, 0],
-            high=pars.u_bounds[:, 1],
+            low=config.u_bounds[:, 0],
+            high=config.u_bounds[:, 1],
             shape=(self.nu,),
             dtype=np.float64)
 
@@ -206,7 +206,7 @@ class QuadRotorEnv(BaseEnv):
     @property
     def error(self) -> float:
         '''Error of the current state to the final position.'''
-        return np.linalg.norm(self._x - self.pars.xf)
+        return np.linalg.norm(self._x - self.config.xf)
 
     @property
     def x(self) -> np.ndarray:
@@ -239,7 +239,7 @@ class QuadRotorEnv(BaseEnv):
             assert alt.ndim == 1, 'Altitudes must be a vector'
 
         return np.vstack([
-            np.exp(-np.square(alt - h) / 50) for h in self.pars.winds.keys()
+            np.exp(-np.square(alt - h) / 50) for h in self.config.winds.keys()
         ])
 
     def reset(
@@ -268,15 +268,15 @@ class QuadRotorEnv(BaseEnv):
         self.observation_space.seed(seed=seed)
         self.action_space.seed(seed=seed)
         if x0 is None:
-            x0 = self.pars.x0
+            x0 = self.config.x0
         if xf is None:
-            xf = self.pars.xf
+            xf = self.config.xf
         assert (self.observation_space.contains(x0) and
                 self.observation_space.contains(xf)), \
                     'Invalid initial or final state.'
         self.x = x0
-        self.pars.__dict__['x0'] = x0
-        self.pars.__dict__['xf'] = xf
+        self.config.__dict__['x0'] = x0
+        self.config.__dict__['xf'] = xf
         return x0
 
     def step(self, u: np.ndarray) -> tuple[np.ndarray, float, bool, dict]:
@@ -314,7 +314,7 @@ class QuadRotorEnv(BaseEnv):
         cost = np.nan
 
         # check if done
-        done = self.error <= self.pars.num_tol
+        done = self.error <= self.config.num_tol
         #
         return self.x, cost, done, {}
 

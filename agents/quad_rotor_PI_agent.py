@@ -13,7 +13,7 @@ class QuadRotorPIAgent(QuadRotorBaseAgent):
         # copy model parameters from env
         for n in ('thrust_coeff', 'pitch_d', 'pitch_dd', 'pitch_gain',
                   'roll_d', 'roll_dd', 'roll_gain', 'xf'):
-            self.weights['value'][n] = getattr(self.env.pars, n)
+            self.weights['value'][n] = getattr(self.env.config, n)
 
         # set cost weights to some number (arbitrary) - to be tuned
         for n in ('w_L', 'w_V'):
