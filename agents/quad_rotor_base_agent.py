@@ -67,36 +67,72 @@ class QuadRotorBaseAgent(ABC):
     def solve_mpc(
         self,
         type: str,
-        state: np.ndarray,
-        pars: dict[str, np.ndarray],
+        state: np.ndarray = None,
         rlpars: dict[str, np.ndarray] = None,
-        sol0: dict[str, np.ndarray] = None
+        sol0: Solution = None,
+        other_pars: dict[str, np.ndarray] = None
     ) -> tuple[np.ndarray, Solution]:
+        '''
+        Solves the MPC optimization problem embedded in the agent.
+
+        Parameters
+        ----------
+        type : 'Q' or 'V'
+            Type of MPC function approximation to run.
+        state : array_like, optional
+            Environment's state for which to solve the MPC problem. If not 
+            given, the current state of the environment is used.
+        rlpars : dict[str, array_like], optional
+            Agent's RL parameter values. if not given, the latest agent's 
+            weights are used.
+        sol0 : Solution
+            Last numerical solution of the MPC used to warmstart. If not given,
+            a heuristic is used.
+        other_pars : dict[str, array_like], optional
+            Other parameters to pass to the MPC that were not included in the 
+            RL parameters (e.g., fixed parameters).
+        '''
         # if not provided, use the agent's latest weights
         if rlpars is None:
             rlpars = self.weights['value']
+
+        # if the state which to solve the MPC for is not provided, use current
+        if state is None:
+            state = self.env.x
 
         # if provided, use vals0 to warmstart the MPC. If not provided,
         # use the last_sol field. If the latter is not available yet,
         # just use some default values
         if sol0 is None:
-            if self.last_sol is None:
+            if self.last_solution is None:
                 sol0 = {
-                    'x': np.tile(state.reshape(-1, 1), (1, self.Q.Np)),
-                    'u': 0,
+                    'x': np.tile(
+                        state.reshape(-1, 1), (1, self.Q.config.Np + 1)),
+                    'u': 0,  # what value?
                     'slack': 0
                 }
             else:
-                sol0 = self.last_sol
+                sol0 = self.last_solution.vals
 
-        # merge RL pars and common pars
-        pars |= rlpars
-        pars['x0'] = state
+        # merge all parameters in a single dict
+        if other_pars is None:
+            other_pars = {}
+        pars = rlpars | other_pars | {'x0': state}
 
         # call the MPC
         mpc: QuadRotorMPC = getattr(self, type)
         self.last_solution = mpc.solve(pars, sol0)
-        return self.last_solution['u'][:, 0], self.last_solution
+
+        # get the optimal action and overwrite the elements just over to the
+        # bounds due to numerical precision (gym would throw an error)
+        u_opt = self.last_solution.vals['u'][:, 0]
+        lb, ub = self.env.action_space.low, self.env.action_space.high
+        mask = np.bitwise_and(u_opt < lb, np.isclose(u_opt, lb))
+        u_opt[mask] = self.env.action_space.low[mask]
+        mask = np.bitwise_and(u_opt > ub, np.isclose(u_opt, ub))
+        u_opt[mask] = self.env.action_space.high[mask]
+
+        return u_opt, self.last_solution
 
     def _init_weights(self, init_pars: dict[str, np.ndarray] = None) -> None:
         # learnable parameters are:
