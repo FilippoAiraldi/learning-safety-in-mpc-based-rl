@@ -1,41 +1,44 @@
 import numpy as np
 from envs.wrappers import RecordData
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 from matplotlib.collections import LineCollection
 from mpl_toolkits.mplot3d.art3d import Line3DCollection, Poly3DCollection
-from matplotlib.ticker import PercentFormatter
 from itertools import product
 
 
-def plot_trajectory(env: RecordData, i: int):
-    '''Plots the i-th trajecetory of the recorded data.'''
+def plot_trajectory_3d(env: RecordData, traj_num: int) -> None:
+    '''Plots the i-th trajecetory of the recorded data in 3D.'''
     x0, xf = env.config.x0, env.config.xf
-    data = env.observations_history[i][:3, :]  # x, y, z
+    data = env.observations_history[traj_num]
 
     # prepare stuff for plotting
-    labels = ('Pos: x [m]', 'Pos: y [m]', 'Altitude [m]')
+    labels = {0: 'Pos: x [$m$]', 1: 'Pos: y [$m$]', 2: 'Altitude [$m$]',
+              6: 'Pitch [$rad$]', 7: 'Roll [$rad$]'}
     linecollection_kwargs = {'cmap': 'coolwarm', 'norm': plt.Normalize(0, 100)}
     patch_kwargs = {
         'facecolor': 'k', 'alpha': 0.1, 'edgecolor': 'k', 'linewidth': 2}
-    order = ((0, 1, 2), (1, 2), (0, 1), (0, 2))
 
     # plot
-    fig = plt.figure(figsize=(12, 7))
-    for ax_num, inds in enumerate(order, start=1):
+    fig = plt.figure(constrained_layout=True)
+    G = gridspec.GridSpec(2, 3, figure=fig)
+    axes = [
+        ((0, 1, 2), fig.add_subplot(G[0, :2], projection='3d')),
+        ((1, 2), fig.add_subplot(G[0, 2])),
+        ((0, 1), fig.add_subplot(G[1, 0])),
+        ((0, 2), fig.add_subplot(G[1, 1])),
+        ((6, 7), fig.add_subplot(G[1, 2]))
+    ]
+    for inds, ax in axes:
         inds = np.array(inds)
         points = np.expand_dims(data[inds, :].T, axis=1)
         segments = np.concatenate([points[:-1], points[1:]], axis=1)
 
         if len(inds) == 3:
-            # 3D plot
-            ax = fig.add_subplot(2, 2, ax_num, projection='3d')
-
             # plot multicolored 3D line
             lc = Line3DCollection(segments, **linecollection_kwargs)
             lc.set_array(np.linspace(0, 100, segments.shape[0]))
-            line = ax.add_collection3d(lc)
-            fig.colorbar(line, ax=ax, location='left',
-                         format=PercentFormatter())
+            ax.add_collection3d(lc)
 
             # initial and termination state
             ax.scatter(*x0[:3], marker='o', color='k')
@@ -53,13 +56,10 @@ def plot_trajectory(env: RecordData, i: int):
             ax.add_collection3d(Poly3DCollection(verts, **patch_kwargs))
 
         else:
-            # 2D plot
-            ax = fig.add_subplot(2, 2, ax_num)
-
             # plot multicolored 2D line
             lc = LineCollection(segments, **linecollection_kwargs)
             lc.set_array(np.linspace(0, 100, segments.shape[0]))
-            line = ax.add_collection(lc)
+            ax.add_collection(lc)
 
             # initial and termination state
             ax.plot(*x0[inds], marker='o', color='k')
@@ -80,4 +80,53 @@ def plot_trajectory(env: RecordData, i: int):
             )
 
     fig.subplots_adjust(wspace=0.3, hspace=0.3)
+    plt.show(block=False)
+
+
+def plot_trajectory_in_time(env: RecordData, traj_num: int) -> None:
+    '''Plots the i-th trajecetory of the recorded data.'''
+
+    # prepare for plotting
+    xf = env.config.xf
+    X = env.observations_history[traj_num]
+    U = env.actions_history[traj_num]
+    t = np.arange(X.shape[1]) * env.config.T  # time
+    error = np.linalg.norm(X - xf.reshape(-1, 1), axis=0)
+    items = [
+        [X[:3].T, ('x', 'y', 'z'), 'Position [$m$]', xf[:3]],
+        [X[3:6].T, ('x', 'y', 'z'), 'Speed [$m/s$]', xf[3:6]],
+        [X[6:8].T, ('pitch', 'roll'), 'Angle [$rad$]', xf[6:8]],
+        [X[8:].T, ('pitch', 'roll'), 'Angular Speed [$rad/s$]', xf[8:]],
+        [U[:2].T, ('desired pitch', 'desired roll'), 'Angle [$rad$]', None],
+        [U[-1].T, ('desired z acc.',), 'Acceleration [$m/s^2$]', None],
+        [error, None, 'Error', env.config.tol],
+        [env.rewards_history[traj_num], None, 'Reward', None],
+    ]
+
+    # create figure and grid
+    fig = plt.figure(constrained_layout=True)
+    G = gridspec.GridSpec(4, 2, figure=fig)
+
+    # do plot
+    ax = None
+    for i, (x, lgds, ylbl, asymptot) in enumerate(items):
+        # create axis
+        ax = fig.add_subplot(G[np.unravel_index(i, (G.nrows, G.ncols))],
+                             sharex=ax)
+
+        # plot data
+        L = x.shape[0]
+        lines = ax.plot(t[:L], x)
+        if asymptot is not None:
+            ax.hlines(asymptot, xmin=t[0], xmax=t[L - 1], linestyles='dashed',
+                      colors=[l.get_color() for l in lines], linewidths=0.8)
+
+        # embellish
+        if lgds is not None:
+            ax.legend(lgds)
+        ax.set_ylabel(ylbl)
+        if i >= 6:
+            ax.set_xlabel('Time [s]')
+
+    ax.set_xlim([t[0], t[-1]])
     plt.show(block=False)
