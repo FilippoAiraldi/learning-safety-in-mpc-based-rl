@@ -1,10 +1,11 @@
 import numpy as np
+from itertools import product
 from envs.wrappers import RecordData
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib.collections import LineCollection
 from mpl_toolkits.mplot3d.art3d import Line3DCollection, Poly3DCollection
-from itertools import product
+from matplotlib.ticker import PercentFormatter
 
 
 def plot_trajectory_3d(env: RecordData, traj_num: int) -> None:
@@ -20,7 +21,7 @@ def plot_trajectory_3d(env: RecordData, traj_num: int) -> None:
 
     # plot
     fig = plt.figure(constrained_layout=True)
-    G = gridspec.GridSpec(2, 3, figure=fig)
+    G = gridspec.GridSpec(2, 4, figure=fig, width_ratios=[1, 1, 1, 1e-1])
     axes = [
         ((0, 1, 2), fig.add_subplot(G[0, :2], projection='3d')),
         ((1, 2), fig.add_subplot(G[0, 2])),
@@ -37,7 +38,7 @@ def plot_trajectory_3d(env: RecordData, traj_num: int) -> None:
             # plot multicolored 3D line
             lc = Line3DCollection(segments, **linecollection_kwargs)
             lc.set_array(np.linspace(0, 100, segments.shape[0]))
-            ax.add_collection3d(lc)
+            trajectory = ax.add_collection3d(lc)
 
             # initial and termination state
             ax.scatter(*x0[:3], marker='o', color='k')
@@ -70,14 +71,29 @@ def plot_trajectory_3d(env: RecordData, traj_num: int) -> None:
                 *np.diff(env.config.x_bounds[inds, :]).flatten(),
                 **patch_kwargs))
 
-        # add labels and impose limits
+        # embellish
         for axisname, ind in zip(('x', 'y', 'z'), inds):
+            # add labels
             getattr(ax, f'set_{axisname}label')(labels[ind])
+
+            # impose data limits
             lim = getattr(ax, f'get_{axisname}lim')()
             getattr(ax, f'set_{axisname}lim')(
                 min(data[ind].min(), env.config.x_bounds[ind, 0], lim[0]),
                 max(data[ind].max(), env.config.x_bounds[ind, 1], lim[1])
             )
+
+        # make axis equal
+        if len(inds) == 3:
+            _set_axes3d_equal(ax)
+        else:
+            ax.axis('equal')
+
+    # add colorbar
+    cax = fig.add_subplot(G[:, -1])
+    fig.colorbar(trajectory, cax=cax, format=PercentFormatter(),
+                 label='% of trajectory')
+
     plt.show(block=False)
 
 
@@ -99,7 +115,7 @@ def plot_trajectory_in_time(env: RecordData, traj_num: int) -> None:
         [X[8:].T, ('pitch', 'roll'), 'Angular Speed [$rad/s$]', xf[8:], x_bnd[8:]],
         [U[:2].T, ('desired pitch', 'desired roll'), 'Angle [$rad$]', None, u_bnd[:2]],
         [U[-1].T, ('desired z acc.',), 'Acceleration [$m/s^2$]', None, u_bnd[-1]],
-        [error, None, 'Termination error', None, env.config.tol],
+        [error, None, 'Termination error', None, env.config.termination_error],
         [R, None, 'Reward', None, None],
     ]
 
@@ -133,3 +149,19 @@ def plot_trajectory_in_time(env: RecordData, traj_num: int) -> None:
 
     ax.set_xlim([t[0], t[-1]])
     plt.show(block=False)
+
+
+def _set_axes3d_equal(ax):
+    x_limits = ax.get_xlim3d()
+    y_limits = ax.get_ylim3d()
+    z_limits = ax.get_zlim3d()
+    x_range = abs(np.diff(x_limits))
+    x_middle = np.mean(x_limits)
+    y_range = abs(np.diff(y_limits))
+    y_middle = np.mean(y_limits)
+    z_range = abs(np.diff(z_limits))
+    z_middle = np.mean(z_limits)
+    plot_radius = 0.5 * max(x_range, y_range, z_range)
+    ax.set_xlim3d([x_middle - plot_radius, x_middle + plot_radius])
+    ax.set_ylim3d([y_middle - plot_radius, y_middle + plot_radius])
+    ax.set_zlim3d([z_middle - plot_radius, z_middle + plot_radius])
