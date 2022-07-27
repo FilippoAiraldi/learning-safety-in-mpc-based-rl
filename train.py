@@ -5,6 +5,9 @@ from tqdm import tqdm
 
 
 if __name__ == '__main__':
+    # TODO: argparse
+    # - fix seed
+    # - training episodes
     util.set_np_mpl_defaults()
 
     # initialize env and agent
@@ -15,7 +18,7 @@ if __name__ == '__main__':
     pars = {'perturbation': 0}
 
     # simulate
-    env.reset()
+    env.reset(seed=4)
     for _ in tqdm(range(max_episode_steps), total=max_episode_steps):
         # compute V(s)
         u_opt, solution = agent.solve_mpc('V', other_pars=pars)
