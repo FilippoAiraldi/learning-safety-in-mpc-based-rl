@@ -25,20 +25,20 @@ class QuadRotorEnvConfig:
 
     # disturbance parameters
     winds: dict[float, float] = field(
-        default_factory=lambda: {-10: 9.5, 0: -3.5, 10: 3})
+        default_factory=lambda: {1.5: 0.8, 2.5: 0.5, 3: -0.6})
 
     # simulation
     x0: np.ndarray = field(default_factory=lambda: np.array(
-        [0, 0, 20, 0, 0, 0, 0, 0, 0, 0]))
+        [0, 0, 3.5, 0, 0, 0, np.deg2rad(10), np.deg2rad(-10), 0, 0]))
     xf: np.ndarray = field(default_factory=lambda: np.array(
-        [20, 20, -20, 0, 0, 0, np.deg2rad(10), np.deg2rad(10), 0, 0]))
+        [3, 3, 0.2, 0, 0, 0, 0, 0, 0, 0]))
 
     # constraints
     soft_state_constraints: bool = True
     x_bounds: np.ndarray = field(
-        default_factory=lambda: np.array([[-25, 25],
-                                          [-25, 25],
-                                          [-25, 25],
+        default_factory=lambda: np.array([[-0.5, 3.5],
+                                          [-0.5, 3.5],
+                                          [-0.175, 4],
                                           [-np.inf, np.inf],
                                           [-np.inf, np.inf],
                                           [-np.inf, np.inf],
@@ -51,8 +51,9 @@ class QuadRotorEnvConfig:
                                           [-np.pi, np.pi],
                                           [0, 2 * 9.81]]))
 
-    # others
-    tol: float = 1
+    # termination conditions
+    termination_N: int = 5
+    termination_error: float = 1
 
 
 class QuadRotorEnv(BaseEnv):
@@ -108,7 +109,7 @@ class QuadRotorEnv(BaseEnv):
 
     ### Episode End
     The episode ends if the state approaches the final one within the specified
-    tolerance.
+    error and stays within this error bound for the specified amount of steps.
 
     ### Arguments
     ```
@@ -280,6 +281,7 @@ class QuadRotorEnv(BaseEnv):
         self.x = x0
         self.config.__dict__['x0'] = x0
         self.config.__dict__['xf'] = xf
+        self._n_within_termination = 0
         return x0
 
     def step(self, u: np.ndarray) -> tuple[np.ndarray, float, bool, dict]:
@@ -322,7 +324,11 @@ class QuadRotorEnv(BaseEnv):
         )
 
         # check if done
-        done = error <= self.config.tol
+        if error <= self.config.termination_error:
+            self._n_within_termination += 1
+        else:
+            self._n_within_termination = 0
+        done = self._n_within_termination >= self.config.termination_N
         #
         return self.x, cost, done, {'error': error}
 
