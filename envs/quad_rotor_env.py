@@ -80,8 +80,8 @@ class QuadRotorEnv(BaseEnv):
     | 7   | roll                                 | -30° | 30° | angle (rad)   |
     | 8   | pitch rate                           | -Inf | Inf | speed (rad/s) |
     | 8   | roll rate                            | -Inf | Inf | speed (rad/s) |
-    The constraints can be made soft with the appropriate flag. In this case, 
-    the observation space becomes unbounded.
+    The constraints can be changed, as well as made soft with the appropriate 
+    flag. In this case, the observation space becomes unbounded.
 
     ### Action Space
     There are 3 continuous deterministic actions:
@@ -90,6 +90,7 @@ class QuadRotorEnv(BaseEnv):
     | 0   | desired pitch                        | -pi  | pi  | angle (rad)   |
     | 1   | desired roll                         | -pi  | pi  | angle (rad)   |
     | 2   | desired vertical acceleration        | 0    | 2*g | acc. (m/s^2)  |
+    Again, these constraints can be changed.
 
     ### Transition Dynamics:
     Given an action, the quadrotor follows the following transition dynamics:
@@ -204,11 +205,6 @@ class QuadRotorEnv(BaseEnv):
         return self._e.copy()
 
     @property
-    def error(self) -> float:
-        '''Error of the current state to the final position.'''
-        return np.linalg.norm(self._x - self.config.xf)
-
-    @property
     def x(self) -> np.ndarray:
         '''Gets the current state of the quadrotor.'''
         return self._x
@@ -218,6 +214,13 @@ class QuadRotorEnv(BaseEnv):
         '''Sets the current state of the quadrotor.'''
         assert self.observation_space.contains(val), f'Invalid state {val}.'
         self._x = val
+
+    def error(self, x: np.ndarray) -> float:
+        '''Error of the given state w.r.t. the final position.'''
+        # return np.linalg.norm(x - self.config.xf)
+        # give more weight to pitch and roll
+        return np.sqrt(np.inner(np.square(x - self.config.xf),
+                                [1, 1, 1, 1, 1, 1, 1e1, 1e1, 1, 1]))
 
     def phi(self, alt: float | np.ndarray) -> np.ndarray:
         '''
@@ -308,7 +311,7 @@ class QuadRotorEnv(BaseEnv):
         assert self.observation_space.contains(self.x), 'Invalid state.'
 
         # compute cost
-        error = self.error
+        error = self.error(self.x)
         cost = float(
             error +
             2 * np.linalg.norm(u) +

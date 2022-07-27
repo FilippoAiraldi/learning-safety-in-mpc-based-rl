@@ -91,7 +91,7 @@ def plot_trajectory_in_time(env: RecordData, traj_num: int) -> None:
     U = env.actions[traj_num]
     R = env.rewards[traj_num]
     t = np.arange(X.shape[1]) * env.config.T  # time
-    error = np.linalg.norm(X - xf.reshape(-1, 1), axis=0)
+    error = env.error(X.T)
     items = [
         [X[:3].T, ('x', 'y', 'z'), 'Position [$m$]', xf[:3], x_bnd[:3]],
         [X[3:6].T, ('x', 'y', 'z'), 'Speed [$m/s$]', xf[3:6], x_bnd[3:6]],
