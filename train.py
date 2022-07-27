@@ -1,12 +1,11 @@
-import numpy as np
 import envs
 import agents
 import util
-import matplotlib.pyplot as plt
 from tqdm import tqdm
 
+
 if __name__ == '__main__':
-    np.set_printoptions(precision=3, suppress=False)
+    util.set_np_mpl_defaults()
 
     # initialize env and agent
     max_episode_steps = 50
@@ -21,7 +20,7 @@ if __name__ == '__main__':
         # compute V(s)
         u_opt, solution = agent.solve_mpc('V', other_pars=pars)
         assert solution.success
-        
+
         # step environment
         _, r, done, info = env.step(u_opt)
 
@@ -29,7 +28,7 @@ if __name__ == '__main__':
         if done:
             break
 
-    # plot
-    util.plot.plot_trajectory_3d(env, 0)
-    util.plot.plot_trajectory_in_time(env, 0)
-    plt.show()
+    # save results and launch plotting (is blocking)
+    fn = util.save_results(env=env)
+    import os
+    os.system(f'python visualization.py -fn {fn}')
