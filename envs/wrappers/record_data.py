@@ -1,12 +1,18 @@
 import gym
 import numpy as np
+import time
 from collections import deque
 
 
 class RecordData(gym.Wrapper):
     '''
-    This wrapper records all the observations, actions and costs/rewards at 
-    each time step coming to and from the environment.
+    At each step, this wrapper records
+        - observations
+        - actions 
+        - costs/rewards (also cumulative)
+        - episode length
+        - episode execution time
+    from the environment.
     '''
 
     def __init__(
@@ -29,43 +35,69 @@ class RecordData(gym.Wrapper):
             default, true.
         '''
         super().__init__(env)
-        self.observations_history = deque(maxlen=deque_size)
-        self.actions_history = deque(maxlen=deque_size)
-        self.rewards_history = deque(maxlen=deque_size)
-        self.current_observations = []
-        self.current_actions = []
-        self.current_rewards = []
         self.as_numpy = as_numpy
+        # long-term storages
+        self.observations = deque(maxlen=deque_size)
+        self.actions = deque(maxlen=deque_size)
+        self.rewards = deque(maxlen=deque_size)
+        self.cum_rewards = deque(maxlen=deque_size)
+        self.episode_lengths = deque(maxlen=deque_size)
+        self.exec_times = deque(maxlen=deque_size)
+        # current-episode-storages
+        self.t0 = None
+        self.ep_observations = []
+        self.ep_actions = []
+        self.ep_rewards = []
+        self.ep_cum_reward = None
+        self.ep_length = None
 
     def reset(self, *args, **kwargs) -> np.ndarray:
-        '''Resets the environment and resets the current lists.'''
+        '''Resets the environment and resets the current data accumulators.'''
         observation = super().reset(*args, **kwargs)
-        self.current_observations.clear()
-        self.current_actions.clear()
-        self.current_rewards.clear()
-        self.current_observations.append(observation)
+        self._clear_ep_data()
+        self.ep_observations.append(observation)
+        return observation
+
 
     def step(self, action):
-        '''Steps through the environment, recording the episode data.'''
+        '''Steps through the environment, accumulating the episode data.'''
         observation, reward, done, info = super().step(action)
 
-        # append to current data
-        self.current_observations.append(observation)
-        self.current_actions.append(action)
-        self.current_rewards.append(reward)
+        # accumulate data
+        self.ep_observations.append(observation)
+        self.ep_actions.append(action)
+        self.ep_rewards.append(reward)
+        self.ep_cum_reward += reward
+        self.ep_length += 1
 
         # if episode is done, save the current data to history
         if done:
-            o = self.current_observations
-            a = self.current_actions
-            r = self.current_rewards
+            # stack as numpy
+            o = self.ep_observations
+            a = self.ep_actions
+            r = self.ep_rewards
             if self.as_numpy:
                 o = np.stack(o, axis=-1)
                 a = np.stack(a, axis=-1)
                 r = np.stack(r, axis=-1)
-            self.observations_history.append(o)
-            self.actions_history.append(a)
-            self.rewards_history.append(r)
+
+            # append data
+            self.observations.append(o)
+            self.actions.append(a)
+            self.rewards.append(r)
+            self.cum_rewards.append(self.ep_cum_reward)
+            self.episode_lengths.append(self.ep_length)
+            self.exec_times.append(round(time.perf_counter() - self.t0, 6))
+
+            # clear this episode's data
+            self._clear_ep_data()
+
         return observation, reward, done, info
 
-
+    def _clear_ep_data(self) -> None:
+        self.ep_observations.clear()
+        self.ep_actions.clear()
+        self.ep_rewards.clear()
+        self.ep_cum_reward = 0
+        self.ep_length = 0
+        self.t0 = time.perf_counter()

@@ -10,7 +10,7 @@ from itertools import product
 def plot_trajectory_3d(env: RecordData, traj_num: int) -> None:
     '''Plots the i-th trajecetory of the recorded data in 3D.'''
     x0, xf = env.config.x0, env.config.xf
-    data = env.observations_history[traj_num]
+    data = env.observations[traj_num]
 
     # prepare stuff for plotting
     labels = {0: 'Pos: x [$m$]', 1: 'Pos: y [$m$]', 2: 'Altitude [$m$]',
@@ -78,8 +78,6 @@ def plot_trajectory_3d(env: RecordData, traj_num: int) -> None:
                 min(data[ind].min(), env.config.x_bounds[ind, 0], lim[0]),
                 max(data[ind].max(), env.config.x_bounds[ind, 1], lim[1])
             )
-
-    fig.subplots_adjust(wspace=0.3, hspace=0.3)
     plt.show(block=False)
 
 
@@ -88,8 +86,9 @@ def plot_trajectory_in_time(env: RecordData, traj_num: int) -> None:
 
     # prepare for plotting
     xf = env.config.xf
-    X = env.observations_history[traj_num]
-    U = env.actions_history[traj_num]
+    X = env.observations[traj_num]
+    U = env.actions[traj_num]
+    R = env.rewards[traj_num]
     t = np.arange(X.shape[1]) * env.config.T  # time
     error = np.linalg.norm(X - xf.reshape(-1, 1), axis=0)
     items = [
@@ -100,7 +99,7 @@ def plot_trajectory_in_time(env: RecordData, traj_num: int) -> None:
         [U[:2].T, ('desired pitch', 'desired roll'), 'Angle [$rad$]', None],
         [U[-1].T, ('desired z acc.',), 'Acceleration [$m/s^2$]', None],
         [error, None, 'Error', env.config.tol],
-        [env.rewards_history[traj_num], None, 'Reward', None],
+        [R, None, 'Reward', None],
     ]
 
     # create figure and grid
