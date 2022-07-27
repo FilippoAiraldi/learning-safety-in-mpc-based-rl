@@ -16,8 +16,7 @@ def plot_trajectory_3d(env: RecordData, traj_num: int) -> None:
     labels = {0: 'Pos: x [$m$]', 1: 'Pos: y [$m$]', 2: 'Altitude [$m$]',
               6: 'Pitch [$rad$]', 7: 'Roll [$rad$]'}
     linecollection_kwargs = {'cmap': 'coolwarm', 'norm': plt.Normalize(0, 100)}
-    patch_kwargs = {
-        'facecolor': 'k', 'alpha': 0.1, 'edgecolor': 'k', 'linewidth': 2}
+    patch_kwargs = {'alpha': 0.1, 'edgecolor': 'k', 'linewidth': 2}
 
     # plot
     fig = plt.figure(constrained_layout=True)
