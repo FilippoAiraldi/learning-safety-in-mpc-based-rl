@@ -91,15 +91,17 @@ class QuadRotorMPC(GenericMPC):
         backoff = self.add_par('backoff', 1, 1)  # constraint backoff parameter
         m = env.config.x_bounds[:, 0, None]
         M = env.config.x_bounds[:, 1, None]
-        m[m == -np.inf] = -1e9 # cannot put inf in g expression
-        M[M == np.inf] = 1e9
+        m_noinf = np.where(np.isinf(m), -1e9, m) # cannot put inf in g expr
+        M_noinf = np.where(np.isinf(M), 1e9, M) 
         for k in range(1, config.Np + 1):
             # soft-backedoff minimum constraint: (1+back)*m - slack <= x
-            self.add_con(f'state_min_{k}',
-                         x[:, k] + slack[:, k - 1] - backoff * m, m, np.inf)
+            self.add_con(
+                f'state_min_{k}',
+                x[:, k] + slack[:, k - 1] - backoff * m_noinf, m, np.inf)
             # soft-backedoff maximum constraint: x <= (1-back)*M + slack
-            self.add_con(f'state_max_{k}',
-                         x[:, k] - slack[:, k - 1] + backoff * M, -np.inf, M)
+            self.add_con(
+                f'state_max_{k}',
+                x[:, k] - slack[:, k - 1] + backoff * M_noinf, -np.inf, M)
 
         # initial cost
         J = 0  # (no initial state cost not required since it is not economic)
