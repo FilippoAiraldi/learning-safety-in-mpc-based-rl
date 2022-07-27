@@ -4,6 +4,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 from datetime import datetime
 import pickle
+from cycler import cycler
 
 
 def quad_form(A: cs.SX | cs.DM, x: cs.SX | cs.DM) -> cs.SX | cs.DM:
@@ -41,6 +42,10 @@ def set_np_mpl_defaults() -> None:
 
     # matplotlib defaults
     mpl.style.use('seaborn-darkgrid')
+    mpl.rcParams['axes.prop_cycle'] = cycler(
+        'color',
+        ['#0072BD', '#D95319', '#EDB120', '#7E2F8E', '#77AC30', '#A2142F'])
+    mpl.rcParams['lines.linewidth'] = 1
     # ax.spines['top'].set_visible(False)
     # ax.spines['right'].set_visible(False)
     # ax.tick_params(which='both', direction='in')

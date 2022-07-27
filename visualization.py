@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 
 
 if __name__ == '__main__':
+    util.set_np_mpl_defaults()
+
     # parse arguments
     parser = argparse.ArgumentParser(description='Visualization script')
     parser.add_argument('-fn', '--filename', type=str, required=True, 

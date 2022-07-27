@@ -65,9 +65,10 @@ def plot_trajectory_3d(env: RecordData, traj_num: int) -> None:
             ax.plot(*xf[inds], marker='x', color='k')
 
             # plot state constraints
-            ax.add_patch(plt.Rectangle(env.config.x_bounds[inds, 0],
-                                       *np.diff(env.config.x_bounds[inds, :]),
-                                       **patch_kwargs))
+            ax.add_patch(plt.Rectangle(
+                env.config.x_bounds[inds, 0],
+                *np.diff(env.config.x_bounds[inds, :]).flatten(),
+                **patch_kwargs))
 
         # add labels and impose limits
         for axisname, ind in zip(('x', 'y', 'z'), inds):
@@ -85,20 +86,21 @@ def plot_trajectory_in_time(env: RecordData, traj_num: int) -> None:
 
     # prepare for plotting
     xf = env.config.xf
+    x_bnd, u_bnd = env.config.x_bounds, env.config.u_bounds
     X = env.observations[traj_num]
     U = env.actions[traj_num]
     R = env.rewards[traj_num]
     t = np.arange(X.shape[1]) * env.config.T  # time
     error = np.linalg.norm(X - xf.reshape(-1, 1), axis=0)
     items = [
-        [X[:3].T, ('x', 'y', 'z'), 'Position [$m$]', xf[:3]],
-        [X[3:6].T, ('x', 'y', 'z'), 'Speed [$m/s$]', xf[3:6]],
-        [X[6:8].T, ('pitch', 'roll'), 'Angle [$rad$]', xf[6:8]],
-        [X[8:].T, ('pitch', 'roll'), 'Angular Speed [$rad/s$]', xf[8:]],
-        [U[:2].T, ('desired pitch', 'desired roll'), 'Angle [$rad$]', None],
-        [U[-1].T, ('desired z acc.',), 'Acceleration [$m/s^2$]', None],
-        [error, None, 'Error', env.config.tol],
-        [R, None, 'Reward', None],
+        [X[:3].T, ('x', 'y', 'z'), 'Position [$m$]', xf[:3], x_bnd[:3]],
+        [X[3:6].T, ('x', 'y', 'z'), 'Speed [$m/s$]', xf[3:6], x_bnd[3:6]],
+        [X[6:8].T, ('pitch', 'roll'), 'Angle [$rad$]', xf[6:8], x_bnd[6:8]],
+        [X[8:].T, ('pitch', 'roll'), 'Angular Speed [$rad/s$]', xf[8:], x_bnd[8:]],
+        [U[:2].T, ('desired pitch', 'desired roll'), 'Angle [$rad$]', None, u_bnd[:2]],
+        [U[-1].T, ('desired z acc.',), 'Acceleration [$m/s^2$]', None, u_bnd[-1]],
+        [error, None, 'Termination error', None, env.config.tol],
+        [R, None, 'Reward', None, None],
     ]
 
     # create figure and grid
@@ -107,7 +109,7 @@ def plot_trajectory_in_time(env: RecordData, traj_num: int) -> None:
 
     # do plot
     ax = None
-    for i, (x, lgds, ylbl, asymptot) in enumerate(items):
+    for i, (x, lgds, ylbl, asymptot, bnds) in enumerate(items):
         # create axis
         ax = fig.add_subplot(G[np.unravel_index(i, (G.nrows, G.ncols))],
                              sharex=ax)
@@ -116,8 +118,11 @@ def plot_trajectory_in_time(env: RecordData, traj_num: int) -> None:
         L = x.shape[0]
         lines = ax.plot(t[:L], x)
         if asymptot is not None:
-            ax.hlines(asymptot, xmin=t[0], xmax=t[L - 1], linestyles='dashed',
-                      colors=[l.get_color() for l in lines], linewidths=0.8)
+            ax.hlines(asymptot, xmin=t[0], xmax=t[L - 1], linestyles='dotted',
+                      colors=[l.get_color() for l in lines], linewidths=0.7)
+        if bnds is not None:
+            ax.hlines(bnds, xmin=t[0], xmax=t[L - 1], linestyles='dashed',
+                      colors='k', linewidths=0.7)
 
         # embellish
         if lgds is not None:
