@@ -203,7 +203,8 @@ class GenericMPC:
         self.opts = opts
 
     def solve(
-        self, pars: dict[str, _np.ndarray], vals0: dict[str, _np.ndarray]
+        self, pars: dict[str, _np.ndarray], 
+        vals0: dict[str, _np.ndarray] = None
     ) -> Solution:
         '''
         Solves the MPC optimization problem.
@@ -213,7 +214,7 @@ class GenericMPC:
         pars : dict[str, array_like]
             Dictionary containing, for each parameter in the problem, the 
             corresponding numerical value.
-        vals0 : dict[str, array_like]
+        vals0 : dict[str, array_like], optional
             Dictionary containing, for each variable in the problem, the 
             corresponding initial guess.
 
@@ -226,12 +227,17 @@ class GenericMPC:
 
         # convert to nlp format and solve
         p = subsevalf(self.p, self.pars, pars)
-        x0 = _np.clip(subsevalf(self.x, self.vars, vals0), self.lbx, self.ubx)
-        sol: dict[str, cs.DM] = self.solver(
-            x0=x0,
-            p=p,
-            lbx=self.lbx, ubx=self.ubx,
-            lbg=self.lbg, ubg=self.ubg)
+        kwargs = {
+            'p': p,
+            'lbx': self.lbx,
+            'ubx': self.ubx,
+            'lbg': self.lbg,
+            'ubg': self.ubg,
+        }
+        if vals0 is not None:
+            kwargs['x0'] = _np.clip(
+                subsevalf(self.x, self.vars, vals0), self.lbx, self.ubx)
+        sol: dict[str, cs.DM] = self.solver(**kwargs)
 
         # get return status
         status = self.solver.stats()['return_status']
