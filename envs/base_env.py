@@ -46,10 +46,10 @@ class BaseEnv(gym.Env, ABC):
                     max_episode_steps=max_episode_steps))
         )
 
-    def __str__(self):
+    def __str__(self) -> str:
         '''Returns the wrapper name and the unwrapped environment string.'''
         return f'<{type(self).__name__}>'
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         '''Returns the string representation of the wrapper.'''
         return str(self)

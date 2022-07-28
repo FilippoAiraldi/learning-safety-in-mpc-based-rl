@@ -2,7 +2,7 @@ import numpy as np
 from collections import deque
 from itertools import chain
 from gym.utils.seeding import np_random
-from typing import Iterable
+from typing import Iterable, Any
 
 
 class ReplayMemory(deque):
@@ -33,7 +33,11 @@ class ReplayMemory(deque):
         super().__init__(*args, maxlen=maxlen)
         self.np_random, _ = np_random(seed)
 
-    def sample(self, n: int | float, include_last_n: int | float) -> Iterable:
+    def sample(
+        self,
+        n: int | float,
+        include_last_n: int | float
+    ) -> Iterable[Any]:
         '''
         Samples the memory and yields the sampled elements.
 

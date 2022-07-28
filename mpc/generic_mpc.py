@@ -252,7 +252,7 @@ class GenericMPC:
         return Solution(f=float(sol['f']), vals=vals, msg=status,
                         success=success, _get_value=get_value)
 
-    def __str__(self):
+    def __str__(self) -> str:
         '''Returns the MPC name and a short description.'''
         msg = 'not initialized' if self.solver is None else 'initialized'
         return f'{type(self).__name__} {{\n' \
@@ -262,7 +262,7 @@ class GenericMPC:
                f'  #constraints: {len(self.cons)} (ng = {self.ng})\n' \
                f'  CasADi solver {msg}.\n}}'
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         '''Returns the string representation of the MPC instance.'''
         return str(self)
 
