@@ -77,8 +77,7 @@ class RLParameterCollection(Sequence[RLParameter]):
             return {name: p.bounds for name, p in self.items()}
         return np.row_stack([p.bounds for p in self._list])
 
-    def symV(
-            self, as_dict: bool = False) -> np.ndarray | dict[str, np.ndarray]:
+    def symV(self, as_dict: bool = False) -> cs.SX | dict[str, cs.SX]:
         '''Returns the symbols of the parameters in the collection concatenated
         into a single array, by default. Otherwise, if as_dict is True, a dict
         with each symbolical V variable is returned.'''
@@ -86,8 +85,7 @@ class RLParameterCollection(Sequence[RLParameter]):
             return {name: p.symV for name, p in self.items()}
         return cs.vertcat(*(p.symV for p in self._list))
 
-    def symQ(
-            self, as_dict: bool = False) -> np.ndarray | dict[str, np.ndarray]:
+    def symQ(self, as_dict: bool = False) -> cs.SX | dict[str, cs.SX]:
         '''Returns the symbols of the parameters in the collection concatenated
         into a single array, by default. Otherwise, if as_dict is True, a dict
         with each symbolical Q variable is returned.'''
