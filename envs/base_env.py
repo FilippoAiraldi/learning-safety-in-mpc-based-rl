@@ -34,17 +34,14 @@ class BaseEnv(gym.Env, ABC):
         # wrap the environment. The last wrapper is the first to be executed,
         # so put the data-recording close to the env, after possible
         # modifications by outer wrappers
-        return (
-            OrderEnforcing(
-                TimeLimit(
-                    ClipActionIfClose(
-                        RecordData(
-                            cls(*env_args, **env_kwargs),
-                            deque_size=deque_size
-                        )
-                    ),
-                    max_episode_steps=max_episode_steps))
-        )
+        # NOTE: RecordData must be done after ClipActionIfClose. TimeLimit must
+        # be done after RecordData
+        env = cls(*env_args, **env_kwargs)
+        env = TimeLimit(env, max_episode_steps=max_episode_steps)
+        env = RecordData(env, deque_size=deque_size)
+        env = ClipActionIfClose(env)
+        env = OrderEnforcing(env)
+        return env
 
     def __str__(self) -> str:
         '''Returns the wrapper name and the unwrapped environment string.'''
