@@ -139,8 +139,8 @@ class GenericMPC:
         var = cs.SX.sym(name, *dims)
         self.vars[name] = var
         self.x = cs.vertcat(self.x, cs.vec(var))
-        self.lbx = _np.hstack((self.lbx, cs.vec(lb).full().flatten()))
-        self.ubx = _np.hstack((self.ubx, cs.vec(ub).full().flatten()))
+        self.lbx = _np.concatenate((self.lbx, cs.vec(lb).full().flatten()))
+        self.ubx = _np.concatenate((self.ubx, cs.vec(ub).full().flatten()))
         self.debug._register('x', name, dims)
 
         # create also the multiplier associated to the variable
@@ -178,8 +178,8 @@ class GenericMPC:
 
         self.cons[name] = g
         self.g = cs.vertcat(self.g, cs.vec(g))
-        self.lbg = _np.hstack((self.lbg, cs.vec(lb).full().flatten()))
-        self.ubg = _np.hstack((self.ubg, cs.vec(ub).full().flatten()))
+        self.lbg = _np.concatenate((self.lbg, cs.vec(lb).full().flatten()))
+        self.ubg = _np.concatenate((self.ubg, cs.vec(ub).full().flatten()))
         self.debug._register('g', name, dims)
 
         # save indices of this constraint to either eq. or ineq. set
