@@ -4,6 +4,7 @@ import numpy as np
 from mpc import QuadRotorMPC, QuadRotorMPCConfig, Solution
 from envs import QuadRotorEnv
 from agents import RLParameter, RLParameterCollection
+from gym.utils.seeding import np_random
 
 
 class QuadRotorBaseAgent(ABC):
@@ -18,7 +19,9 @@ class QuadRotorBaseAgent(ABC):
         env: QuadRotorEnv,
         agentname: str = None,
         init_pars: dict[str, np.ndarray] = None,
+        fixed_pars: dict[str, np.ndarray] = None,
         mpc_config: dict | QuadRotorMPCConfig = None,
+        seed: int = None
     ) -> None:
         '''
         Instantiates an agent.
@@ -32,30 +35,37 @@ class QuadRotorBaseAgent(ABC):
         init_pars : dict[str, np.ndarray]
             A dictionary containing for each RL parameter the corresponding 
             initial value.
+        fixed_pars : dict[str, np.ndarray]
+            A dictionary containing MPC parameters that are fixed.
         mpc_config : dict, QuadRotorMPCConfig
             A set of parameters for the agent's MPC. If not given, the default 
             ones are used.
+        seed : int, optional
+            Seed for the random number generator.
         '''
         super().__init__()
         self.id = next(self._ids)
         self.name = f'Agent{self.id}' if agentname is None else agentname
+
+        # save
         self.env = env
+        self.fixed_pars = {} if fixed_pars is None else fixed_pars
+        self.np_random, _ = np_random(seed)
+        self.perturbation_strength = 0.1
+        self.last_solution: Solution = None
 
         # initialize MPCs
         self.Q = QuadRotorMPC(env, config=mpc_config, type='Q')
         self.V = QuadRotorMPC(env, config=mpc_config, type='V')
-        self.last_solution: Solution = None
 
         # initialize learnable weights/parameters
-        self._init_weights(init_pars=init_pars)
+        self.init_mpc_parameters(init_pars=init_pars)
 
     def solve_mpc(
         self,
         type: str,
         state: np.ndarray = None,
-        rlpars: RLParameterCollection | dict[str, np.ndarray] = None,
         sol0: Solution = None,
-        other_pars: dict[str, np.ndarray] = None
     ) -> tuple[np.ndarray, Solution]:
         '''
         Solves the MPC optimization problem embedded in the agent.
@@ -67,20 +77,10 @@ class QuadRotorBaseAgent(ABC):
         state : array_like, optional
             Environment's state for which to solve the MPC problem. If not 
             given, the current state of the environment is used.
-        rlpars : RLParameterCollection or dict[str, array_like], optional
-            Agent's RL parameter values. if not given, the latest agent's 
-            weights are used.
         sol0 : Solution
             Last numerical solution of the MPC used to warmstart. If not given,
             a heuristic is used.
-        other_pars : dict[str, array_like], optional
-            Other parameters to pass to the MPC that were not included in the 
-            RL parameters (e.g., fixed parameters).
         '''
-        # if not provided, use the agent's latest weights
-        if rlpars is None:
-            rlpars = self.weights.values(as_dict=True)
-
         # if the state which to solve the MPC for is not provided, use current
         if state is None:
             state = self.env.x
@@ -100,9 +100,8 @@ class QuadRotorBaseAgent(ABC):
                 sol0 = self.last_solution.vals
 
         # merge all parameters in a single dict
-        if other_pars is None:
-            other_pars = {}
-        pars = rlpars | other_pars | {'x0': state}
+        pars = (self.weights.values(as_dict=True) |
+                self.fixed_pars | {'x0': state})
 
         # call the MPC
         mpc: QuadRotorMPC = getattr(self, type)
@@ -112,7 +111,75 @@ class QuadRotorBaseAgent(ABC):
         u_opt = self.last_solution.vals['u'][:, 0]
         return u_opt, self.last_solution
 
-    def _init_weights(self, init_pars: dict[str, np.ndarray] = None) -> None:
+    def predict(
+        self,
+        state: np.ndarray = None,
+        deterministic: bool = True,
+        perturb_gradient: bool = False,
+        **solve_mpc_kwargs
+    ) -> tuple[np.ndarray, np.ndarray, Solution]:
+        '''
+        Computes the optimal action for the given state by solving the MPC 
+        scheme V and predicts the next state.
+
+        Parameters
+        ----------
+        state : array_like, optional
+            Environment's state for which to solve the MPC problem V. 
+        deterministic : bool, optional
+            Whether the computed optimal action should be modified by some 
+            noise (either summed or in the objective gradient).
+        perturb_gradient : bool, optional
+            Whether to perturb the MPC objective's gradient (if 'perturbation'
+            parameter is present), or to directly perturb the optimal action.
+            By default, the latter occurs.
+        solve_mpc_kwargs
+            See BaseMPCAgent.solve_mpc.
+
+        Returns
+        -------
+        u_opt : np.ndarray
+            The optimal action to take in the current state.
+        next_state : np.ndarray
+            The predicted next state of the environment.
+        solution : Solution
+            Solution object containing some information on the solution.
+        '''
+        if deterministic:
+            # just solve the V scheme without noise
+            u, sol = self.solve_mpc(type='V', state=state, **solve_mpc_kwargs)
+        else:
+            # set std to a % of the action range
+            u_bnd = self.env.config.u_bounds
+            rng = self.np_random.normal(
+                scale=self.perturbation_strength * np.diff(u_bnd).flatten(),
+                size=self.V.vars['u'].shape[0])
+
+            # if there is the parameter to do so, perturb gradient
+            perturb_gradient &= 'perturbation' in self.fixed_pars
+            if perturb_gradient:
+                self.fixed_pars['perturbation'] = rng
+
+            u, sol = self.solve_mpc(type='V', state=state, **solve_mpc_kwargs)
+
+            # otherwise, directly perturb the action
+            if not perturb_gradient:
+                u = np.clip(u + rng, u_bnd[:, 0], u_bnd[:, 1])
+
+        x_next = sol.value(self.V.vars['x'][:, 1])
+        return u, x_next, sol
+
+    def init_mpc_parameters(
+            self, init_pars: dict[str, np.ndarray] = None) -> None:
+        '''
+        Initializes the learnable parameters of the MPC.
+
+        Parameters
+        ----------
+        init_pars : dict[str, array_like]
+            A dict containing, for each learnable parameter in the MPC scheme, 
+            its initial value.
+        '''
         # learnable parameters are:
         #   - model pars: 'thrust_coeff', 'pitch_d', 'pitch_dd', 'pitch_gain',
         #                 'roll_d', 'roll_dd', 'roll_gain'
@@ -149,6 +216,14 @@ class QuadRotorBaseAgent(ABC):
                         self.V.pars[name], self.Q.pars[name])
             for name, bnd in names_and_bnds
         )
+
+    # @abstractmethod
+    # def update(self) -> None:
+    #     pass
+
+    # @abstractmethod
+    # def save_transition(self) -> None:
+    #     pass
 
     def __str__(self) -> str:
         '''Returns the agent name.'''
