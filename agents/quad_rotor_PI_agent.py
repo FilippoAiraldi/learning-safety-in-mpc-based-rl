@@ -40,5 +40,8 @@ class QuadRotorPIAgent(QuadRotorBaseAgent):
         for name, val in names_and_vals:
             init_pars[name] = val
 
+        # set no random perturbation for this agent
+        kwargs['fixed_pars'] = {'perturbation': 0}
+
         # initialize class
         super().__init__(*args, **kwargs)
