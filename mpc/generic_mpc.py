@@ -3,6 +3,7 @@ import numpy as _np
 from itertools import count
 from functools import partial
 from dataclasses import dataclass
+from mpc.mpc_debug import MPCDebug
 
 
 # NOTE: np.flatten and cs.vec operate on row- and column-wise, respectively!
@@ -56,6 +57,7 @@ class GenericMPC:
 
         # others
         self.failures = 0
+        self.debug = MPCDebug()
 
     @property
     def nx(self) -> int:
@@ -132,18 +134,19 @@ class GenericMPC:
         '''
         assert name not in self.vars, f'Variable {name} already exists.'
         lb, ub = _np.broadcast_to(lb, dims), _np.broadcast_to(ub, dims)
-        assert _np.all(lb <= ub), 'Improper variable bounds.'
+        assert _np.all(lb < ub), 'Improper variable bounds.'
 
         var = cs.SX.sym(name, *dims)
         self.vars[name] = var
         self.x = cs.vertcat(self.x, cs.vec(var))
         self.lbx = _np.hstack((self.lbx, cs.vec(lb).full().flatten()))
         self.ubx = _np.hstack((self.ubx, cs.vec(ub).full().flatten()))
+        self.debug._register('x', name, dims)
 
         # create also the multiplier associated to the variable
         lam_lb = cs.SX.sym(f'lam_lb_{name}', *dims)
         self.lam_lbx = cs.vertcat(self.lam_lbx, cs.vec(lam_lb))
-        lam_ub = cs.SX.sym(f'lam_ub{name}', *dims)
+        lam_ub = cs.SX.sym(f'lam_ub_{name}', *dims)
         self.lam_ubx = cs.vertcat(self.lam_ubx, cs.vec(lam_ub))
         return var, lam_lb, lam_ub
 
@@ -177,6 +180,7 @@ class GenericMPC:
         self.g = cs.vertcat(self.g, cs.vec(g))
         self.lbg = _np.hstack((self.lbg, cs.vec(lb).full().flatten()))
         self.ubg = _np.hstack((self.ubg, cs.vec(ub).full().flatten()))
+        self.debug._register('g', name, dims)
 
         # save indices of this constraint to either eq. or ineq. set
         ng, L = self.ng, g.numel()
