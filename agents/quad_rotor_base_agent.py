@@ -145,30 +145,41 @@ class QuadRotorBaseAgent(ABC):
         if init_pars is None:
             init_pars = {}
 
-        # create bounds
-        bounds = {}
+        # create initial values (nan if not provided), bounds and references to
+        # symbols
+        values, bounds, symQ, symV = {}, {}, {}, {}
         names_and_bnds = [
-            [('g', 'thrust_coeff', 'pitch_d', 'pitch_dd', 'pitch_gain',
-              'roll_d', 'roll_dd', 'roll_gain'), (1e-1, np.inf)],
-            [('w_L', 'w_V', 'w_s', 'w_s_f'), (1e-3, np.inf)],
-            [('xf',), (-np.inf, np.inf)],
-            [('backoff',), (0, np.inf)]
+            # model
+            ('g', (1e-1, np.inf)),
+            ('thrust_coeffg', (1e-1, np.inf)),
+            ('pitch_d', (1e-1, np.inf)),
+            ('pitch_dd', (1e-1, np.inf)),
+            ('pitch_gain', (1e-1, np.inf)),
+            ('roll_d', (1e-1, np.inf)),
+            ('roll_dd', (1e-1, np.inf)),
+            ('roll_gain', (1e-1, np.inf)),
+            # cost 
+            ('w_L', (1e-3, np.inf)),
+            ('w_V', (1e-3, np.inf)),
+            ('w_s', (1e-3, np.inf)),
+            ('w_s_f', (1e-3, np.inf)),
+            ('xf', (1e-3, np.inf)),
+            # others
+            ('backoff', (0, np.inf))
         ]
-        for names, bnd in names_and_bnds:
-            for name in names:
-                p = self.Q.pars[name]
-                assert p.is_column(), \
+        for name, bnd in names_and_bnds:
+            parQ, parV = self.Q.pars[name], self.V.pars[name]
+            assert parQ.shape == parV.shape, \
+                'Found same parameter with different shapes in Q and V.'
+            assert parQ.is_column() and parV.is_column(), \
                     f'Invalid parameter {name} shape; must be a column vector.'
-                bounds[name] = np.broadcast_to(bnd, (p.shape[0], 2))
+            bounds[name] = np.broadcast_to(bnd, (parQ.shape[0], 2))
+            values[name] = np.broadcast_to(init_pars.get(name, np.nan), 
+                                           parQ.shape[0])            
+            symQ[name] = parQ
+            symV[name] = parV
 
-        # create initial values (nan if not provided) and references to symbols
-        values, symQ, symV = {}, {}, {}
-        for name in bounds:
-            symQ[name] = self.Q.pars[name]
-            symV[name] = self.V.pars[name]
-            values[name] = np.broadcast_to(
-                init_pars.get(name, np.nan), symV[name].shape[0])
-
+        # save to dictionary
         self.weights = {
             'bound': bounds,
             'value': values,
