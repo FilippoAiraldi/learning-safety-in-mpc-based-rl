@@ -1,9 +1,9 @@
 from abc import ABC
 from itertools import count
 import numpy as np
-import casadi as cs
 from mpc import QuadRotorMPC, QuadRotorMPCConfig, Solution
 from envs import QuadRotorEnv
+from agents import RLParameter, RLParameterCollection
 
 
 class QuadRotorBaseAgent(ABC):
@@ -49,26 +49,11 @@ class QuadRotorBaseAgent(ABC):
         # initialize learnable weights/parameters
         self._init_weights(init_pars=init_pars)
 
-    @property
-    def w(self) -> np.ndarray:
-        '''Gets the numerical weights in vector form.'''
-        return np.hstack(list(self.weights['value'].values()))
-
-    @property
-    def bound(self) -> np.ndarray:
-        '''Gets the numerical bounds for the weights in matrix form.'''
-        return np.vstack(list(self.weights['bound'].values()))
-
-    def w_sym(self, type: str) -> cs.SX:
-        '''Gets the symbolical weights in vector form for either Q or V.'''
-        n = 'symQ' if type == 'Q' else 'symV'
-        return cs.vertcat(*self.weights[n].values())
-
     def solve_mpc(
         self,
         type: str,
         state: np.ndarray = None,
-        rlpars: dict[str, np.ndarray] = None,
+        rlpars: RLParameterCollection | dict[str, np.ndarray] = None,
         sol0: Solution = None,
         other_pars: dict[str, np.ndarray] = None
     ) -> tuple[np.ndarray, Solution]:
@@ -82,7 +67,7 @@ class QuadRotorBaseAgent(ABC):
         state : array_like, optional
             Environment's state for which to solve the MPC problem. If not 
             given, the current state of the environment is used.
-        rlpars : dict[str, array_like], optional
+        rlpars : RLParameterCollection or dict[str, array_like], optional
             Agent's RL parameter values. if not given, the latest agent's 
             weights are used.
         sol0 : Solution
@@ -94,7 +79,7 @@ class QuadRotorBaseAgent(ABC):
         '''
         # if not provided, use the agent's latest weights
         if rlpars is None:
-            rlpars = self.weights['value']
+            rlpars = self.weights.values(as_dict=True)
 
         # if the state which to solve the MPC for is not provided, use current
         if state is None:
@@ -140,7 +125,6 @@ class QuadRotorBaseAgent(ABC):
 
         # create initial values (nan if not provided), bounds and references to
         # symbols
-        values, bounds, symQ, symV = {}, {}, {}, {}
         names_and_bnds = [
             # model
             ('g', (1e-1, np.inf)),
@@ -151,39 +135,25 @@ class QuadRotorBaseAgent(ABC):
             ('roll_d', (1e-1, np.inf)),
             ('roll_dd', (1e-1, np.inf)),
             ('roll_gain', (1e-1, np.inf)),
-            # cost 
+            # cost
             ('w_L', (1e-3, np.inf)),
             ('w_V', (1e-3, np.inf)),
             ('w_s', (1e-3, np.inf)),
             ('w_s_f', (1e-3, np.inf)),
-            ('xf', (1e-3, np.inf)),
+            ('xf', (-np.inf, np.inf)),
             # others
             ('backoff', (0, np.inf))
         ]
-        for name, bnd in names_and_bnds:
-            parQ, parV = self.Q.pars[name], self.V.pars[name]
-            assert parQ.shape == parV.shape, \
-                'Found same parameter with different shapes in Q and V.'
-            assert parQ.is_column() and parV.is_column(), \
-                    f'Invalid parameter {name} shape; must be a column vector.'
-            bounds[name] = np.broadcast_to(bnd, (parQ.shape[0], 2))
-            values[name] = np.broadcast_to(init_pars.get(name, np.nan), 
-                                           parQ.shape[0])            
-            symQ[name] = parQ
-            symV[name] = parV
+        self.weights = RLParameterCollection(
+            RLParameter(name, init_pars.get(name, np.nan), bnd,
+                        self.V.pars[name], self.Q.pars[name])
+            for name, bnd in names_and_bnds
+        )
 
-        # save to dictionary
-        self.weights = {
-            'bound': bounds,
-            'value': values,
-            'symQ': symQ,
-            'symV': symV
-        }
-
-    def __str__(self):
+    def __str__(self) -> str:
         '''Returns the agent name.'''
         return f'<{type(self).__name__}: {self.name}>'
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         '''Returns the string representation of the Agent.'''
         return str(self)

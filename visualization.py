@@ -9,11 +9,11 @@ if __name__ == '__main__':
 
     # parse arguments
     parser = argparse.ArgumentParser(description='Visualization script')
-    parser.add_argument('-fn', '--filename', type=str, default=None, 
+    parser.add_argument('-fn', '--filename', type=str, default=None,
                         help='The pickle data to be visualized')
     args = parser.parse_args()
     if args.filename is None:
-        args.filename = 'R_20220727_135250.pkl'
+        args.filename = 'R_20220728_174042.pkl'
 
     # load data
     data = util.load_results(args.filename)
@@ -21,6 +21,5 @@ if __name__ == '__main__':
 
     # plot
     util.plot.plot_trajectory_3d(env, 0)
-    # util.plot.plot_trajectory_in_time(env, 0)
+    util.plot.plot_trajectory_in_time(env, 0)
     plt.show()
-
