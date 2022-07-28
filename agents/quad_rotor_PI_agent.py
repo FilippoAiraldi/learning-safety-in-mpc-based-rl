@@ -1,34 +1,39 @@
-import numpy as np
 from agents.quad_rotor_base_agent import QuadRotorBaseAgent
 
 
 class QuadRotorPIAgent(QuadRotorBaseAgent):
-    '''Quad rotor agent with perfect information available.'''
+    '''Quad rotor agent with Perfect Information available.'''
 
     def __init__(self, *args, **kwargs) -> None:
         '''
-        Initializes a perfect-information agent for the quad rotor env.
+        Initializes a Perfect-Information agent for the quad rotor env.
 
         Parameters
         ----------
         *args, **kwargs
             See QuadRotorBaseAgent.
         '''
-        # do not instantiate parameters as they will be overwritten
-        kwargs['init_pars'] = None
+        init_pars = {}
+        kwargs['init_pars'] = init_pars
+
+        # get the environment configuration - cannot be None
+        env_config_dict = kwargs['env'].config.__dict__
+
+        # copy model parameters from env config
+        for name in ('thrust_coeff', 'pitch_d', 'pitch_dd', 'pitch_gain',
+                     'roll_d', 'roll_dd', 'roll_gain', 'xf'):
+            init_pars[name] = env_config_dict[name]
+
+        # set others to some arbitrary number - should be tuned
+        names_and_vals = [
+            ('w_L', 1),
+            ('w_V', 1),
+            ('w_s', 100),
+            ('w_s_f', 100),
+            ('backoff', 0.05),
+        ]
+        for name, val in names_and_vals:
+            init_pars[name] = val
+
+        # initialize class
         super().__init__(*args, **kwargs)
-
-        # copy model parameters from env
-        for n in ('thrust_coeff', 'pitch_d', 'pitch_dd', 'pitch_gain',
-                  'roll_d', 'roll_dd', 'roll_gain', 'xf'):
-            self.weights['value'][n] = getattr(self.env.config, n)
-
-        # set cost weights to some number (arbitrary) - to be tuned
-        for n in ('w_L', 'w_V'):
-            self.weights['value'][n] = np.ones_like(self.weights['value'][n])
-        for n in ('w_s', 'w_s_f'):
-            self.weights['value'][n] = \
-                100 * np.ones_like(self.weights['value'][n])
-
-        # others (arbitrary) - to be tuned
-        self.weights['value']['backoff'] = 0.05

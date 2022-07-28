@@ -147,27 +147,27 @@ class QuadRotorBaseAgent(ABC):
 
         # create bounds
         bounds = {}
-        names_and_lb = [
+        names_and_bnds = [
             [('thrust_coeff', 'pitch_d', 'pitch_dd', 'pitch_gain',
-              'roll_d', 'roll_dd', 'roll_gain'), 1e-1],
-            [('w_L', 'w_V', 'w_s', 'w_s_f'), 1e-6],
-            [('xf',), -np.inf],
-            [('backoff',), 0]
+              'roll_d', 'roll_dd', 'roll_gain'), (1e-1, np.inf)],
+            [('w_L', 'w_V', 'w_s', 'w_s_f'), (1e-3, np.inf)],
+            [('xf',), (-np.inf, np.inf)],
+            [('backoff',), (0, np.inf)]
         ]
-        for names, lb in names_and_lb:
+        for names, bnd in names_and_bnds:
             for name in names:
                 p = self.Q.pars[name]
                 assert p.is_column(), \
                     f'Invalid parameter {name} shape; must be a column vector.'
-                bounds[name] = np.broadcast_to([lb, np.inf], (p.shape[0], 2))
+                bounds[name] = np.broadcast_to(bnd, (p.shape[0], 2))
 
-        # create initial values and references to symbols
+        # create initial values (nan if not provided) and references to symbols
         values, symQ, symV = {}, {}, {}
         for name in bounds:
             symQ[name] = self.Q.pars[name]
             symV[name] = self.V.pars[name]
-            values[name] = np.broadcast_to(init_pars.get(name, np.nan),
-                                           symV[name].shape[0])
+            values[name] = np.broadcast_to(
+                init_pars.get(name, np.nan), symV[name].shape[0])
 
         self.weights = {
             'bound': bounds,
