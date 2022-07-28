@@ -29,6 +29,12 @@ def spy(H: cs.SX | cs.DM | np.ndarray, **original_kwargs):
         H = np.array([list(line) for line in
                       out.replace('.', '0').replace('*', '1').splitlines()],
                      dtype=int)
+
+    # plot looks nicer
+    if 'markersize' not in original_kwargs:
+        original_kwargs['markersize'] = 1
+
+    # do plotting
     plt.spy(H, **original_kwargs)
     nz = np.count_nonzero(H)
     plt.xlabel(f'nz = {nz} ({nz / H.size * 100:.2f}%)')
