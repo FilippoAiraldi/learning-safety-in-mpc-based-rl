@@ -123,15 +123,8 @@ class QuadRotorBaseAgent(ABC):
         mpc: QuadRotorMPC = getattr(self, type)
         self.last_solution = mpc.solve(pars, sol0)
 
-        # get the optimal action and overwrite the elements just over to the
-        # bounds due to numerical precision (gym would throw an error)
+        # get the optimal action
         u_opt = self.last_solution.vals['u'][:, 0]
-        lb, ub = self.env.action_space.low, self.env.action_space.high
-        mask = np.bitwise_and(u_opt < lb, np.isclose(u_opt, lb))
-        u_opt[mask] = self.env.action_space.low[mask]
-        mask = np.bitwise_and(u_opt > ub, np.isclose(u_opt, ub))
-        u_opt[mask] = self.env.action_space.high[mask]
-
         return u_opt, self.last_solution
 
     def _init_weights(self, init_pars: dict[str, np.ndarray] = None) -> None:
