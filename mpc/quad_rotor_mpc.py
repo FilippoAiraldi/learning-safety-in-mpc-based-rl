@@ -22,7 +22,8 @@ class QuadRotorMPCConfig:
             'print_level': False, 'max_iter': 1000, 'tol': 1e-9
         }})
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
+        # overwrite Nc if None
         if self.Nc is None:
             self.__dict__['Nc'] = self.Np
 

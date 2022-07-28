@@ -22,7 +22,8 @@ class RecordData(gym.Wrapper):
         as_numpy: bool = True
     ) -> None:
         '''
-        This wrapper will keep track of observations, actions and rewards.
+        This wrapper will keep track of observations, actions and rewards as 
+        well as episode length and execution time.
 
         Parameters
         ----------
@@ -57,7 +58,6 @@ class RecordData(gym.Wrapper):
         self._clear_ep_data()
         self.ep_observations.append(observation)
         return observation
-
 
     def step(self, action):
         '''Steps through the environment, accumulating the episode data.'''

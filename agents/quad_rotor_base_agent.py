@@ -18,7 +18,7 @@ class QuadRotorBaseAgent(ABC):
         env: QuadRotorEnv,
         agentname: str = None,
         init_pars: dict[str, np.ndarray] = None,
-        mpc_pars: dict | QuadRotorMPCConfig = None,
+        mpc_config: dict | QuadRotorMPCConfig = None,
     ) -> None:
         '''
         Instantiates an agent.
@@ -32,7 +32,7 @@ class QuadRotorBaseAgent(ABC):
         init_pars : dict[str, np.ndarray]
             A dictionary containing for each RL parameter the corresponding 
             initial value.
-        mpc_pars : dict, QuadRotorPars
+        mpc_config : dict, QuadRotorMPCConfig
             A set of parameters for the agent's MPC. If not given, the default 
             ones are used.
         '''
@@ -42,8 +42,8 @@ class QuadRotorBaseAgent(ABC):
         self.env = env
 
         # initialize MPCs
-        self.Q = QuadRotorMPC(env, config=mpc_pars, type='Q')
-        self.V = QuadRotorMPC(env, config=mpc_pars, type='V')
+        self.Q = QuadRotorMPC(env, config=mpc_config, type='Q')
+        self.V = QuadRotorMPC(env, config=mpc_config, type='V')
         self.last_solution: Solution = None
 
         # initialize learnable weights/parameters
@@ -151,7 +151,7 @@ class QuadRotorBaseAgent(ABC):
         names_and_bnds = [
             # model
             ('g', (1e-1, np.inf)),
-            ('thrust_coeffg', (1e-1, np.inf)),
+            ('thrust_coeff', (1e-1, np.inf)),
             ('pitch_d', (1e-1, np.inf)),
             ('pitch_dd', (1e-1, np.inf)),
             ('pitch_gain', (1e-1, np.inf)),
