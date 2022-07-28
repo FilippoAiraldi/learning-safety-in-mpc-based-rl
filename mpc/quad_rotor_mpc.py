@@ -71,7 +71,7 @@ class QuadRotorMPC(GenericMPC):
         slack, _, _ = self.add_var('slack', nx, Np, lb=0)
 
         # create model parameters
-        for name in ('thrust_coeff', 'pitch_d', 'pitch_dd', 'pitch_gain',
+        for name in ('g', 'thrust_coeff', 'pitch_d', 'pitch_dd', 'pitch_gain',
                      'roll_d', 'roll_dd', 'roll_gain'):
             self.add_par(name, 1, 1)
 
@@ -133,26 +133,28 @@ class QuadRotorMPC(GenericMPC):
         self.init_solver(config.solver_opts)
 
     def _get_dynamics_matrices(self, env: QuadRotorEnv):
-        T, g = env.config.T, env.config.g  # fixed
-        Ad = cs.diag(cs.vertcat(self.pars['pitch_d'], self.pars['roll_d']))
-        Add = cs.diag(cs.vertcat(self.pars['pitch_dd'], self.pars['roll_dd']))
+        T = env.config.T # NOTE: T is here fixed
+        pars = self.pars
+        Ad = cs.diag(cs.vertcat(pars['pitch_d'], pars['roll_d']))
+        Add = cs.diag(cs.vertcat(pars['pitch_dd'], pars['roll_dd']))
         A = T * cs.vertcat(
             cs.horzcat(np.zeros((3, 3)), np.eye(3), np.zeros((3, 4))),
-            cs.horzcat(np.zeros((2, 6)), np.eye(2) * g, np.zeros((2, 2))),
+            cs.horzcat(
+                np.zeros((2, 6)), np.eye(2) * pars['g'], np.zeros((2, 2))),
             np.zeros((1, 10)),
             cs.horzcat(np.zeros((2, 6)), -Ad, np.eye(2)),
             cs.horzcat(np.zeros((2, 6)), -Add, np.zeros((2, 2)))
         ) + np.eye(10)
         B = T * cs.vertcat(
             np.zeros((5, 3)),
-            cs.horzcat(0, 0, self.pars['thrust_coeff']),
+            cs.horzcat(0, 0, pars['thrust_coeff']),
             np.zeros((2, 3)),
-            cs.horzcat(self.pars['pitch_gain'], 0, 0),
-            cs.horzcat(0, self.pars['roll_gain'], 0)
+            cs.horzcat(pars['pitch_gain'], 0, 0),
+            cs.horzcat(0, pars['roll_gain'], 0)
         )
         e = cs.vertcat(
             np.zeros((5, 1)),
-            - T * g,
+            - T * pars['g'],
             np.zeros((4, 1))
         )
         return A, B, e

@@ -2,7 +2,12 @@ from agents.quad_rotor_base_agent import QuadRotorBaseAgent
 
 
 class QuadRotorPIAgent(QuadRotorBaseAgent):
-    '''Quad rotor agent with Perfect Information available.'''
+    '''
+    Quad rotor agent with Perfect Information available, i.e., the agent is 
+    equipped with the exact values governing the target environment. For this 
+    reason, the PI agent is often the baseline controller. Rather obviously, 
+    this agent does not implement any RL parameter update paradigm. 
+    '''
 
     def __init__(self, *args, **kwargs) -> None:
         '''
@@ -20,7 +25,7 @@ class QuadRotorPIAgent(QuadRotorBaseAgent):
         env_config_dict = kwargs['env'].config.__dict__
 
         # copy model parameters from env config
-        for name in ('thrust_coeff', 'pitch_d', 'pitch_dd', 'pitch_gain',
+        for name in ('g', 'thrust_coeff', 'pitch_d', 'pitch_dd', 'pitch_gain',
                      'roll_d', 'roll_dd', 'roll_gain', 'xf'):
             init_pars[name] = env_config_dict[name]
 

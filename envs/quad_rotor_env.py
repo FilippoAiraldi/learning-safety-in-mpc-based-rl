@@ -13,7 +13,7 @@ class QuadRotorEnvConfig:
     are included, as well as the numerical tolerance.
     '''
     # model parameters
-    T: float = 0.2
+    T: float = 0.2  # NOTE: should T be learnable?
     g: float = 9.81
     thrust_coeff: float = 1.4
     pitch_d: float = 10

@@ -148,7 +148,7 @@ class QuadRotorBaseAgent(ABC):
         # create bounds
         bounds = {}
         names_and_bnds = [
-            [('thrust_coeff', 'pitch_d', 'pitch_dd', 'pitch_gain',
+            [('g', 'thrust_coeff', 'pitch_d', 'pitch_dd', 'pitch_gain',
               'roll_d', 'roll_dd', 'roll_gain'), (1e-1, np.inf)],
             [('w_L', 'w_V', 'w_s', 'w_s_f'), (1e-3, np.inf)],
             [('xf',), (-np.inf, np.inf)],
