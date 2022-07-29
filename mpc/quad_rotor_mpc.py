@@ -70,8 +70,7 @@ class QuadRotorMPC(GenericMPC):
         # within x bounds, get which are redundant (lb=-inf, ub=+inf) and which
         # are not. Create slacks only for non-redundant constraints on x.
         lb, ub = env.config.x_bounds[:, 0], env.config.x_bounds[:, 1]
-        not_redundant = np.bitwise_not(
-            np.bitwise_and(np.isneginf(lb), np.isposinf(ub)))
+        not_redundant = ~(np.isneginf(lb) & np.isposinf(ub))
         not_redundant_idx = np.where(not_redundant)[0]
         lb, ub = lb[not_redundant], ub[not_redundant]
 

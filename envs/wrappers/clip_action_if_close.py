@@ -49,12 +49,7 @@ class ClipActionIfClose(ClipAction):
         '''
         low = self.env.action_space.low
         high = self.env.action_space.high
-        if (np.bitwise_and(
-                action < low, 
-                np.bitwise_not(np.isclose(action, low))
-            ).any() or np.bitwise_and(
-                action > high, 
-                np.bitwise_not(np.isclose(action, high))
-            ).any()):
+        if (((action < low) & ~np.isclose(action, low)).any() or 
+            ((action > high) & ~np.isclose(action, high)).any()):
             raise InvalidAction('Action outside bounds\' numerical check')
         return super().action(action)

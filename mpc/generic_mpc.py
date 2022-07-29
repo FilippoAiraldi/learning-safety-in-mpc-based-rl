@@ -247,9 +247,9 @@ class GenericMPC:
         # warn if any redundant constraints, i.e., lb=-inf, ub=+inf
         lb = cs.vec(lb).full().flatten()
         ub = cs.vec(ub).full().flatten()
-        redundant = _np.bitwise_and(_np.isneginf(lb), _np.isposinf(ub))
+        redundant = _np.isneginf(lb) & _np.isposinf(ub)
         if redundant.any():
-            warnings.warn(f'Found {redundant.sum()} redundant entries in ' \
+            warnings.warn(f'Found {redundant.sum()} redundant entries in '
                           f'constraint \'{name}\'.')
 
         # save to internal structures
