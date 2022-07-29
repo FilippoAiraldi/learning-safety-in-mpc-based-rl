@@ -154,10 +154,12 @@ class QuadRotorBaseAgent(ABC):
         solution : Solution
             Solution object containing some information on the solution.
         '''
+        perturbation_in_dict = 'perturbation' in self.fixed_pars
+        if perturbation_in_dict:
+            self.fixed_pars['perturbation'] = 0
+            
         if deterministic:
             # just solve the V scheme without noise
-            if 'perturbation' in self.fixed_pars:
-                self.fixed_pars['perturbation'] = 0
             u, sol = self.solve_mpc(type='V', state=state, **solve_mpc_kwargs)
         else:
             # set std to a % of the action range
@@ -168,7 +170,7 @@ class QuadRotorBaseAgent(ABC):
 
             # if there is the parameter to do so, perturb gradient
             if perturb_gradient:
-                assert 'perturbation' in self.fixed_pars, \
+                assert perturbation_in_dict, \
                     'No parameter \'perturbation\' found to perturb gradient.'
                 self.fixed_pars['perturbation'] = rng
 
