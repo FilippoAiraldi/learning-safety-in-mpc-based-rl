@@ -8,7 +8,11 @@ MPCType = TypeVar('MPCType', bound=GenericMPC)
 
 
 class DifferentiableMPC(Generic[MPCType]):
-    def __init__(self, mpc: MPCType) -> None:
+    def __init__(
+        self,
+        mpc: MPCType,
+        reduce_redundant_x_bounds: bool = True
+    ) -> None:
         '''
         Wraps an MPC controller to allow computing its symbolic derivatives.
 
@@ -16,26 +20,34 @@ class DifferentiableMPC(Generic[MPCType]):
         ----------
         mpc : GenericMPC or subclasses
             The MPC instance to wrap.
+        reduce_redundant_x_bounds : bool, optional
+            Whether the redundant (i.e., lb=-inf, ub=+inf) on the decision 
+            variables should be removed automatically.
         '''
         self._mpc = mpc
+        self.reduce_redundant_x_bounds = reduce_redundant_x_bounds
 
     @property
     def mpc(self) -> MPCType:
         return self._mpc
 
     @property
-    def non_redundant_x_bound_indices(self) -> np.ndarray:
+    def _non_redundant_x_bound_indices(self) -> np.ndarray:
         '''
         Gets the indices of lbx and ubx which are not redundant, i.e., 
-                idx = { i : not ( lbx[i]=-inf and ubx[i]=+inf ) }.
+                idx = { i : not ( lbx[i]=-inf and ubx[i]=+inf ) },
+        if not disabled. Otherwise, simply returns all the indices
         '''
-        return np.where(
-            (self._mpc.lbx != -np.inf) | (self._mpc.ubx != np.inf))[0]
+        return (
+            np.where((self._mpc.lbx != -np.inf) | (self._mpc.ubx != np.inf))[0]
+            if self.reduce_redundant_x_bounds else
+            np.arange(self._mpc.nx)
+        )
 
     @property
     def lagrangian(self) -> cs.SX:
         '''Lagrangian of the MPC problem.'''
-        idx = self.non_redundant_x_bound_indices
+        idx = self._non_redundant_x_bound_indices
         g_lbx = self._mpc.lbx[idx, None] - self._mpc.x[idx]
         g_ubx = self._mpc.x[idx] - self._mpc.ubx[idx, None]
         return (self._mpc.f +
@@ -44,17 +56,23 @@ class DifferentiableMPC(Generic[MPCType]):
                 cs.dot(self._mpc.lam_ubx[idx], g_ubx))
 
     @property
-    def kkt_matrix(self) -> tuple[cs.SX, cs.SX]:
+    def kkt_conditions(self) -> tuple[cs.SX, cs.SX, cs.SX, cs.SX]:
         '''
-        Gets the KKT matrix defined as 
-                [          dLdw         ]
-            K = [          G_eq         ],
-                [ diag(lam_ineq)*H_ineq ]
-        where w = [x, u, slacks] are the primal decision variables. Also
-        returns the collection y of primal-dual variables defined as
-                [   w    ]
-            y = [ lam_eq ]
-                [lam_ineq].
+        Gets:
+            1) the KKT matrix defined as
+                    [          dLdw         ]
+                K = [          G_eq         ],
+                    [ diag(lam_ineq)*H_ineq ]
+               where w = [x, u, slacks] are the primal decision variables.
+               
+            2) the collection y of primal-dual variables defined as
+                    [   w    ]
+                y = [ lam_eq ]
+                    [lam_ineq].
+
+            3) the equality constraints G_eq
+
+            4) all the inequality constraints H_ineq (i.e., g_ineq + lbx + ubx)
         '''
         # compute derivative of lagrangian - use w to discern 'x' the state
         # from 'x' the primal variable of the MPC
@@ -64,31 +82,24 @@ class DifferentiableMPC(Generic[MPCType]):
         g_eq, lam_g_eq = self._mpc.g_eq
 
         # get inequality constraints (H_ineq <= 0)
-        idx = self.non_redundant_x_bound_indices
+        idx = self._non_redundant_x_bound_indices
         g_ineq, lam_g_ineq = self._mpc.g_ineq
         g_lbx = self._mpc.lbx[idx] - self._mpc.x[idx]
         g_ubx = self._mpc.x[idx] - self._mpc.ubx[idx]
-
-        # by using one list we ensure that the order is the same in R and y
         items = [
-            (dLdw, self._mpc.x, False),
-            (g_eq, lam_g_eq, False),                # G
-            (g_ineq, lam_g_ineq, True),             # |
-            (g_lbx, self._mpc.lam_lbx[idx], True),  # | diag(lam)*H
-            (g_ubx, self._mpc.lam_ubx[idx], True),  # |
+            (g_ineq, lam_g_ineq),
+            (g_lbx, self._mpc.lam_lbx[idx]),
+            (g_ubx, self._mpc.lam_ubx[idx]),
         ]
+        g_ineq_all = cs.vertcat(*(o[0] for o in items))
+        lam_g_ineq_all = cs.vertcat(*(o[1] for o in items))
 
         # build the matrix
-        R = cs.vertcat(*(o[0] * o[1] if o[2] else o[0] for o in items))
-        # R = cs.vertcat(dLdw,
-        #                g_eq,                 # G
-        #                g_ineq * lam_g_ineq,  # |
-        #                g_lbx * self.lam_lbx, # | diag(lam)*H
-        #                g_ubx * self.lam_ubx) # |
+        R = cs.vertcat(dLdw, g_eq, g_ineq_all * lam_g_ineq_all)
 
         # build the collection of primal-dual variables
-        y = cs.vertcat(*(o[1] for o in items))
-        return R, y
+        y = cs.vertcat(self._mpc.x, lam_g_eq, lam_g_ineq_all)
+        return R, y, g_eq, g_ineq_all
 
     def __getattr__(self, name) -> Any:
         '''Reroutes attributes to the wrapped MPC instance.'''
