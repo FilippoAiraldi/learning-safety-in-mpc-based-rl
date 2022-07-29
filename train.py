@@ -14,14 +14,17 @@ if __name__ == '__main__':
     max_episode_steps = 50
     env: envs.QuadRotorEnv = envs.QuadRotorEnv.get_wrapped(
         max_episode_steps=max_episode_steps)
+    #
     agent = agents.QuadRotorPIAgent(env=env, agentname='PI')
-    pars = {'perturbation': 0}
+    #
+    # agent = agents.QuadRotorDPGAgent(env=env, agentname='DPG')
+    #
 
     # simulate
     env.reset(seed=4)
     for _ in tqdm(range(max_episode_steps), total=max_episode_steps):
         # compute V(s)
-        u_opt, solution = agent.solve_mpc('V', other_pars=pars)
+        u_opt, _, solution = agent.predict(deterministic=True)
         assert solution.success
 
         # step environment
