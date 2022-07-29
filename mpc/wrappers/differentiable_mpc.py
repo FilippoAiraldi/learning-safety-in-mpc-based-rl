@@ -1,9 +1,10 @@
 import casadi as cs
 import numpy as np
+from mpc.generic_mpc import GenericMPC
 from typing import Any, Generic, TypeVar
 
 
-MPCType = TypeVar('MPCType')
+MPCType = TypeVar('MPCType', bound=GenericMPC)
 
 
 class DifferentiableMPC(Generic[MPCType]):
@@ -23,12 +24,24 @@ class DifferentiableMPC(Generic[MPCType]):
         return self._mpc
 
     @property
+    def non_redundant_x_bound_indices(self) -> np.ndarray:
+        '''
+        Gets the indices of lbx and ubx which are not redundant, i.e., 
+                idx = { i : not ( lbx[i]=-inf and ubx[i]=+inf ) }.
+        '''
+        return np.where(
+            (self._mpc.lbx != -np.inf) | (self._mpc.ubx != np.inf))[0]
+
+    @property
     def lagrangian(self) -> cs.SX:
         '''Lagrangian of the MPC problem.'''
-        return (self.f +
-                cs.dot(self.lam_g, self.g) +
-                cs.dot(self.lam_lbx, self.lbx - self.x) +
-                cs.dot(self.lam_ubx, self.x - self.ubx))
+        idx = self.non_redundant_x_bound_indices
+        g_lbx = self._mpc.lbx[idx, None] - self._mpc.x[idx]
+        g_ubx = self._mpc.x[idx] - self._mpc.ubx[idx, None]
+        return (self._mpc.f +
+                cs.dot(self._mpc.lam_g, self._mpc.g) +
+                cs.dot(self._mpc.lam_lbx[idx], g_lbx) +
+                cs.dot(self._mpc.lam_ubx[idx], g_ubx))
 
     @property
     def kkt_matrix(self) -> tuple[cs.SX, cs.SX]:
@@ -45,23 +58,24 @@ class DifferentiableMPC(Generic[MPCType]):
         '''
         # compute derivative of lagrangian - use w to discern 'x' the state
         # from 'x' the primal variable of the MPC
-        dLdw = cs.simplify(cs.jacobian(self.lagrangian, self.x).T)
+        dLdw = cs.simplify(cs.jacobian(self.lagrangian, self._mpc.x).T)
 
         # get equality constraints (G_eq = 0)
-        g_eq, lam_g_eq = self.g_eq
+        g_eq, lam_g_eq = self._mpc.g_eq
 
         # get inequality constraints (H_ineq <= 0)
-        g_ineq, lam_g_ineq = self.g_ineq
-        g_lbx = self.lbx - self.x
-        g_ubx = self.x - self.ubx
+        idx = self.non_redundant_x_bound_indices
+        g_ineq, lam_g_ineq = self._mpc.g_ineq
+        g_lbx = self._mpc.lbx[idx] - self._mpc.x[idx]
+        g_ubx = self._mpc.x[idx] - self._mpc.ubx[idx]
 
         # by using one list we ensure that the order is the same in R and y
         items = [
-            (dLdw, self.x, False),
-            (g_eq, lam_g_eq, False),        # G
-            (g_ineq, lam_g_ineq, True),     # |
-            (g_lbx, self.lam_lbx, True),    # | diag(lam)*H
-            (g_ubx, self.lam_ubx, True),    # |
+            (dLdw, self._mpc.x, False),
+            (g_eq, lam_g_eq, False),                # G
+            (g_ineq, lam_g_ineq, True),             # |
+            (g_lbx, self._mpc.lam_lbx[idx], True),  # | diag(lam)*H
+            (g_ubx, self._mpc.lam_ubx[idx], True),  # |
         ]
 
         # build the matrix
@@ -74,7 +88,6 @@ class DifferentiableMPC(Generic[MPCType]):
 
         # build the collection of primal-dual variables
         y = cs.vertcat(*(o[1] for o in items))
-
         return R, y
 
     def __getattr__(self, name) -> Any:
