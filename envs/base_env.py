@@ -44,9 +44,9 @@ class BaseEnv(gym.Env, ABC):
         return env
 
     def __str__(self) -> str:
-        '''Returns the wrapper name and the unwrapped environment string.'''
+        '''Returns the environment string.'''
         return f'<{type(self).__name__}>'
 
     def __repr__(self) -> str:
-        '''Returns the string representation of the wrapper.'''
+        '''Returns the string representation of the environment.'''
         return str(self)
