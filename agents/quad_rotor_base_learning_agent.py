@@ -2,7 +2,7 @@ from abc import ABC
 import numpy as np
 from agents.quad_rotor_base_agent import QuadRotorBaseAgent
 from envs.quad_rotor_env import QuadRotorEnv
-from mpc.quad_rotor_mpc import QuadRotorMPCConfig
+from mpc.quad_rotor_mpc import QuadRotorMPC, QuadRotorMPCConfig
 from mpc.wrappers import DifferentiableMPC
 
 
@@ -23,15 +23,15 @@ class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
     ) -> None:
         super().__init__(
             env, agentname, init_pars, fixed_pars, mpc_config, seed)
-        self._V = DifferentiableMPC(self._V)
-        self._Q = DifferentiableMPC(self._Q)
+        self._V = DifferentiableMPC[QuadRotorMPC](self._V)
+        self._Q = DifferentiableMPC[QuadRotorMPC](self._Q)
 
     @property
-    def V(self) -> DifferentiableMPC:
+    def V(self) -> DifferentiableMPC[QuadRotorMPC]:
         '''Gets the V action-value function approximation MPC scheme.'''
         return self._V
 
     @property
-    def Q(self) -> DifferentiableMPC:
+    def Q(self) -> DifferentiableMPC[QuadRotorMPC]:
         '''Gets the Q action-value function approximation MPC scheme.'''
         return self._Q

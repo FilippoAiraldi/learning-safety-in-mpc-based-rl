@@ -1,55 +1,26 @@
 import casadi as cs
 import numpy as np
-from mpc.generic_mpc import GenericMPC
-from typing import Any
+from typing import Any, Generic, TypeVar
 
 
-class DifferentiableMPC:
-    def __init__(self, mpc: GenericMPC) -> None:
+MPCType = TypeVar('MPCType')
+
+
+class DifferentiableMPC(Generic[MPCType]):
+    def __init__(self, mpc: MPCType) -> None:
         '''
         Wraps an MPC controller to allow computing its symbolic derivatives.
 
         Parameters
         ----------
-        mpc : GenericMPC
-            The environment to wrap.
+        mpc : GenericMPC or subclasses
+            The MPC instance to wrap.
         '''
-        self.mpc = mpc
+        self._mpc = mpc
 
     @property
-    def nx(self) -> int:
-        '''Number of variables in the MPC problem.'''
-        return self.x.shape[0]
-
-    @property
-    def np(self) -> int:
-        '''Number of parameters in the MPC problem.'''
-        return self.p.shape[0]
-
-    @property
-    def ng(self) -> int:
-        '''Number of constraints in the MPC problem.'''
-        return self.g.shape[0]
-
-    @property
-    def g_eq(self) -> tuple[cs.SX, cs.SX]:
-        '''Vector of equality constraints and their multipliers.'''
-        inds = tuple(self.Ig_eq)
-        try:
-            return self.g[inds], self.lam_g[inds]
-        except Exception:
-            inds = np.array(inds)
-            return self.g[inds], self.lam_g[inds]
-
-    @property
-    def g_ineq(self) -> tuple[cs.SX, cs.SX]:
-        '''Vector of inequality constraints and their multipliers.'''
-        inds = tuple(self.Ig_ineq)
-        try:
-            return self.g[inds], self.lam_g[inds]
-        except Exception:
-            inds = np.array(inds)
-            return self.g[inds], self.lam_g[inds]
+    def mpc(self) -> MPCType:
+        return self._mpc
 
     @property
     def lagrangian(self) -> cs.SX:
@@ -105,30 +76,6 @@ class DifferentiableMPC:
         y = cs.vertcat(*(o[1] for o in items))
 
         return R, y
-
-    def add_par(self, *args, **kwargs) -> Any:
-        '''See GenericMPC.add_par.'''
-        return self.mpc.add_par(*args, **kwargs)
-
-    def add_var(self, *args, **kwargs) -> Any:
-        '''See GenericMPC.add_var.'''
-        return self.mpc.add_var(*args, **kwargs)
-
-    def add_con(self, *args, **kwargs) -> Any:
-        '''See GenericMPC.add_con.'''
-        return self.mpc.add_con(*args, **kwargs)
-
-    def minimize(self, *args, **kwargs) -> Any:
-        '''See GenericMPC.minimize.'''
-        return self.mpc.minimize(*args, **kwargs)
-
-    def init_solver(self, *args, **kwargs) -> Any:
-        '''See GenericMPC.init_solver.'''
-        return self.mpc.init_solver(*args, **kwargs)
-
-    def solve(self, *args, **kwargs) -> Any:
-        '''See GenericMPC.solve.'''
-        return self.mpc.solve(*args, **kwargs)
 
     def __getattr__(self, name) -> Any:
         '''Reroutes attributes to the wrapped MPC instance.'''
