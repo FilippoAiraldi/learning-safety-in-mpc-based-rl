@@ -63,24 +63,40 @@ class QuadRotorMPC(GenericMPC):
         self.config = config
         Np, Nc = config.Np, config.Nc
 
-        # create variables - states are softly constrained
-        nx, nu = env.nx, env.nu
+        # ======================= #
+        # Variable and Parameters #
+        # ======================= #
+
+        # within x bounds, get which are redundant (lb=-inf, ub=+inf) and which
+        # are not. Create slacks only for non-redundant constraints on x.
+        lb, ub = env.config.x_bounds[:, 0], env.config.x_bounds[:, 1]
+        not_redundant = np.bitwise_not(
+            np.bitwise_and(np.isneginf(lb), np.isposinf(ub)))
+        not_redundant_idx = np.where(not_redundant)[0]
+        lb, ub = lb[not_redundant], ub[not_redundant]
+
+        # 1) create variables - states are softly constrained
+        nx, nu, ns = env.nx, env.nu, not_redundant_idx.size
         x, _, _ = self.add_var('x', nx, Np + 1)
         u, _, _ = self.add_var('u', nu, Nc,
                                lb=env.config.u_bounds[:, 0, None],
                                ub=env.config.u_bounds[:, 1, None])
-        slack, _, _ = self.add_var('slack', nx, Np, lb=0)
+        slack, _, _ = self.add_var('slack', ns, Np, lb=0)
 
-        # create model parameters
+        # 2) create model parameters
         for name in ('g', 'thrust_coeff', 'pitch_d', 'pitch_dd', 'pitch_gain',
                      'roll_d', 'roll_dd', 'roll_gain'):
             self.add_par(name, 1, 1)
 
-        # constraint on initial conditions
+        # =========== #
+        # Constraints #
+        # =========== #
+
+        # 1) constraint on initial conditions
         x0 = self.add_par('x0', env.nx, 1)  # initial conditions
         self.add_con('init_state', x[:, 0] - x0, 0, 0)
 
-        # constraints on dynamics
+        # 2) constraints on dynamics
         u_exp = cs.horzcat(u, cs.repmat(u[:, -1], 1, Np - Nc))
         A, B, e = self._get_dynamics_matrices(env)
         for k in range(Np):
@@ -88,39 +104,54 @@ class QuadRotorMPC(GenericMPC):
                          x[:, k + 1] - (A @ x[:, k] + B @ u_exp[:, k] + e),
                          0, 0)
 
-        # constraint on state (soft)
-        backoff = self.add_par('backoff', 1, 1)  # constraint backoff parameter
-        m = env.config.x_bounds[:, 0, None]
-        M = env.config.x_bounds[:, 1, None]
-        m_noinf = np.where(np.isinf(m), -1e9, m) # cannot put inf in g expr
-        M_noinf = np.where(np.isinf(M), 1e9, M) 
-        for k in range(1, config.Np + 1):
-            # soft-backedoff minimum constraint: (1+back)*m - slack <= x
-            self.add_con(
-                f'state_min_{k}',
-                x[:, k] + slack[:, k - 1] - backoff * m_noinf, m, np.inf)
-            # soft-backedoff maximum constraint: x <= (1-back)*M + slack
-            self.add_con(
-                f'state_max_{k}',
-                x[:, k] - slack[:, k - 1] + backoff * M_noinf, -np.inf, M)
+        # 3) constraint on state (soft, backed off, without infinity in g, and
+        # removing redundant entries)
+        # constraint backoff parameter and bounds
+        backoff = self.add_par('backoff', 1, 1)
 
-        # initial cost
+        # get a version of the bounds without infinities (cannot put infinity
+        # in the expression g)
+        lb_noinf = np.where(np.isneginf(lb), -1e9, lb)
+        ub_noinf = np.where(np.isposinf(ub), 1e9, ub)
+
+        # set the state constraints as
+        #  - soft-backedoff minimum constraint: (1+back)*lb - slack <= x
+        #  - soft-backedoff maximum constraint: x <= (1-back)*ub + slack
+        lb, ub = lb.reshape(-1, 1), ub.reshape(-1, 1)
+        lb_noinf, ub_noinf = lb_noinf.reshape(-1, 1), ub_noinf.reshape(-1, 1)
+        for k in range(1, config.Np + 1):
+            #
+            g = x[not_redundant_idx, k] + slack[:, k - 1] - backoff * lb_noinf
+            self.add_con(f'state_min_{k}', g, lb, np.inf)
+            #
+            g = x[not_redundant_idx, k] - slack[:, k - 1] + backoff * ub_noinf
+            self.add_con(f'state_max_{k}', g, -np.inf, ub)
+
+        # ========= #
+        # Objective #
+        # ========= #
+
+        # 1) initial cost
         J = 0  # (no initial state cost not required since it is not economic)
 
-        # stage cost
+        # 2) stage cost
         xf = self.add_par('xf', nx, 1)
         w_L = self.add_par('w_L', nx, 1)  # weights for stage
-        w_s = self.add_par('w_s', nx, 1)  # weights for slack
+        w_s = self.add_par('w_s', ns, 1)  # weights for slack
         J += sum(quad_form(w_L, x[:, k] - xf) + cs.dot(w_s, slack[:, k - 1])
                  for k in range(1, Np))
 
-        # terminal cost
+        # 3) terminal cost
         w_V = self.add_par('w_V', nx, 1)  # weights for final
-        w_s_f = self.add_par('w_s_f', nx, 1)  # weights for final slack
+        w_s_f = self.add_par('w_s_f', ns, 1)  # weights for final slack
         J += quad_form(w_V, x[:, Np] - xf) + cs.dot(w_s_f, slack[:, Np - 1])
 
         # assign cost
         self.minimize(J)
+
+        # ====== #
+        # Others #
+        # ====== #
 
         # case-specific modifications
         if type == 'Q':
@@ -134,7 +165,7 @@ class QuadRotorMPC(GenericMPC):
         self.init_solver(config.solver_opts)
 
     def _get_dynamics_matrices(self, env: QuadRotorEnv):
-        T = env.config.T # NOTE: T is here fixed
+        T = env.config.T  # NOTE: T is here fixed
         pars = self.pars
         Ad = cs.diag(cs.vertcat(pars['pitch_d'], pars['roll_d']))
         Add = cs.diag(cs.vertcat(pars['pitch_dd'], pars['roll_dd']))
