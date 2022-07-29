@@ -155,8 +155,9 @@ class QuadRotorBaseAgent(ABC):
                 size=self.V.vars['u'].shape[0])
 
             # if there is the parameter to do so, perturb gradient
-            perturb_gradient &= 'perturbation' in self.fixed_pars
             if perturb_gradient:
+                assert 'perturbation' in self.fixed_pars, \
+                    'No parameter \'perturbation\' found to perturb gradient.'
                 self.fixed_pars['perturbation'] = rng
 
             u, sol = self.solve_mpc(type='V', state=state, **solve_mpc_kwargs)
