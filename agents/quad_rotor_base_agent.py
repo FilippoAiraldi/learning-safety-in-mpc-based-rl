@@ -114,8 +114,8 @@ class QuadRotorBaseAgent(ABC):
     def predict(
         self,
         state: np.ndarray = None,
-        deterministic: bool = True,
-        perturb_gradient: bool = False,
+        deterministic: bool = False,
+        perturb_gradient: bool = True,
         **solve_mpc_kwargs
     ) -> tuple[np.ndarray, np.ndarray, Solution]:
         '''
@@ -132,7 +132,6 @@ class QuadRotorBaseAgent(ABC):
         perturb_gradient : bool, optional
             Whether to perturb the MPC objective's gradient (if 'perturbation'
             parameter is present), or to directly perturb the optimal action.
-            By default, the latter occurs.
         solve_mpc_kwargs
             See BaseMPCAgent.solve_mpc.
 
@@ -216,14 +215,6 @@ class QuadRotorBaseAgent(ABC):
                         self.V.pars[name], self.Q.pars[name])
             for name, bnd in names_and_bnds
         )
-
-    # @abstractmethod
-    # def update(self) -> None:
-    #     pass
-
-    # @abstractmethod
-    # def save_transition(self) -> None:
-    #     pass
 
     def __str__(self) -> str:
         '''Returns the agent name.'''
