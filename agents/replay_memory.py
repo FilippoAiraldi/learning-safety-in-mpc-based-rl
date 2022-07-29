@@ -2,10 +2,13 @@ import numpy as np
 from collections import deque
 from itertools import chain
 from gym.utils.seeding import np_random
-from typing import Iterable, Any
+from typing import Iterable, TypeVar
 
 
-class ReplayMemory(deque):
+T = TypeVar('T')
+
+
+class ReplayMemory(deque[T]):
     '''
     Container class for RL traning to save and sample experience transitions. 
     The class inherits from collections.deque, adding a couple of simple 
@@ -37,7 +40,7 @@ class ReplayMemory(deque):
         self,
         n: int | float,
         include_last_n: int | float
-    ) -> Iterable[Any]:
+    ) -> Iterable[T]:
         '''
         Samples the memory and yields the sampled elements.
 
