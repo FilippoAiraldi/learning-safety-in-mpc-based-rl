@@ -156,6 +156,8 @@ class QuadRotorBaseAgent(ABC):
         '''
         if deterministic:
             # just solve the V scheme without noise
+            if 'perturbation' in self.fixed_pars:
+                self.fixed_pars['perturbation'] = 0
             u, sol = self.solve_mpc(type='V', state=state, **solve_mpc_kwargs)
         else:
             # set std to a % of the action range
