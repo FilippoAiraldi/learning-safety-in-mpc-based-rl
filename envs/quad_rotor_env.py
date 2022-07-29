@@ -324,7 +324,9 @@ class QuadRotorEnv(BaseEnv):
         )
 
         # check if done
-        if error <= self.config.termination_error:
+        within_bounds = ((self.config.x_bounds[:, 0] <= self._x) &
+                         (self._x <= self.config.x_bounds[:, 1])).all()
+        if error <= self.config.termination_error and within_bounds:
             self._n_within_termination += 1
         else:
             self._n_within_termination = 0
