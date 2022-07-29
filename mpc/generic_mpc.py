@@ -76,6 +76,16 @@ class GenericMPC:
         return self.g.shape[0]
 
     @property
+    def ng_eq(self) -> int:
+        '''Number of equality constraints in the MPC problem.'''
+        return len(self.Ig_eq)
+
+    @property
+    def ng_ineq(self) -> int:
+        '''Number of inequality constraints in the MPC problem.'''
+        return len(self.Ig_ineq)
+
+    @property
     def g_eq(self) -> tuple[cs.SX, cs.SX]:
         '''Vector of equality constraints and their multipliers.'''
         inds = tuple(self.Ig_eq)
