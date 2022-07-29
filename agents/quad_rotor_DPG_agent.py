@@ -2,7 +2,7 @@ import numpy as np
 import casadi as cs
 from envs.quad_rotor_env import QuadRotorEnvConfig, QuadRotorEnv
 from mpc.quad_rotor_mpc import QuadRotorMPCConfig
-from agents.quad_rotor_base_agent import QuadRotorBaseAgent
+from agents.quad_rotor_base_learning_agent import QuadRotorBaseLearningAgent
 from agents.replay_memory import ReplayMemory
 from dataclasses import dataclass
 
@@ -50,7 +50,7 @@ class Derivatives:
     dydu0: cs.SX
 
 
-class QuadRotorDPGAgent(QuadRotorBaseAgent):
+class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
     '''
     Deterministic Policy Gradient based RL agent for the quad rotor 
     environment. The agent adapts its MPC parameters/weights by policy gradient
