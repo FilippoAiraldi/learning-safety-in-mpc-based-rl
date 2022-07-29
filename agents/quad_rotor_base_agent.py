@@ -47,11 +47,12 @@ class QuadRotorBaseAgent(ABC):
         self.id = next(self._ids)
         self.name = f'Agent{self.id}' if agentname is None else agentname
 
-        # save
+        # save some stuff
         self.env = env
         self.fixed_pars = {} if fixed_pars is None else fixed_pars
         self.np_random, _ = np_random(seed)
-        self.perturbation_strength = 0.1
+        self.perturbation_chance = 0.2
+        self.perturbation_strength = 0.05
         self.last_solution: Solution = None
 
         # initialize MPCs
@@ -157,8 +158,8 @@ class QuadRotorBaseAgent(ABC):
         perturbation_in_dict = 'perturbation' in self.fixed_pars
         if perturbation_in_dict:
             self.fixed_pars['perturbation'] = 0
-            
-        if deterministic:
+
+        if deterministic or self.np_random.random() > self.perturbation_chance:
             # just solve the V scheme without noise
             u, sol = self.solve_mpc(type='V', state=state, **solve_mpc_kwargs)
         else:
