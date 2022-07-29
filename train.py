@@ -12,7 +12,7 @@ if __name__ == '__main__':
 
     # initialize env and agent
     max_episode_steps = 50
-    env: envs.QuadRotorEnv = envs.QuadRotorEnv.get_wrapped(
+    env = envs.QuadRotorEnv.get_wrapped(
         max_episode_steps=max_episode_steps)
     #
     agent = agents.QuadRotorPIAgent(env=env, agentname='PI')

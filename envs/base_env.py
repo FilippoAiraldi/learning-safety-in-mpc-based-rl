@@ -11,7 +11,7 @@ class BaseEnv(gym.Env, ABC):
         max_episode_steps: int = 50,
         deque_size: int = None,
         *env_args, **env_kwargs
-    ) -> gym.Env:
+    ):
         '''
         Returns the environment properly encapsulated in some useful wrappers.
         The wrappers are (from in to outward)
