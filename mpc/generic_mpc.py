@@ -4,6 +4,7 @@ from itertools import count
 from functools import partial
 from dataclasses import dataclass
 from mpc.mpc_debug import MPCDebug
+import warnings
 
 
 # NOTE: np.flatten and cs.vec operate on row- and column-wise, respectively!
@@ -176,10 +177,19 @@ class GenericMPC:
         lb, ub = _np.broadcast_to(lb, dims), _np.broadcast_to(ub, dims)
         assert _np.all(lb <= ub), 'Improper variable bounds.'
 
+        # warn if any redundant constraints, i.e., lb=-inf, ub=+inf
+        lb = cs.vec(lb).full().flatten()
+        ub = cs.vec(ub).full().flatten()
+        redundant = _np.bitwise_and(_np.isneginf(lb), _np.isposinf(ub))
+        if redundant.any():
+            warnings.warn(f'Found {redundant.sum()} redundant entries in ' \
+                          f'constraint \'{name}\'.')
+
+        # save to internal structures
         self.cons[name] = g
         self.g = cs.vertcat(self.g, cs.vec(g))
-        self.lbg = _np.concatenate((self.lbg, cs.vec(lb).full().flatten()))
-        self.ubg = _np.concatenate((self.ubg, cs.vec(ub).full().flatten()))
+        self.lbg = _np.concatenate((self.lbg, lb))
+        self.ubg = _np.concatenate((self.ubg, ub))
         self.debug._register('g', name, dims)
 
         # save indices of this constraint to either eq. or ineq. set
@@ -203,7 +213,7 @@ class GenericMPC:
         self.opts = opts
 
     def solve(
-        self, pars: dict[str, _np.ndarray], 
+        self, pars: dict[str, _np.ndarray],
         vals0: dict[str, _np.ndarray] = None
     ) -> Solution:
         '''
@@ -274,7 +284,10 @@ class GenericMPC:
 
 
 def subsevalf(
-    expr: cs.SX, old: cs.SX, new: cs.SX, eval: bool = True
+    expr: cs.SX,
+    old: cs.SX | dict[str, cs.SX] | list[cs.SX] | tuple[cs.SX],
+    new: cs.SX | dict[str, cs.SX] | list[cs.SX] | tuple[cs.SX],
+    eval: bool = True
 ) -> cs.SX | _np.ndarray:
     '''
     Substitute in the expression the old variable with
