@@ -55,11 +55,21 @@ class QuadRotorBaseAgent(ABC):
         self.last_solution: Solution = None
 
         # initialize MPCs
-        self.Q = QuadRotorMPC(env, config=mpc_config, type='Q')
-        self.V = QuadRotorMPC(env, config=mpc_config, type='V')
+        self._Q = QuadRotorMPC(env, config=mpc_config, type='Q')
+        self._V = QuadRotorMPC(env, config=mpc_config, type='V')
 
         # initialize learnable weights/parameters
         self.init_mpc_parameters(init_pars=init_pars)
+
+    @property
+    def V(self) -> QuadRotorMPC:
+        '''Gets the V action-value function approximation MPC scheme.'''
+        return self._V
+
+    @property
+    def Q(self) -> QuadRotorMPC:
+        '''Gets the Q action-value function approximation MPC scheme.'''
+        return self._Q
 
     def solve_mpc(
         self,
