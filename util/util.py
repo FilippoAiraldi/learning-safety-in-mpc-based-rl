@@ -2,9 +2,13 @@ import casadi as cs
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-from datetime import datetime
 import pickle
 from cycler import cycler
+from scipy.special import comb
+from itertools import combinations
+from datetime import datetime
+from typing import Iterable, Any
+
 
 
 def quad_form(A: cs.SX | cs.DM, x: cs.SX | cs.DM) -> cs.SX | cs.DM:
@@ -14,7 +18,7 @@ def quad_form(A: cs.SX | cs.DM, x: cs.SX | cs.DM) -> cs.SX | cs.DM:
     return cs.bilin(A, x, x)
 
 
-def spy(H: cs.SX | cs.DM | np.ndarray, **original_kwargs):
+def spy(H: cs.SX | cs.DM | np.ndarray, **original_kwargs) -> None:
     '''See Matplotlib.pyplot.spy.'''
     # try convert to numerical; if it fails, then use symbolic method from cs
     try:

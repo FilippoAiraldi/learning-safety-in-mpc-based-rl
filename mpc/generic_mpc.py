@@ -1,10 +1,10 @@
+import warnings
 import casadi as cs
 import numpy as _np
 from itertools import count
 from functools import partial
 from dataclasses import dataclass
 from mpc.mpc_debug import MPCDebug
-import warnings
 
 
 # NOTE: np.flatten and cs.vec operate on row- and column-wise, respectively!

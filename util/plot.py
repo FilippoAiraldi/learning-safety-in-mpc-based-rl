@@ -1,11 +1,11 @@
 import numpy as np
-from itertools import product
-from envs.wrappers import RecordData
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib.collections import LineCollection
 from mpl_toolkits.mplot3d.art3d import Line3DCollection, Poly3DCollection
 from matplotlib.ticker import PercentFormatter
+from itertools import product
+from envs.wrappers import RecordData
 
 
 def plot_trajectory_3d(env: RecordData, traj_num: int) -> None:

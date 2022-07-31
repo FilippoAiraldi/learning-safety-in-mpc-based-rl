@@ -1,10 +1,10 @@
+import numpy as np
 from abc import ABC
 from itertools import count
-import numpy as np
+from gym.utils.seeding import np_random
 from mpc import QuadRotorMPC, QuadRotorMPCConfig, Solution
 from envs import QuadRotorEnv
 from agents import RLParameter, RLParameterCollection
-from gym.utils.seeding import np_random
 
 
 class QuadRotorBaseAgent(ABC):

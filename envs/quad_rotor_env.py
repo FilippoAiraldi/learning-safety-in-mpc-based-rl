@@ -1,7 +1,7 @@
-from gym import spaces
 import numpy as np
-from envs.base_env import BaseEnv
+from gym import spaces
 from dataclasses import dataclass, field
+from envs.base_env import BaseEnv
 
 
 @dataclass(frozen=True)
