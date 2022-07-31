@@ -61,6 +61,7 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
         agentname: str = None,
         agent_config: dict | QuadRotorDPGAgentConfig = None,
         mpc_config: dict | QuadRotorMPCConfig = None,
+        seed: int = None
     ) -> None:
         '''
         Initializes a Deterministic-Policy-Gradient agent for the quad rotor 
@@ -68,11 +69,18 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
 
         Parameters
         ----------
-        config : dict, QuadRotorDPGAgentConfig
-            A set of parameters for the quadrotor agent. If not given, the 
+        env : QuadRotorEnv
+            Environment for which to create the DPG agent.
+        agentname : str, optional
+            Name of the DPG agent.
+        agent_config : dict, QuadRotorDPGAgentConfig
+            A set of parameters for the quadrotor DPG agent. If not given, the 
             default ones are used.
-        *args, **kwargs
-            See QuadRotorBaseAgent.
+        mpc_config : dict, QuadRotorMPCConfig
+            A set of parameters for the agent's MPC. If not given, the default 
+            ones are used.
+        seed : int, optional
+            Seed for the random number generator.
         '''
         if agent_config is None:
             agent_config = QuadRotorDPGAgentConfig()
@@ -81,16 +89,14 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
             agent_config = QuadRotorDPGAgentConfig(
                 **{k: agent_config[k] for k in keys if k in agent_config})
         self.config = agent_config
-
-        # initialize base class
         super().__init__(env, agentname=agentname,
                          init_pars=self.config.init_pars,
                          fixed_pars={'perturbation': np.nan},
-                         mpc_config=mpc_config)
+                         mpc_config=mpc_config, seed=seed)
 
         # initialize the replay memory
         self.replay_memory = ReplayMemory[np.ndarray](
-            maxlen=agent_config.replay_maxlen)
+            maxlen=agent_config.replay_maxlen, seed=seed)
 
         # compute the symbolical derivatives needed to perform the DPG updates
         # gather some variables

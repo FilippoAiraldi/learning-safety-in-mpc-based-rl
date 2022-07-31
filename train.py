@@ -23,8 +23,8 @@ if __name__ == '__main__':
     env = envs.QuadRotorEnv.get_wrapped(
         max_episode_steps=max_episode_steps)
 
-    # agent = agents.QuadRotorPIAgent(env=env, agentname='PI')
-    agent = agents.QuadRotorDPGAgent(env=env, agentname='DPG')
+    # agent = agents.QuadRotorPIAgent(env=env, agentname='PI', seed=69)
+    agent = agents.QuadRotorDPGAgent(env=env, agentname='DPG', seed=69)
 
     # simulate
     env.reset(seed=4)
