@@ -118,13 +118,12 @@ class QuadRotorMPC(GenericMPC):
         #  - soft-backedoff maximum constraint: x <= (1-back)*ub + slack
         lb, ub = lb.reshape(-1, 1), ub.reshape(-1, 1)
         lb_noinf, ub_noinf = lb_noinf.reshape(-1, 1), ub_noinf.reshape(-1, 1)
-        for k in range(1, config.Np + 1):
-            #
-            g = x[not_redundant_idx, k] + slack[:, k - 1] - backoff * lb_noinf
-            self.add_con(f'state_min_{k}', g, lb, np.inf)
-            #
-            g = x[not_redundant_idx, k] - slack[:, k - 1] + backoff * ub_noinf
-            self.add_con(f'state_max_{k}', g, -np.inf, ub)
+        self.add_con('state_min',
+                     x[not_redundant_idx, 1:] + slack - backoff * lb_noinf,
+                     lb, np.inf)
+        self.add_con('state_max',
+                     x[not_redundant_idx, 1:] - slack + backoff * ub_noinf,
+                     -np.inf, ub)
 
         # ========= #
         # Objective #
