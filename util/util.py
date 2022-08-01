@@ -10,6 +10,34 @@ from datetime import datetime
 from typing import Iterable, Any
 
 
+def cs_prod(x: cs.SX | cs.DM, axis: int = 0) -> cs.SX | cs.DM:
+    '''I couldn't find an equivalent of np.prod in CasADi...'''
+    if x.is_vector():
+        return cs.det(cs.diag(x))
+    sum_ = cs.sum1 if axis == 0 else cs.sum2
+    return cs.exp(sum_(cs.log(x))) if axis == 0 else cs.exp(sum_(cs.log(x)))
+
+
+def nchoosek(n: int | Iterable[Any], k: int) -> int | Iterable[tuple[Any]]:
+    '''Returns the binomial coefficient, i.e.,  the number of combinations of n
+    items taken k at a time. If n is an iterable, then it returns an iterable 
+    containing all possible combinations of the elements of n taken k at a 
+    time.'''
+    return comb(n, k, exact=True) if isinstance(n, int) else combinations(n, k)
+
+
+def monomial_powers(d: int, k: int) -> np.ndarray:
+    '''Computes the powers of degree k contained in a d-dimensional 
+    monomial.'''
+    # Thanks to: https://stackoverflow.com/questions/40513896/compute-all-d-dimensional-monomials-of-degree-less-than-k
+    m = nchoosek(k + d - 1, d - 1)
+    dividers = np.column_stack((
+        np.zeros((m, 1), dtype=int),
+        np.row_stack(list(nchoosek(np.arange(1, k + d), d - 1))),
+        np.full((m, 1), k + d, dtype=int)
+    ))
+    return np.diff(dividers, axis=1) - 1
+
 
 def quad_form(A: cs.SX | cs.DM, x: cs.SX | cs.DM) -> cs.SX | cs.DM:
     '''Calculates quadratic form x^T A x.'''

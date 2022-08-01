@@ -4,5 +4,8 @@ from util.util import (
     spy, 
     set_np_mpl_defaults, 
     save_results, 
-    load_results
+    load_results,
+    nchoosek,
+    cs_prod,
+    monomial_powers
 )
