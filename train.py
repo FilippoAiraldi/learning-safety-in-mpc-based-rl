@@ -3,13 +3,21 @@ import agents
 import util
 from tqdm import tqdm
 
+# TODO
+# 1) argparse
+#   - fix seed
+#   - number of  training episodes
+# 2) vectorize environment and solve MPC in parallel
+#   - vectorize all wrappers then
+# 3) agent monitor (saves weights and dJ(pi)dtheta)
+# 4) live plotter
+
 
 if __name__ == '__main__':
-    # TODO: argparse
-    # - fix seed
-    # - training episodes
-    # vectorize environment and solve MPC in parallel
+    # set up
     util.set_np_mpl_defaults()
+    run_name = util.get_run_name()
+    logger = util.create_logger(run_name)
 
     # initialize env and agent
     episodes = 2
@@ -30,7 +38,7 @@ if __name__ == '__main__':
             # compute V(s)
             u, _, solution = agent.predict(deterministic=False,
                                            perturb_gradient=False)
-            assert solution.success
+            assert solution.success, 'Unexpected MPC failure.'
 
             # step environment
             _, r, done, info = env.step(u)
@@ -49,7 +57,12 @@ if __name__ == '__main__':
         # reduce exploration strength
         agent.perturbation_strength *= 0.97
 
+        # log episode outcomes
+        logger.debug(f'J={env.cum_rewards[-1]:.3f}' + 
+                     agent.weights.values2str())
+
     # save results and launch plotting (is blocking)
-    fn = util.save_results(env=env)
+    fn = util.save_results(filename=run_name, env=env, 
+                           weights=agent.weights.values(as_dict=True))
     import os
     os.system(f'python visualization.py -fn {fn}')

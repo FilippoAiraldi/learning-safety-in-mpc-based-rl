@@ -121,7 +121,7 @@ class RLParameterCollection(Sequence[RLParameter]):
             kwargs['precision'] = 3
         if 'separator' not in kwargs:
             kwargs['separator'] = ','
-        return '; '.join(f'{p.name}={np.array2string(p.value, **kwargs)}' 
+        return '; '.join(f'{p.name}={np.array2string(p.value, **kwargs)}'
                          for p in self._list)
 
     def items(self) -> Iterable[tuple[str, RLParameter]]:
@@ -149,7 +149,7 @@ class RLParameterCollection(Sequence[RLParameter]):
 
     def __str__(self) -> str:
         return f'<{type(self).__name__} (L={len(self._list)}, ' \
-               f'nw={sum(self.sizes())}): {self.values2str()}>' 
+               f'nw={sum(self.sizes())}): {self.values2str()}>'
 
     def __repr__(self) -> str:
         return str(self)
