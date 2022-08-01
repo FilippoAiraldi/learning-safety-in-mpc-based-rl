@@ -115,6 +115,15 @@ class RLParameterCollection(Sequence[RLParameter]):
             for n in self._dict.keys():
                 self._dict[n].update_value(new_vals[n])
 
+    def values2str(self, **kwargs) -> str:
+        '''Creates a string with all the values.'''
+        if 'precision' not in kwargs:
+            kwargs['precision'] = 3
+        if 'separator' not in kwargs:
+            kwargs['separator'] = ','
+        return '; '.join(f'{p.name}={np.array2string(p.value, **kwargs)}' 
+                         for p in self._list)
+
     def items(self) -> Iterable[tuple[str, RLParameter]]:
         return self._dict.items()
 
@@ -139,8 +148,8 @@ class RLParameterCollection(Sequence[RLParameter]):
         return len(self._list)
 
     def __str__(self) -> str:
-        return (f'<{type(self).__name__}: L={len(self._list)},' +
-                f' nw={self.values.shape[0]}>')
+        return f'<{type(self).__name__} (L={len(self._list)}, ' \
+               f'nw={sum(self.sizes())}): {self.values2str()}>' 
 
     def __repr__(self) -> str:
         return str(self)

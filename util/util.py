@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import pickle
+import logging
 from cycler import cycler
 from scipy.special import comb
 from itertools import combinations
@@ -90,13 +91,20 @@ def set_np_mpl_defaults() -> None:
     # ax.legend(frameon=False)
 
 
-def save_results(filename: str = None, **data) -> str:
+def get_run_name(prefix: str = None) -> str:
+    '''Gets the name of the run.'''
+    if prefix is None:
+        prefix = 'R'
+    return f'{prefix}_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
+
+
+def save_results(filename: str, **data) -> str:
     '''
     Saves results to pickle.
 
     Parameters
     ----------
-    filename : str, optional
+    filename : str
         The name of the file to save to.
     **data : dict
         Any data to be saved to the pickle file.
@@ -106,9 +114,8 @@ def save_results(filename: str = None, **data) -> str:
     filename : str
         The complete name of the file where the data was written to.
     '''
-    if filename is None:
-        filename = 'R'
-    filename = f'{filename}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pkl'
+    if not filename.endswith('.pkl'):
+        filename = f'{filename}.pkl'
     with open(filename, 'wb') as f:
         pickle.dump(data, f)
     return filename
@@ -130,3 +137,25 @@ def load_results(filename: str) -> dict:
     '''
     with open(filename, 'rb') as f:
         return pickle.load(f)
+
+
+def create_logger(run_name: str) -> logging.Logger:
+    '''Returns a logger that logs to both output and to a file.'''
+    # create logger
+    logger = logging.getLogger(run_name)
+    logger.setLevel(logging.DEBUG)
+    formatter = logging.Formatter('%(name)s: %(message)s')
+
+    # create console handler
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.DEBUG)
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)
+
+    # create file handler
+    fh = logging.FileHandler(f'{run_name}.txt')
+    fh.setLevel(logging.DEBUG)
+    fh.setFormatter(formatter)
+    logger.addHandler(fh)
+
+    return logger
