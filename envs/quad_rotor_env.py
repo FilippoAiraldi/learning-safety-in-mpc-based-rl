@@ -53,7 +53,7 @@ class QuadRotorEnvConfig:
 
     # termination conditions
     termination_N: int = 5
-    termination_error: float = 1
+    termination_error: float = 0.5
 
 
 class QuadRotorEnv(BaseEnv):
@@ -69,18 +69,18 @@ class QuadRotorEnv(BaseEnv):
     ### Observation Space
     The observation is a `ndarray` with shape `(10,)` where the elements 
     correspond to the following states of the quadrotor:
-    | Num | Observation                          | Min  | Max | Unit          |
-    |-----|--------------------------------------|------|-----|---------------|
-    | 0   | position along the x-axis            | -25  | 25  | position (m)  |
-    | 1   | position along the y-axis            | -25  | 25  | position (m)  |
-    | 2   | position along the z-axis (altitude) | -25  | 25  | position (m)  |
-    | 3   | velocity along the x-axis            | -Inf | Inf | speed (m/s)   |
-    | 4   | velocity along the y-axis            | -Inf | Inf | speed (m/s)   |
-    | 5   | velocity along the z-axis            | -Inf | Inf | speed (m/s)   |
-    | 6   | pitch                                | -30° | 30° | angle (rad)   |
-    | 7   | roll                                 | -30° | 30° | angle (rad)   |
-    | 8   | pitch rate                           | -Inf | Inf | speed (rad/s) |
-    | 8   | roll rate                            | -Inf | Inf | speed (rad/s) |
+    | Num | Observation                          | Min    | Max | Unit          |
+    |-----|--------------------------------------|--------|-----|---------------|
+    | 0   | position along the x-axis            | -0.5   | 3.5 | position (m)  |
+    | 1   | position along the y-axis            | -0.5   | 3.5 | position (m)  |
+    | 2   | position along the z-axis (altitude) | -0.175 | 4   | position (m)  |
+    | 3   | velocity along the x-axis            | -Inf   | Inf | speed (m/s)   |
+    | 4   | velocity along the y-axis            | -Inf   | Inf | speed (m/s)   |
+    | 5   | velocity along the z-axis            | -Inf   | Inf | speed (m/s)   |
+    | 6   | pitch                                | -30°   | 30° | angle (rad)   |
+    | 7   | roll                                 | -30°   | 30° | angle (rad)   |
+    | 8   | pitch rate                           | -Inf   | Inf | speed (rad/s) |
+    | 8   | roll rate                            | -Inf   | Inf | speed (rad/s) |
     The constraints can be changed, as well as made soft with the appropriate 
     flag. In this case, the observation space becomes unbounded.
 
@@ -243,7 +243,7 @@ class QuadRotorEnv(BaseEnv):
             assert alt.ndim == 1, 'Altitudes must be a vector'
 
         return np.vstack([
-            np.exp(-np.square(alt - h) / 50) for h in self.config.winds.keys()
+            np.exp(-np.square(alt - h)) for h in self.config.winds
         ])
 
     def reset(

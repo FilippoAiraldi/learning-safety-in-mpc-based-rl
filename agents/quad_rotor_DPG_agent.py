@@ -40,7 +40,7 @@ class QuadRotorDPGAgentConfig:
     replay_include_last: float = 5  # include in the sample the last 5 episodes
 
     # RL parameters
-    gamma: float = 0.97
+    gamma: float = 1  # it is episodic...
     lr: float = 1e0
 
     @property
