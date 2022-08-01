@@ -10,8 +10,6 @@ from tqdm import tqdm
 # 2) vectorize environment and solve MPC in parallel
 #   - vectorize all wrappers then
 #   - vectorize also agent
-# 3) agent monitor (saves weights and dJdtheta)
-# 4) live plotter
 
 
 if __name__ == '__main__':
@@ -60,9 +58,8 @@ if __name__ == '__main__':
         agent.perturbation_strength *= 0.97
 
         # log episode outcomes
-        logger.debug(f'J={env.cum_rewards[-1]:.3f} - '\
-                     f'||dJdtheta||={agent.update_gradient_norm[-1]:.3f} - ' +
-                     agent.weights.values2str())
+        logger.debug(f'J={env.cum_rewards[-1]:.3f} - '
+                     f'||dJdtheta||={agent.update_gradient_norm[-1]:.3f}')
 
     # save results and launch plotting (is blocking)
     fn = util.save_results(filename=run_name, env=env,

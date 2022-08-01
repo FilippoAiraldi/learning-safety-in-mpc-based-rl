@@ -225,7 +225,7 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
             # NOTE: Other methods to solving the linear system are
             # 1. q = np.linalg.solve(dRdy, dydu0)
             # 2. U, S, VT = np.linalg.svd(dRdy)
-            #    y = np.linalg.solve(np.diag(S), U.T @ dydu)
+            #    y = np.linalg.solve(np.diag(S), U.T @ dydu0)
             #    q = np.linalg.solve(VT, y)
 
             # compute Phi
