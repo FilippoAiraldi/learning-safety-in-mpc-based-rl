@@ -112,9 +112,11 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
             maxlen=agent_config.replay_maxlen, seed=seed)
 
         # initialize symbols for derivatives to be used later and worker to
-        # compute these numerically
+        # compute these numerically. Also initialize the QP solver used to
+        # compute updates
         self._init_symbols()
         self._init_worker()
+        self._init_qp_solver()
 
     def save_transition(self, sar: tuple[np.ndarray, np.ndarray, float],
                         solution: Solution) -> None:
@@ -150,8 +152,20 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
         self._episode_buffer.clear()
 
     def update(self) -> None:
-        # self.weights
-        pass
+        # sample the replay memory
+        sample = list(self.replay_memory.sample(
+            self.config.replay_sample_size, self.config.replay_include_last))
+        c = self.config.lr * np.mean(sample, axis=0)
+
+        # perform update
+        theta = self.weights.values()
+        bounds = self.weights.bounds()
+        sol = self._solver(lbx=bounds[:, 0], ubx=bounds[:, 1], x0=theta - c,
+                           p=np.concatenate((theta, c)))
+        theta_new: np.ndarray = sol['x'].full().flatten()
+
+        # update weights
+        self.weights.update_values(theta_new)
 
     def _init_symbols(self) -> None:
         '''Computes symbolical derivatives needed for DPG updates.'''
@@ -223,3 +237,20 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
             # save in temporary buffer
             self._episode_buffer.append((Phi, Psi, L, dpidtheta))
             self._work_queue.task_done()
+
+    def _init_qp_solver(self) -> None:
+        n = sum(self.weights.sizes())
+
+        # prepare symbols
+        theta: cs.SX = cs.SX.sym('theta', n, 1)
+        theta_new: cs.SX = cs.SX.sym('theta+', n, 1)
+        c: cs.SX = cs.SX.sym('c', n, 1)
+
+        # compute objective
+        dtheta = theta_new - theta
+        f = 0.5 * dtheta.T @ dtheta + c.T @ dtheta
+
+        # prepare solver
+        qp = {'x': theta_new, 'p': cs.vertcat(theta, c), 'f': f}
+        opts = {'print_iter': False, 'print_header': False}
+        self._solver = cs.qpsol(f'qpsol_{self.name}', 'qrqp', qp, opts)

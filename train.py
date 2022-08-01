@@ -44,6 +44,7 @@ if __name__ == '__main__':
 
         # perform RL update
         agent.consolidate_episode_experience()
+        agent.update()
 
         # reduce exploration strength
         agent.perturbation_strength *= 0.97
