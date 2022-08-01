@@ -93,6 +93,28 @@ class RLParameterCollection(Sequence[RLParameter]):
             return {name: p.symQ for name, p in self.items()}
         return cs.vertcat(*(p.symQ for p in self._list))
 
+    def sizes(self, as_dict: bool = False) -> list[int] | dict[str, int]:
+        '''Returns the size of each parameter.'''
+        if as_dict:
+            return {p.name: p.symV.shape[0] for p in self._list}
+        return [p.symV.shape[0] for p in self._list]
+
+    def update_values(
+        self,
+        new_vals: np.ndarray | list[np.ndarray] | dict[str, np.ndarray]
+    ) -> None:
+        '''Updates the values of each parameter in the collection.'''
+        if isinstance(new_vals, np.ndarray):
+            new_vals = np.split(new_vals, np.cumsum(self.sizes())[:-1])
+            for p, val in zip(self._list, new_vals):
+                p.update_value(val)
+        elif isinstance(new_vals, list):
+            for p, val in zip(self._list, new_vals):
+                p.update_value(val)
+        elif isinstance(new_vals, dict):
+            for n in self._dict.keys():
+                self._dict[n].update_value(new_vals[n])
+
     def items(self) -> Iterable[tuple[str, RLParameter]]:
         return self._dict.items()
 
