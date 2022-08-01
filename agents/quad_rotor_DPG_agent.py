@@ -124,7 +124,7 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
             self._worker.start()
         self._work_queue.put((*sar, solution))
 
-    def consolidate_episode_experience(self) -> None:
+    def consolidate_episode_experience(self) -> np.ndarray:
         # wait for the current episode's transitions to be fully saved
         self._work_queue.join()
         buffer = self._episode_buffer
@@ -144,18 +144,19 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
         w = lstsq(A, b, lapack_driver='gelsy')[0]
 
         # compute episode's update
-        update = sum(
+        dJdtheta = sum(
             dpidtheta @ dpidtheta.T @ w for _, _, _, dpidtheta in buffer)
 
         # save this episode's update to memory and clear buffer
-        self.replay_memory.append(update.flatten())
+        self.replay_memory.append(dJdtheta.flatten())
         self._episode_buffer.clear()
+        return dJdtheta
 
     def update(self) -> None:
         # sample the replay memory
-        sample = list(self.replay_memory.sample(
+        dJdtheta = list(self.replay_memory.sample(
             self.config.replay_sample_size, self.config.replay_include_last))
-        c = self.config.lr * np.mean(sample, axis=0)
+        c = self.config.lr * np.mean(dJdtheta, axis=0)
 
         # perform update
         theta = self.weights.values()

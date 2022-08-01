@@ -5,3 +5,4 @@ from agents.quad_rotor_PI_agent import QuadRotorPIAgent
 from agents.quad_rotor_DPG_agent import (
     QuadRotorDPGAgent, QuadRotorDPGAgentConfig)
 
+from agents import wrappers

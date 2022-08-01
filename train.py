@@ -9,7 +9,8 @@ from tqdm import tqdm
 #   - number of  training episodes
 # 2) vectorize environment and solve MPC in parallel
 #   - vectorize all wrappers then
-# 3) agent monitor (saves weights and dJ(pi)dtheta)
+#   - vectorize also agent
+# 3) agent monitor (saves weights and dJdtheta)
 # 4) live plotter
 
 
@@ -26,7 +27,8 @@ if __name__ == '__main__':
         max_episode_steps=max_episode_steps)
 
     # agent = agents.QuadRotorPIAgent(env=env, agentname='PI', seed=69)
-    agent = agents.QuadRotorDPGAgent(env=env, agentname='DPG', seed=69)
+    agent: agents.QuadRotorDPGAgent = agents.wrappers.RecordLearningData(
+        agents.QuadRotorDPGAgent(env=env, agentname='DPG', seed=69))
 
     # simulate
     for i in range(episodes):

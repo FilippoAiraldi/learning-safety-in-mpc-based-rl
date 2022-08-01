@@ -58,9 +58,17 @@ class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
         pass
 
     @abstractmethod
-    def consolidate_episode_experience(self) -> None:
-        '''At the end of an episode, computes the remaining operations and 
-        saves results to the replay memory.'''
+    def consolidate_episode_experience(self) -> np.ndarray:
+        '''
+        At the end of an episode, computes the remaining operations and 
+        saves results to the replay memory.
+        
+        Returns
+        -------
+        gradient : array_like
+            Gradient of the update thanks to the collected information from
+            this episode.
+        '''
         pass
 
     @abstractmethod
