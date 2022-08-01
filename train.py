@@ -58,11 +58,12 @@ if __name__ == '__main__':
         agent.perturbation_strength *= 0.97
 
         # log episode outcomes
-        logger.debug(f'J={env.cum_rewards[-1]:.3f}' + 
+        logger.debug(f'J={env.cum_rewards[-1]:.3f} - '\
+                     f'||dJdtheta||={agent.update_gradient_norm[-1]:.3f} - ' +
                      agent.weights.values2str())
 
     # save results and launch plotting (is blocking)
-    fn = util.save_results(filename=run_name, env=env, 
+    fn = util.save_results(filename=run_name, env=env,
                            weights=agent.weights.values(as_dict=True))
     import os
     os.system(f'python visualization.py -fn {fn}')

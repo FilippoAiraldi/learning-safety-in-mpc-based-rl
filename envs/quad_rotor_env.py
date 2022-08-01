@@ -239,7 +239,7 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
             The value of the functions.
         '''
         if isinstance(alt, np.ndarray):
-            alt = np.squeeze(alt)
+            alt = alt.squeeze()
             assert alt.ndim == 1, 'Altitudes must be a vector'
 
         return np.vstack([
@@ -300,7 +300,7 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
             instantenuous cost of taking this action in this state, the 
             termination flag and a dictionary of information.
         '''
-        u = np.squeeze(u)  # in case a row or col was passed
+        u = u.squeeze()  # in case a row or col was passed
         assert self.action_space.contains(u), 'Invalid action.'
 
         # compute new state: x+ = A*x + B*u + C*phi(s[2])*w + e
