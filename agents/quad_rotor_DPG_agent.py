@@ -2,6 +2,7 @@ import numpy as np
 import casadi as cs
 from threading import Thread
 from queue import Queue
+from itertools import pairwise
 from dataclasses import dataclass
 from scipy.linalg import lstsq
 from envs import QuadRotorEnvConfig, QuadRotorEnv
@@ -37,6 +38,10 @@ class QuadRotorDPGAgentConfig:
     replay_maxlen: float = 20  # 20 episodes
     replay_sample_size: float = 10  # sample from 10 out of 20 episodes
     replay_include_last: float = 5  # include in the sample the last 5 episodes
+
+    # RL parameters
+    gamma: float = 0.97
+    lr: float = 1e0
 
     @property
     def init_pars(self) -> dict[str, float | np.ndarray]:
@@ -97,82 +102,124 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
                          fixed_pars={'perturbation': np.nan},
                          mpc_config=mpc_config, seed=seed)
 
-        # initialize the replay memory
+        # during learning, DPG must always perturb the action in order to learn
+        self.perturbation_chance = 1.0
+
+        # initialize the replay memory. It saves one object per episode
+        #       sum_k=1^K { dpidtheta(s_k) * dpidtheta(s_k).T w }
+        # which represents the strenght of the update from one episode.
         self.replay_memory = ReplayMemory[np.ndarray](
             maxlen=agent_config.replay_maxlen, seed=seed)
 
-        # compute the symbolical derivatives needed to perform the DPG updates
+        # initialize symbols for derivatives to be used later and worker to
+        # compute these numerically
+        self._init_symbols()
+        self._init_worker()
+
+    def save_transition(self, sar: tuple[np.ndarray, np.ndarray, float],
+                        solution: Solution) -> None:
+        if not self._worker.is_alive():
+            self._worker.start()
+        self._work_queue.put((*sar, solution))
+
+    def consolidate_episode_experience(self) -> None:
+        # wait for the current episode's transitions to be fully saved
+        self._work_queue.join()
+        buffer = self._episode_buffer
+
+        # compute episode's weights v via least-squares
+        A, b = 0, 0
+        for (Phi, _, L, _), (Phi_n, _, _, _) in pairwise(buffer):
+            A += Phi @ (Phi - self.config.gamma * Phi_n).T
+            b += Phi * L
+        v = lstsq(A, b, lapack_driver='gelsy')[0]
+
+        # compute episode's weights w via least-squares
+        A, b = 0, 0
+        for (Phi, Psi, L, _), (Phi_n, _, _, _) in pairwise(buffer):
+            A += Psi @ Psi.T
+            b += (L + (self.config.gamma * Phi_n - Phi).T @ v) * Psi
+        w = lstsq(A, b, lapack_driver='gelsy')[0]
+
+        # compute episode's update
+        update = sum(
+            dpidtheta @ dpidtheta.T @ w for _, _, _, dpidtheta in buffer)
+
+        # save this episode's update to memory and clear buffer
+        self.replay_memory.append(update.flatten())
+        self._episode_buffer.clear()
+
+    def update(self) -> None:
+        # self.weights
+        pass
+
+    def _init_symbols(self) -> None:
+        '''Computes symbolical derivatives needed for DPG updates.'''
         # gather some variables
         theta = self.weights.symV()
-        R, y, _, g_ineq_all = self.V.kkt_conditions
+        R, y, _, self._g_ineq_all = self.V.kkt_conditions
 
         # compute the derivative of the policy (pi) w.r.t. the mpc pars (theta)
-        dRdtheta = cs.simplify(cs.jacobian(R, theta)).T
-        dRdy = cs.simplify(cs.jacobian(R, y)).T
-        dydu0 = cs.simplify(cs.jacobian(y, self.V.vars['u'][:, 0]))
-        self._sym: dict[str, cs.SX] = {
-            'g_ineq_all': g_ineq_all,
-            'dRdy': dRdy,
-            'dydu0': dydu0,
-            'dRdtheta': dRdtheta
-        }
+        self._dRdtheta = cs.simplify(cs.jacobian(R, theta)).T
+        self._dRdy = cs.simplify(cs.jacobian(R, y)).T
+        self._dydu0 = cs.simplify(cs.jacobian(y, self.V.vars['u'][:, 0]))
         # NOTE: cannot go further with symbolic computations as they get too
         # heavy due to matrix inversion of dRdy, which tends to be quite big.
 
-        # initialize small internal buffer of solutions, one per each timestep
-        self._buffer: list[Solution] = []
+        # compute baseline function approximating the value function with
+        # monomials as basis
+        x: cs.SX = cs.SX.sym('x', self.env.nx, 1)
+        y: cs.SX = cs.vertcat(
+            1, x, *(cs_prod(x**p) for p in monomial_powers(x.size1(), 2)))
+        self._Phi = cs.Function('Phi', [x], [y], ['s'], ['Phi(s)'])
 
-    def save_transition(self, solV: Solution) -> None:
-        '''Saves the solution at the current time-step.'''
-        self._buffer.append(solV)
+    def _init_worker(self) -> None:
+        '''initialize worker thread tasked with computing the derivatives per
+        each transition (computationally heavy). Results for the current
+        episode are then saved in the buffer.'''
+        self._worker = Thread(daemon=True, target=self._do_work)
+        self._work_queue = \
+            Queue[tuple[np.ndarray, np.ndarray, float, Solution]]()
+        self._episode_buffer: \
+            list[tuple[np.ndarray, np.ndarray, float, np.ndarray]] = []
 
-    def consolidate_episode_experience(self) -> None:
-        # extract the symbols
-        g_ineq_all = self._sym['g_ineq_all']
-        dRdy = self._sym['dRdy']
-        dydu0 = self._sym['dydu0']
-        dRdtheta = self._sym['dRdtheta']
+        # pre-compute some constants for the worker
+        self._offset = self.V.nx + self.V.ng_eq
+        self._dLdw_and_g_eq_idx = np.arange(self._offset)
 
-        # pre-compute constants
-        offset = self.V.nx + self.V.ng_eq
-        dLdw_and_g_eq_idx = np.arange(offset)
+    def _do_work(self) -> None:
+        '''Actual method executed by the worker thread.'''
+        while True:
+            s, a, L, sol = self._work_queue.get()
 
-        # for each solution, make the computations
-        # TODO: check if parallelizing this loop helps
-        dpidthetas = []
-        for sol in self._buffer:
+            # compute derivative of policy pi w.r.t. the MPC parameters theta
             # get active constraints only
-            idx2 = np.where(np.concatenate((
-                [True] * offset,
-                np.isclose(sol.value(g_ineq_all), 0)
-            )))[0]
             idx = np.concatenate((
-                dLdw_and_g_eq_idx,
-                offset + np.where(np.isclose(sol.value(g_ineq_all), 0))[0]
+                self._dLdw_and_g_eq_idx,
+                np.where(np.isclose(sol.value(self._g_ineq_all), 0))[0] +
+                self._offset
             ))
-            # TODO: check these are equal
-            assert (idx == idx2).all()
 
             # compute the derivative of the policy w.r.t. the mpc weights theta
-            dRdy = sol.value(dRdy[idx, idx])
-            dydu0 = sol.value(dydu0[idx, :])
-            dRdtheta = sol.value(dRdtheta[:, idx])
-            dpidthetas.append(
-                -dRdtheta @ lstsq(dRdy, dydu0, lapack_driver='gelsy')[0])
+            dRdy = sol.value(self._dRdy[idx, idx])
+            dydu0 = sol.value(self._dydu0[idx, :])
+            dRdtheta = sol.value(self._dRdtheta[:, idx])
+            q = lstsq(dRdy, dydu0, lapack_driver='gelsy')[0]
+            dpidtheta = -dRdtheta @ q
+            assert (dRdy @ q - dydu0).max() <= 1e-10, 'Linear solver failed.'
+            # NOTE: Other methods to solving the linear system are
+            # 1. q = np.linalg.solve(dRdy, dydu0)
+            # 2. U, S, VT = np.linalg.svd(dRdy)
+            #    y = np.linalg.solve(np.diag(S), U.T @ dydu)
+            #    q = np.linalg.solve(VT, y)
 
-        # save to replay memory
-        # TODO: compact dpidthetas to an array
-        # TODO: save also the state in which the solution was computed
+            # compute Phi
+            Phi = self._Phi(s).full()
 
-        # finally, clear the temp buffer
-        self._buffer.clear()
+            # compute Psi
+            u_opt = sol.value(sol.vals['u'][:, 0])  # i.e., V(s), pi(s)
+            Psi = (dpidtheta @ (a - u_opt)).reshape(-1, 1)
 
-# #
-# # q0 = np.linalg.solve(dRdys[-1], dydu0s[-1])
-# #
-# q1 = lstsq(dRdys[-1], dydu0s[-1], lapack_driver='gelsy')[0]
-# #
-# U2, S2, V2T = np.linalg.svd(dRdys[-1])
-# y2 = np.linalg.solve(np.diag(S2), U2.T @ dydu0s[-1])
-# q2 = np.linalg.solve(V2T, y2)
-# #
+            # save in temporary buffer
+            self._episode_buffer.append((Phi, Psi, L, dpidtheta))
+            self._work_queue.task_done()

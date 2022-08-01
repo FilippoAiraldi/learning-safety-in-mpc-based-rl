@@ -52,7 +52,7 @@ class QuadRotorBaseAgent(ABC):
         self.fixed_pars = {} if fixed_pars is None else fixed_pars
         self.np_random, _ = np_random(seed)
         self.perturbation_chance = 0.2
-        self.perturbation_strength = 0.05
+        self.perturbation_strength = 0.1
         self.last_solution: Solution = None
 
         # initialize MPCs

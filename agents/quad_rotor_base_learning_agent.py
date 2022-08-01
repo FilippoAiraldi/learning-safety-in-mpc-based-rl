@@ -36,3 +36,35 @@ class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
     def Q(self) -> DifferentiableMPC[QuadRotorMPC]:
         '''Gets the Q action-value function approximation MPC scheme.'''
         return self._Q
+
+    @abstractmethod
+    def save_transition(self, sar: tuple[np.ndarray, np.ndarray, float],
+                        solution: Solution) -> None:
+        '''
+        Schedules the current time-step data to be processed and saved into the
+        experience replay memory.
+
+        Parameters 
+        ----------
+        sar : tuple of (array_like, array_like, float)
+            The SAR tuple which stands for
+                - State for which the MPC V(s) is run
+                - Action taken as a result of computing V(s) (not necessarily the 
+                  optimal one, e.g., due to exploration).
+                - Reward/cost incurred subsequently.
+        solution : Solution
+            Solution object of V(s), where s is the current state.
+        '''
+        pass
+
+    @abstractmethod
+    def consolidate_episode_experience(self) -> None:
+        '''At the end of an episode, computes the remaining operations and 
+        saves results to the replay memory.'''
+        pass
+
+    @abstractmethod
+    def update(self) -> None:
+        '''Updates the MPC function approximation's weights based on the 
+        information stored in the replay memory.'''
+        pass
