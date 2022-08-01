@@ -2,9 +2,14 @@ import gym
 from abc import ABC
 from gym.wrappers import TimeLimit, OrderEnforcing
 from envs.wrappers import RecordData, ClipActionIfClose
+from typing import TypeVar
 
 
-class BaseEnv(gym.Env, ABC):
+ObsType = TypeVar('ObsType')
+ActType = TypeVar('ActType')
+
+
+class BaseEnv(gym.Env[ObsType, ActType], ABC):
     @classmethod
     def get_wrapped(
         cls,

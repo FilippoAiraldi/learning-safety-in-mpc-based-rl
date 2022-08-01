@@ -56,7 +56,7 @@ class QuadRotorEnvConfig:
     termination_error: float = 0.5
 
 
-class QuadRotorEnv(BaseEnv):
+class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
     '''
     ### Description
     The QuadRotorEnv consists in control problem whose goal is to drive a
