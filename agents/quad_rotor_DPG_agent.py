@@ -140,7 +140,7 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
         A, b = 0, 0
         for (Phi, Psi, L, _), (Phi_n, _, _, _) in pairwise(buffer):
             A += Psi @ Psi.T
-            b += (L + (self.config.gamma * Phi_n - Phi).T @ v) * Psi
+            b += (L + (self.config.gamma * Phi_n - Phi).T @ v).item() * Psi
         w = lstsq(A, b, lapack_driver='gelsy')[0]
 
         # compute episode's update
