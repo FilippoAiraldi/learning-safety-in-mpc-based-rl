@@ -19,7 +19,10 @@ class QuadRotorMPCConfig:
     solver_opts: dict = field(default_factory=lambda: {
         'expand': True, 'print_time': False,
         'ipopt': {
-            'print_level': False, 'max_iter': 1000, 'tol': 1e-9
+            # debug
+            'print_level': 0,
+            'print_user_options': 'no',
+            'print_options_documentation': 'no'
         }})
 
     def __post_init__(self) -> None:

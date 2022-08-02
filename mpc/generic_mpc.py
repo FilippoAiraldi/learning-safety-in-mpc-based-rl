@@ -5,6 +5,7 @@ from itertools import count
 from functools import partial
 from dataclasses import dataclass
 from mpc.mpc_debug import MPCDebug
+from typing import Any
 
 
 # NOTE: np.flatten and cs.vec operate on row- and column-wise, respectively!
@@ -15,13 +16,22 @@ class Solution:
     '''A class containing information on the solution of an MPC run.'''
     f: float
     vals: dict[str, _np.ndarray]
-    msg: str
-    success: bool
-    _get_value: partial
+    stats: dict[str, Any]
+    get_value: partial
+
+    @property
+    def status(self) -> str:
+        '''Gets the status of the solver at this solution.'''
+        return self.stats['return_status']
+
+    @property
+    def success(self) -> bool:
+        '''Gets whether the MPC was run successfully.'''
+        return self.status in ('Solve_Succeeded', 'Solved_To_Acceptable_Level')
 
     def value(self, x: cs.SX) -> _np.ndarray:
         '''Gets the value of the expression.'''
-        return self._get_value(x)
+        return self.get_value(x)
 
 
 class GenericMPC:
@@ -271,11 +281,6 @@ class GenericMPC:
                 subsevalf(self.x, self.vars, vals0), self.lbx, self.ubx)
         sol: dict[str, cs.DM] = self.solver(**kwargs)
 
-        # get return status
-        status = self.solver.stats()['return_status']
-        success = status in ('Solve_Succeeded', 'Solved_To_Acceptable_Level')
-        self.failures += int(not success)
-
         # build info
         lam_lbx_ = -_np.minimum(sol['lam_x'], 0)
         lam_ubx_ = _np.maximum(sol['lam_x'], 0)
@@ -287,8 +292,10 @@ class GenericMPC:
         vals = {name: get_value(var) for name, var in self.vars.items()}
 
         # build solution
-        return Solution(f=float(sol['f']), vals=vals, msg=status,
-                        success=success, _get_value=get_value)
+        sol_ = Solution(f=float(sol['f']), vals=vals, get_value=get_value,
+                        stats=self.solver.stats().copy())
+        self.failures += int(not sol_.success)
+        return sol_
 
     def __str__(self) -> str:
         '''Returns the MPC name and a short description.'''
