@@ -131,16 +131,16 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
 
         # compute episode's weights v via least-squares
         A, b = 0, 0
-        for (Phi, _, L, _), (Phi_n, _, _, _) in pairwise(buffer):
-            A += Phi @ (Phi - self.config.gamma * Phi_n).T
+        for (Phi, _, L, _), (Phi_next, _, _, _) in pairwise(buffer):
+            A += Phi @ (Phi - self.config.gamma * Phi_next).T
             b += Phi * L
         v = lstsq(A, b, lapack_driver='gelsy')[0]
 
         # compute episode's weights w via least-squares
         A, b = 0, 0
-        for (Phi, Psi, L, _), (Phi_n, _, _, _) in pairwise(buffer):
+        for (Phi, Psi, L, _), (Phi_next, _, _, _) in pairwise(buffer):
             A += Psi @ Psi.T
-            b += (L + (self.config.gamma * Phi_n - Phi).T @ v) * Psi
+            b += (L + (self.config.gamma * Phi_next - Phi).T @ v).item() * Psi
         w = lstsq(A, b, lapack_driver='gelsy')[0]
 
         # compute episode's update
