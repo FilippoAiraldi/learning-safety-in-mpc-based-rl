@@ -64,7 +64,7 @@ class DifferentiableMPC(Generic[MPCType]):
                 K = [          G_eq         ],
                     [ diag(lam_ineq)*H_ineq ]
                where w = [x, u, slacks] are the primal decision variables.
-               
+
             2) the collection y of primal-dual variables defined as
                     [   w    ]
                 y = [ lam_eq ]
@@ -91,14 +91,14 @@ class DifferentiableMPC(Generic[MPCType]):
             (g_lbx, self._mpc.lam_lbx[idx]),
             (g_ubx, self._mpc.lam_ubx[idx]),
         ]
-        g_ineq_all = cs.vertcat(*(o[0] for o in items))
-        lam_g_ineq_all = cs.vertcat(*(o[1] for o in items))
+        g_ineq_all: cs.SX = cs.vertcat(*(o[0] for o in items))
+        lam_g_ineq_all: cs.SX = cs.vertcat(*(o[1] for o in items))
 
         # build the matrix
-        R = cs.vertcat(dLdw, g_eq, g_ineq_all * lam_g_ineq_all)
+        R: cs.SX = cs.vertcat(dLdw, g_eq, g_ineq_all * lam_g_ineq_all)
 
         # build the collection of primal-dual variables
-        y = cs.vertcat(self._mpc.x, lam_g_eq, lam_g_ineq_all)
+        y: cs.SX = cs.vertcat(self._mpc.x, lam_g_eq, lam_g_ineq_all)
         return R, y, g_eq, g_ineq_all
 
     def __getattr__(self, name) -> Any:
