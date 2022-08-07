@@ -60,7 +60,8 @@ class GenericMPC:
         self.lam_lbx, self.lam_ubx = cs.SX(), cs.SX()
         self.g, self.lbg, self.ubg = cs.SX(), _np.array([]), _np.array([])
         self.lam_g = cs.SX()
-        self.Ig_eq, self.Ig_ineq = set(), set()
+        self.h, self.lbh, self.ubh = cs.SX(), _np.array([]), _np.array([])
+        self.lam_h = cs.SX()
 
         # initialize solver
         self.solver: cs.Function = None
@@ -82,38 +83,13 @@ class GenericMPC:
 
     @property
     def ng(self) -> int:
-        '''Number of constraints in the MPC problem.'''
+        '''Number of equality constraints in the MPC problem.'''
         return self.g.shape[0]
 
     @property
-    def ng_eq(self) -> int:
-        '''Number of equality constraints in the MPC problem.'''
-        return len(self.Ig_eq)
-
-    @property
-    def ng_ineq(self) -> int:
+    def nh(self) -> int:
         '''Number of inequality constraints in the MPC problem.'''
-        return len(self.Ig_ineq)
-
-    @property
-    def g_eq(self) -> tuple[cs.SX, cs.SX]:
-        '''Vector of equality constraints and their multipliers.'''
-        inds = tuple(self.Ig_eq)
-        try:
-            return self.g[inds], self.lam_g[inds]
-        except Exception:
-            inds = _np.array(inds)
-            return self.g[inds], self.lam_g[inds]
-
-    @property
-    def g_ineq(self) -> tuple[cs.SX, cs.SX]:
-        '''Vector of inequality constraints and their multipliers.'''
-        inds = tuple(self.Ig_ineq)
-        try:
-            return self.g[inds], self.lam_g[inds]
-        except Exception:
-            inds = _np.array(inds)
-            return self.g[inds], self.lam_g[inds]
+        return self.h.shape[0]
 
     def add_par(self, name: str, *dims: int) -> cs.SX:
         '''
@@ -184,55 +160,67 @@ class GenericMPC:
         return var, lam_lb, lam_ub
 
     def add_con(
-        self, name: str, g: cs.SX, lb: _np.ndarray, ub: _np.ndarray
-    ) -> cs.SX:
+        self, name: str, expr1: cs.SX, op: str, expr2: cs.SX
+    ) -> tuple[cs.SX, cs.SX]:
         '''
-        Adds a constraint to the MPC problem.
+        Adds a constraint to the MPC problem, e.g., 'expr1 <= expr2'.
 
         Parameters
         ----------
         name : str
             Name of the new constraint. Must not be already in use.
-        g : casadi.SX
-            Symbolic expression of the new constraint.
-        lb, ub: array_like
-            Lower and upper bounds of the new constraint. Must be constant and 
-            broadcastable to the size of the constraint expression.
+        expr1 : casadi.SX
+            Symbolic expression of the left-most term of the constraint.
+        op: str, {'=', '==', '>', '>=', '<=', '<='}
+            Operator relating the two expressions.
+        expr2 : casadi.SX
+            Symbolic expression of the right-most term of the constraint.
 
         Returns
         -------
-        lam_g : casadi.SX
+        expr : casadi.SX
+            The constraint expression in canonical form, i.e., h(x,u) = 0 or 
+            g(x,u) <= 0.
+        lam : casadi.SX
             The symbol corresponding to the new constraint's multipliers.
         '''
         assert name not in self.cons, f'Constraint {name} already exists.'
-        dims = g.shape
-        lb, ub = _np.broadcast_to(lb, dims), _np.broadcast_to(ub, dims)
-        assert _np.all(lb <= ub), 'Improper variable bounds.'
+        expr = expr1 - expr2
+        dims = expr.shape
 
-        # warn if any redundant constraints, i.e., lb=-inf, ub=+inf
-        lb = cs.vec(lb).full().flatten()
-        ub = cs.vec(ub).full().flatten()
-        redundant = _np.isneginf(lb) & _np.isposinf(ub)
-        if redundant.any():
-            warnings.warn(f'Found {redundant.sum()} redundant entries in '
-                          f'constraint \'{name}\'.')
+        # create bounds
+        match op:
+            case '=' | '==':
+                is_eq = True
+                lb, ub = _np.zeros(dims), _np.zeros(dims)
+            case '<' | '<=':
+                is_eq = False
+                lb, ub = _np.full(dims, -_np.inf), _np.zeros(dims)
+            case '>' | '>=':
+                is_eq = False
+                expr = -expr
+                lb, ub = _np.full(dims, -_np.inf), _np.zeros(dims)
+            case _:
+                raise ValueError(f'Unrecognized operator {op}.')
+        expr = cs.simplify(expr)
+        lb, ub = cs.vec(lb).full().flatten(), cs.vec(ub).full().flatten()
 
         # save to internal structures
-        self.cons[name] = g
-        self.g = cs.vertcat(self.g, cs.vec(g))
-        self.lbg = _np.concatenate((self.lbg, lb))
-        self.ubg = _np.concatenate((self.ubg, ub))
-        self.debug._register('g', name, dims)
-
-        # save indices of this constraint to either eq. or ineq. set
-        ng, L = self.ng, g.numel()
-        (self.Ig_eq if _np.all(lb == ub) else self.Ig_ineq).update(
-            range(ng - L, ng))
+        self.cons[name] = expr
+        group = 'g' if is_eq else 'h'
+        setattr(self, group,
+                cs.vertcat(getattr(self, group), cs.vec(expr)))
+        setattr(self, f'lb{group}',
+                _np.concatenate((getattr(self, f'lb{group}'), lb)))
+        setattr(self, f'ub{group}',
+                _np.concatenate((getattr(self, f'ub{group}'), ub)))
+        self.debug._register(group, name, dims)
 
         # create also the multiplier associated to the constraint
-        lam = cs.SX.sym(f'lam_g_{name}', *dims)
-        self.lam_g = cs.vertcat(self.lam_g, cs.vec(lam))
-        return lam
+        lam = cs.SX.sym(f'lam_{group}_{name}', *dims)
+        setattr(self, f'lam_{group}',
+                cs.vertcat(getattr(self, f'lam_{group}'), cs.vec(lam)))
+        return expr, lam
 
     def minimize(self, objective: cs.SX) -> None:
         '''Sets the objective function to be minimized.'''
@@ -240,7 +228,8 @@ class GenericMPC:
 
     def init_solver(self, opts: dict) -> None:
         '''Initializes the IPOPT solver for this MPC with the given options.'''
-        nlp = {'x': self.x, 'p': self.p, 'g': self.g, 'f': self.f}
+        g = cs.vertcat(self.g, self.h)
+        nlp = {'x': self.x, 'p': self.p, 'g': g, 'f': self.f}
         self.solver = cs.nlpsol(f'nlpsol_{self.name}', 'ipopt', nlp, opts)
         self.opts = opts
 
@@ -273,19 +262,26 @@ class GenericMPC:
             'p': p,
             'lbx': self.lbx,
             'ubx': self.ubx,
-            'lbg': self.lbg,
-            'ubg': self.ubg,
+            'lbg': _np.concatenate((self.lbg, self.lbh)),
+            'ubg': _np.concatenate((self.ubg, self.ubh)),
         }
         if vals0 is not None:
             kwargs['x0'] = _np.clip(
                 subsevalf(self.x, self.vars, vals0), self.lbx, self.ubx)
         sol: dict[str, cs.DM] = self.solver(**kwargs)
 
+        # extract lam_x
+        lam_lbx = -_np.minimum(sol['lam_x'], 0)
+        lam_ubx = _np.maximum(sol['lam_x'], 0)
+
+        # extract lam_g and lam_h
+        lam_g = sol['lam_g'][:self.ng, :]
+        lam_h = sol['lam_g'][self.ng:, :]
+
         # build info
-        lam_lbx_ = -_np.minimum(sol['lam_x'], 0)
-        lam_ubx_ = _np.maximum(sol['lam_x'], 0)
-        S = cs.vertcat(self.p, self.x, self.lam_g, self.lam_lbx, self.lam_ubx)
-        D = cs.vertcat(p, sol['x'], sol['lam_g'], lam_lbx_, lam_ubx_)
+        S = cs.vertcat(self.p, self.x, self.lam_g, self.lam_h, self.lam_lbx,
+                       self.lam_ubx)
+        D = cs.vertcat(p, sol['x'], lam_g, lam_h, lam_lbx, lam_ubx)
         get_value = partial(subsevalf, old=S, new=D)
 
         # build vals
@@ -300,11 +296,12 @@ class GenericMPC:
     def __str__(self) -> str:
         '''Returns the MPC name and a short description.'''
         msg = 'not initialized' if self.solver is None else 'initialized'
+        C = len(self.cons)
         return f'{type(self).__name__} {{\n' \
                f'  name: {self.name}\n' \
-               f'  #variables: {len(self.vars)} (nx = {self.nx})\n' \
-               f'  #parameters: {len(self.pars)} (np = {self.np})\n' \
-               f'  #constraints: {len(self.cons)} (ng = {self.ng})\n' \
+               f'  #variables: {len(self.vars)} (nx={self.nx})\n' \
+               f'  #parameters: {len(self.pars)} (np={self.np})\n' \
+               f'  #constraints: {C} (ng={self.ng}, nh={self.nh})\n' \
                f'  CasADi solver {msg}.\n}}'
 
     def __repr__(self) -> str:

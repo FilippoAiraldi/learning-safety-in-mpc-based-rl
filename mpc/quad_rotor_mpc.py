@@ -75,12 +75,12 @@ class QuadRotorMPC(GenericMPC):
         # within x bounds, get which are redundant (lb=-inf, ub=+inf) and which
         # are not. Create slacks only for non-redundant constraints on x.
         lb, ub = env.config.x_bounds[:, 0], env.config.x_bounds[:, 1]
-        not_redundant = ~(np.isneginf(lb) & np.isposinf(ub))
-        not_redundant_idx = np.where(not_redundant)[0]
-        lb, ub = lb[not_redundant], ub[not_redundant]
+        not_red = ~(np.isneginf(lb) & np.isposinf(ub))
+        not_red_idx = np.where(not_red)[0]
+        lb, ub = lb[not_red].reshape(-1, 1), ub[not_red].reshape(-1, 1)
 
         # 1) create variables - states are softly constrained
-        nx, nu, ns = env.nx, env.nu, not_redundant_idx.size
+        nx, nu, ns = env.nx, env.nu, not_red_idx.size
         x, _, _ = self.add_var('x', nx, Np + 1)
         u, _, _ = self.add_var('u', nu, Nc,
                                lb=env.config.u_bounds[:, 0, None],
@@ -98,37 +98,25 @@ class QuadRotorMPC(GenericMPC):
 
         # 1) constraint on initial conditions
         x0 = self.add_par('x0', env.nx, 1)  # initial conditions
-        self.add_con('init_state', x[:, 0] - x0, 0, 0)
+        self.add_con('init_state', x[:, 0], '==', x0)
 
         # 2) constraints on dynamics
         u_exp = cs.horzcat(u, cs.repmat(u[:, -1], 1, Np - Nc))
         A, B, e = self._get_dynamics_matrices(env)
-        for k in range(Np):
-            self.add_con(f'dyn_{k}',
-                         x[:, k + 1] - (A @ x[:, k] + B @ u_exp[:, k] + e),
-                         0, 0)
+        self.add_con('dyn', x[:, 1:], '==', A @ x[:, :-1] + B @ u_exp + e)        
 
         # 3) constraint on state (soft, backed off, without infinity in g, and
         # removing redundant entries)
         # constraint backoff parameter and bounds
         backoff = self.add_par('backoff', 1, 1)
 
-        # get a version of the bounds without infinities (cannot put infinity
-        # in the expression g)
-        lb_noinf = np.where(np.isneginf(lb), -1e9, lb)
-        ub_noinf = np.where(np.isposinf(ub), 1e9, ub)
-
         # set the state constraints as
         #  - soft-backedoff minimum constraint: (1+back)*lb - slack <= x
         #  - soft-backedoff maximum constraint: x <= (1-back)*ub + slack
-        lb, ub = lb.reshape(-1, 1), ub.reshape(-1, 1)
-        lb_noinf, ub_noinf = lb_noinf.reshape(-1, 1), ub_noinf.reshape(-1, 1)
-        self.add_con('state_min',
-                     x[not_redundant_idx, 1:] + slack - backoff * lb_noinf,
-                     lb, np.inf)
-        self.add_con('state_max',
-                     x[not_redundant_idx, 1:] - slack + backoff * ub_noinf,
-                     -np.inf, ub)
+        self.add_con('state_min', 
+                     (1 + backoff) * lb - slack, '<=', x[not_red_idx, 1:])
+        self.add_con('state_max', 
+                     x[not_red_idx, 1:], '<=', (1 - backoff) * ub + slack)
 
         # ========= #
         # Objective #
@@ -159,7 +147,7 @@ class QuadRotorMPC(GenericMPC):
         # case-specific modifications
         if type == 'Q':
             u0 = self.add_par('u0', nu, 1)
-            self.add_con('init_action', u[:, 0] - u0, 0, 0)
+            self.add_con('init_action', u[:, 0], '==', u0)
         else:
             perturbation = self.add_par('perturbation', nu, 1)
             self.f += cs.dot(perturbation, u[:, 0])

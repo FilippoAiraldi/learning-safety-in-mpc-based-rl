@@ -48,15 +48,16 @@ class DifferentiableMPC(Generic[MPCType]):
     def lagrangian(self) -> cs.SX:
         '''Lagrangian of the MPC problem.'''
         idx = self._non_redundant_x_bound_indices
-        g_lbx = self._mpc.lbx[idx, None] - self._mpc.x[idx]
-        g_ubx = self._mpc.x[idx] - self._mpc.ubx[idx, None]
+        h_lbx = self._mpc.lbx[idx, None] - self._mpc.x[idx]
+        h_ubx = self._mpc.x[idx] - self._mpc.ubx[idx, None]
         return (self._mpc.f +
                 cs.dot(self._mpc.lam_g, self._mpc.g) +
-                cs.dot(self._mpc.lam_lbx[idx], g_lbx) +
-                cs.dot(self._mpc.lam_ubx[idx], g_ubx))
+                cs.dot(self._mpc.lam_h, self._mpc.h) +
+                cs.dot(self._mpc.lam_lbx[idx], h_lbx) +
+                cs.dot(self._mpc.lam_ubx[idx], h_ubx))
 
     @property
-    def kkt_conditions(self) -> tuple[cs.SX, cs.SX, cs.SX, cs.SX, cs.SX]:
+    def kkt_conditions(self) -> tuple[cs.SX, cs.SX, cs.SX]:
         '''
         Gets:
             1-2) the KKT matrix defined as
@@ -67,41 +68,35 @@ class DifferentiableMPC(Generic[MPCType]):
                tau is the IPOPT barrier parameter.
 
             3) the collection y of primal-dual variables defined as
-                    [   w    ]
-                y = [ lam_eq ]
-                    [lam_ineq].
-
-            4) the equality constraints G_eq.
-
-            5) all the inequality constraints H_ineq (i.e., g_ineq+lbx+ubx).
+                    [    w     ]
+                y = [ lam_G_eq ]
+                    [lam_H_ineq].
         '''
         # compute derivative of lagrangian - use w to discern 'x' the state
         # from 'x' the primal variable of the MPC
         dLdw = cs.simplify(cs.jacobian(self.lagrangian, self._mpc.x).T)
 
-        # get equality constraints (G_eq = 0)
-        g_eq, lam_g_eq = self._mpc.g_eq
-
-        # get inequality constraints (H_ineq <= 0)
+        # get non redundant inequalities on x
         idx = self._non_redundant_x_bound_indices
-        g_ineq, lam_g_ineq = self._mpc.g_ineq
-        g_lbx = self._mpc.lbx[idx] - self._mpc.x[idx]
-        g_ubx = self._mpc.x[idx] - self._mpc.ubx[idx]
-        items = [
-            (g_ineq, lam_g_ineq),
-            (g_lbx, self._mpc.lam_lbx[idx]),
-            (g_ubx, self._mpc.lam_ubx[idx]),
-        ]
-        g_ineq_all: cs.SX = cs.vertcat(*(o[0] for o in items))
-        lam_g_ineq_all: cs.SX = cs.vertcat(*(o[1] for o in items))
+        h_lbx = self._mpc.lbx[idx, None] - self._mpc.x[idx]
+        h_ubx = self._mpc.x[idx] - self._mpc.ubx[idx, None]
+        h_lam_lbx = self._mpc.lam_lbx[idx]
+        h_lam_ubx = self._mpc.lam_ubx[idx]
 
-        # build the matrix
+        # include barrier function parameter
         tau: cs.SX = cs.SX.sym('tau', 1, 1)
-        R: cs.SX = cs.vertcat(dLdw, g_eq, g_ineq_all * lam_g_ineq_all + tau)
 
-        # build the collection of primal-dual variables
-        y: cs.SX = cs.vertcat(self._mpc.x, lam_g_eq, lam_g_ineq_all)
-        return R, tau, y, g_eq, g_ineq_all
+        # build KKT conditions and collection of primal-dual variables
+        R: cs.SX = cs.vertcat(
+            dLdw,
+            self._mpc.g,
+            self._mpc.lam_h * self._mpc.h + tau,
+            h_lam_lbx * h_lbx,  # is tau required here?
+            h_lam_ubx * h_ubx,  # is tau required here?
+        )
+        y: cs.SX = cs.vertcat(self._mpc.x, self._mpc.lam_g,
+                              self._mpc.lam_h, h_lam_lbx, h_lam_ubx)
+        return R, tau, y
 
     def __getattr__(self, name) -> Any:
         '''Reroutes attributes to the wrapped MPC instance.'''
