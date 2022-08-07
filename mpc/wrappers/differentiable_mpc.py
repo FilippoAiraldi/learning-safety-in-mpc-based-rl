@@ -56,23 +56,24 @@ class DifferentiableMPC(Generic[MPCType]):
                 cs.dot(self._mpc.lam_ubx[idx], g_ubx))
 
     @property
-    def kkt_conditions(self) -> tuple[cs.SX, cs.SX, cs.SX, cs.SX]:
+    def kkt_conditions(self) -> tuple[cs.SX, cs.SX, cs.SX, cs.SX, cs.SX]:
         '''
         Gets:
-            1) the KKT matrix defined as
-                    [          dLdw         ]
-                K = [          G_eq         ],
-                    [ diag(lam_ineq)*H_ineq ]
-               where w = [x, u, slacks] are the primal decision variables.
+            1-2) the KKT matrix defined as
+                    [            dLdw             ]
+                K = [            G_eq             ],
+                    [ diag(lam_ineq)*H_ineq + tau ]
+               where w = [x, u, slacks] are the primal decision variables, and 
+               tau is the IPOPT barrier parameter.
 
-            2) the collection y of primal-dual variables defined as
+            3) the collection y of primal-dual variables defined as
                     [   w    ]
                 y = [ lam_eq ]
                     [lam_ineq].
 
-            3) the equality constraints G_eq
+            4) the equality constraints G_eq.
 
-            4) all the inequality constraints H_ineq (i.e., g_ineq + lbx + ubx)
+            5) all the inequality constraints H_ineq (i.e., g_ineq+lbx+ubx).
         '''
         # compute derivative of lagrangian - use w to discern 'x' the state
         # from 'x' the primal variable of the MPC
@@ -95,11 +96,12 @@ class DifferentiableMPC(Generic[MPCType]):
         lam_g_ineq_all: cs.SX = cs.vertcat(*(o[1] for o in items))
 
         # build the matrix
-        R: cs.SX = cs.vertcat(dLdw, g_eq, g_ineq_all * lam_g_ineq_all)
+        tau: cs.SX = cs.SX.sym('tau', 1, 1)
+        R: cs.SX = cs.vertcat(dLdw, g_eq, g_ineq_all * lam_g_ineq_all + tau)
 
         # build the collection of primal-dual variables
         y: cs.SX = cs.vertcat(self._mpc.x, lam_g_eq, lam_g_ineq_all)
-        return R, y, g_eq, g_ineq_all
+        return R, tau, y, g_eq, g_ineq_all
 
     def __getattr__(self, name) -> Any:
         '''Reroutes attributes to the wrapped MPC instance.'''

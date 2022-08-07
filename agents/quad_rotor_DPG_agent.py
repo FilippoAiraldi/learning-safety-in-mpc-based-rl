@@ -172,9 +172,10 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
         '''Computes symbolical derivatives needed for DPG updates.'''
         # gather some variables
         theta = self.weights.symV()
-        R, y, _, self._g_ineq_all = self.V.kkt_conditions
+        R, tau, y, _, _ = self.V.kkt_conditions
 
         # compute the derivative of the policy (pi) w.r.t. the mpc pars (theta)
+        self._tau = tau
         self._dRdtheta = cs.simplify(cs.jacobian(R, theta)).T
         self._dRdy = cs.simplify(cs.jacobian(R, y)).T
         self._dydu0 = cs.simplify(cs.jacobian(y, self.V.vars['u'][:, 0]))
@@ -207,18 +208,10 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
         while True:
             s, a, L, sol = self._work_queue.get()
 
-            # compute derivative of policy pi w.r.t. the MPC parameters theta
-            # get active constraints only
-            idx = np.concatenate((
-                self._dLdw_and_g_eq_idx,
-                np.where(np.isclose(sol.value(self._g_ineq_all), 0))[0] +
-                self._offset
-            ))
-
             # compute the derivative of the policy w.r.t. the mpc weights theta
-            dRdy = sol.value(self._dRdy[idx, idx])
-            dydu0 = sol.value(self._dydu0[idx, :])
-            dRdtheta = sol.value(self._dRdtheta[:, idx])
+            dRdy = sol.value(self._dRdy)
+            dydu0 = sol.value(self._dydu0)
+            dRdtheta = sol.value(self._dRdtheta)
             q = lstsq(dRdy, dydu0, lapack_driver='gelsy')[0]
             dpidtheta = -dRdtheta @ q
             assert (dRdy @ q - dydu0).max() <= 1e-10, 'Linear solver failed.'
