@@ -2,7 +2,6 @@ import numpy as np
 import casadi as cs
 from threading import Thread
 from queue import Queue
-from itertools import pairwise
 from dataclasses import dataclass
 from envs import QuadRotorEnvConfig, QuadRotorEnv
 from mpc import Solution, QuadRotorMPCConfig
@@ -49,6 +48,9 @@ class QuadRotorDPGAgentConfig:
             name.removeprefix('init_'): val
             for name, val in self.__dict__.items() if name.startswith('init_')
         }
+
+
+transp = lambda o: np.transpose(o, axes=(0, 2, 1))
 
 
 class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
@@ -105,9 +107,9 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
         self.perturbation_chance = 1.0
 
         # initialize the replay memory. Per each episode the memory saves an
-        # array of Phi(s), Psi(s,a), L(s,a) and dpidtheta(s).
+        # array of Phi(s), Psi(s,a), L(s,a), dpidtheta(s) and weights v.
         self.replay_memory = ReplayMemory[
-            tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]](
+            tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]](
                 maxlen=agent_config.replay_maxlen, seed=seed)
 
         # initialize symbols for derivatives to be used later and worker to
@@ -127,11 +129,23 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
         # wait for the current episode's transitions to be fully saved
         self._work_queue.join()
 
-        # consolidate list of Phi(s), Psi(s,a), L(s,a), dpidtheta(s) into array
-        item = tuple(np.stack(o, axis=0) for o in zip(*self._episode_buffer))
+        # consolidate Phi(s), Psi(s,a), L(s,a), dpidtheta(s) into arrays
+        Phi, Psi, L, dpidtheta = tuple(
+            np.stack(o, axis=0) for o in zip(*self._episode_buffer))
+
+        # compute this episode's weights v via LSTD
+        A = (
+            Phi[:-1] @ transp(Phi[:-1] - self.config.gamma * Phi[1:])
+        ).sum(axis=0)
+        b = (Phi[:-1] * L[:-1]).sum(axis=0)
+        try:
+            v = np.linalg.solve(A, b)
+        except np.linalg.LinAlgError:
+            v = np.linalg.lstsq(A, b, rcond=None)[0]
+        v = v.reshape(1, -1, 1)
 
         # save this episode to memory and clear buffer
-        self.replay_memory.append(item)
+        self.replay_memory.append((Phi, Psi, L, dpidtheta, v))
         self._episode_buffer.clear()
 
     def update(self) -> np.ndarray:
@@ -139,33 +153,24 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
         sample = list(self.replay_memory.sample(
             self.config.replay_sample_size, self.config.replay_include_last))
         m = len(sample)
-        gamma = self.config.gamma
-        transp = lambda o: np.transpose(o, axes=(0, 2, 1))
 
-        # compute weights v via least-squares and averaging over episodes
-        v = 0
-        for Phi, _, L, _ in sample:
-            A = (Phi[:-1] @ transp(Phi[:-1] - gamma * Phi[1:])).sum(axis=0)
-            b = (Phi[:-1] * L[:-1]).sum(axis=0)
-            try:
-                v += np.linalg.solve(A, b)
-            except np.linalg.LinAlgError:
-                v += np.linalg.lstsq(A, b, rcond=None)[0]
-        v = v.reshape(1, -1, 1) / m
+        # average weights over m episodes
+        v = sum(v for _, _, _, _, v in sample) / m
 
-        # compute weights w via least-squares and averaging over episodes
+        # compute weights w via LSTD and averaging over m episodes
         w = 0
-        for Phi, Psi, L, _ in sample:
+        for Phi, Psi, L, _, _ in sample:
             A = (Psi[:-1] @ transp(Psi[:-1])).sum(axis=0)
             b = (
-                (L[:-1] + transp(gamma * Phi[1:] - Phi[:-1]) @ v) * Psi[:-1]
+                (L[:-1] +
+                 transp(self.config.gamma * Phi[1:] - Phi[:-1]) @ v) * Psi[:-1]
             ).sum(axis=0)
             w += np.linalg.solve(A, b)
         w = w.reshape(1, -1, 1) / m
 
         # compute episode's update
         dJdtheta = 1 / m * sum((dpidtheta @ transp(dpidtheta) @ w).sum(axis=0)
-                               for _, _, _, dpidtheta in sample).flatten()
+                               for _, _, _, dpidtheta, _ in sample).flatten()
 
         # perform update
         c = self.config.lr * dJdtheta
@@ -194,7 +199,9 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
         # monomials as basis
         x: cs.SX = cs.SX.sym('x', self.env.nx, 1)
         y: cs.SX = cs.vertcat(
-            1, x, *(cs_prod(x**p) for p in monomial_powers(x.size1(), 2)))
+            1,
+            x,
+            *(cs_prod(x**p) for p in monomial_powers(x.size1(), 2)))
         self._Phi = cs.Function('Phi', [x], [y], ['s'], ['Phi(s)'])
 
     def _init_worker(self) -> None:

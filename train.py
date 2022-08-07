@@ -16,11 +16,11 @@ if __name__ == '__main__':
     # set up
     util.set_np_mpl_defaults()
     run_name = util.get_run_name()
-    logger = util.create_logger(run_name)
+    # logger = util.create_logger(run_name)
 
     # initialize env and agent
-    episodes = 2
-    max_episode_steps = 100
+    episodes = 1
+    max_episode_steps = 50
     env: envs.QuadRotorEnv = envs.QuadRotorEnv.get_wrapped(
         max_episode_steps=max_episode_steps)
 
@@ -60,8 +60,8 @@ if __name__ == '__main__':
         agent.perturbation_strength *= 0.97
 
         # log episode outcomes
-        logger.debug(f'J={env.cum_rewards[-1]:.3f} - '
-                     f'||dJdtheta||={agent.update_gradient_norm[-1]:.3f}')
+        # logger.debug(f'J={env.cum_rewards[-1]:.3f} - '
+        #              f'||dJdtheta||={agent.update_gradient_norm[-1]:.3f}')
 
     # save results and launch plotting (is blocking)
     fn = util.save_results(filename=run_name, env=env,
