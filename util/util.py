@@ -2,7 +2,7 @@ import casadi as cs
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-import pickle
+import cloudpickle
 import logging
 from cycler import cycler
 from scipy.special import comb
@@ -117,7 +117,7 @@ def save_results(filename: str, **data) -> str:
     if not filename.endswith('.pkl'):
         filename = f'{filename}.pkl'
     with open(filename, 'wb') as f:
-        pickle.dump(data, f)
+        cloudpickle.dump(data, f)
     return filename
 
 
@@ -136,7 +136,7 @@ def load_results(filename: str) -> dict:
         The saved data in the shape of a dictionary.
     '''
     with open(filename, 'rb') as f:
-        return pickle.load(f)
+        return cloudpickle.load(f)
 
 
 def create_logger(run_name: str) -> logging.Logger:
