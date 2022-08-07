@@ -32,29 +32,30 @@ class DifferentiableMPC(Generic[MPCType]):
         return self._mpc
 
     @property
-    def _non_redundant_x_bound_indices(self) -> np.ndarray:
+    def _non_redundant_x_bound_indices(self) -> tuple[np.ndarray, np.ndarray]:
         '''
         Gets the indices of lbx and ubx which are not redundant, i.e., 
                 idx = { i : not ( lbx[i]=-inf and ubx[i]=+inf ) },
-        if not disabled. Otherwise, simply returns all the indices
+        if not disabled. Otherwise, simply returns all the indices.
         '''
         return (
-            np.where((self._mpc.lbx != -np.inf) | (self._mpc.ubx != np.inf))[0]
+            (np.where(self._mpc.lbx != -np.inf)[0], 
+            np.where(self._mpc.ubx != np.inf)[0])
             if self.reduce_redundant_x_bounds else
-            np.arange(self._mpc.nx)
+            (np.arange(self._mpc.nx), np.arange(self._mpc.nx))
         )
 
     @property
     def lagrangian(self) -> cs.SX:
         '''Lagrangian of the MPC problem.'''
-        idx = self._non_redundant_x_bound_indices
-        h_lbx = self._mpc.lbx[idx, None] - self._mpc.x[idx]
-        h_ubx = self._mpc.x[idx] - self._mpc.ubx[idx, None]
+        idx_lbx, idx_ubx = self._non_redundant_x_bound_indices
+        h_lbx = self._mpc.lbx[idx_lbx, None] - self._mpc.x[idx_lbx]
+        h_ubx = self._mpc.x[idx_ubx] - self._mpc.ubx[idx_ubx, None]
         return (self._mpc.f +
                 cs.dot(self._mpc.lam_g, self._mpc.g) +
                 cs.dot(self._mpc.lam_h, self._mpc.h) +
-                cs.dot(self._mpc.lam_lbx[idx], h_lbx) +
-                cs.dot(self._mpc.lam_ubx[idx], h_ubx))
+                cs.dot(self._mpc.lam_lbx[idx_lbx], h_lbx) +
+                cs.dot(self._mpc.lam_ubx[idx_ubx], h_ubx))
 
     @property
     def kkt_conditions(self) -> tuple[cs.SX, cs.SX, cs.SX]:
@@ -77,11 +78,11 @@ class DifferentiableMPC(Generic[MPCType]):
         dLdw = cs.simplify(cs.jacobian(self.lagrangian, self._mpc.x).T)
 
         # get non redundant inequalities on x
-        idx = self._non_redundant_x_bound_indices
-        h_lbx = self._mpc.lbx[idx, None] - self._mpc.x[idx]
-        h_ubx = self._mpc.x[idx] - self._mpc.ubx[idx, None]
-        h_lam_lbx = self._mpc.lam_lbx[idx]
-        h_lam_ubx = self._mpc.lam_ubx[idx]
+        idx_lbx, idx_ubx = self._non_redundant_x_bound_indices
+        h_lbx = self._mpc.lbx[idx_lbx, None] - self._mpc.x[idx_lbx]
+        h_ubx = self._mpc.x[idx_ubx] - self._mpc.ubx[idx_ubx, None]
+        h_lam_lbx = self._mpc.lam_lbx[idx_lbx]
+        h_lam_ubx = self._mpc.lam_ubx[idx_ubx]
 
         # include barrier function parameter
         tau: cs.SX = cs.SX.sym('tau', 1, 1)

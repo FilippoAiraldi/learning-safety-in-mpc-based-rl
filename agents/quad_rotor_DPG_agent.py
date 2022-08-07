@@ -4,7 +4,6 @@ from threading import Thread
 from queue import Queue
 from itertools import pairwise
 from dataclasses import dataclass
-from scipy.linalg import lstsq
 from envs import QuadRotorEnvConfig, QuadRotorEnv
 from mpc import Solution, QuadRotorMPCConfig
 from util import monomial_powers, cs_prod
@@ -134,14 +133,14 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
         for (Phi, _, L, _), (Phi_next, _, _, _) in pairwise(buffer):
             A += Phi @ (Phi - self.config.gamma * Phi_next).T
             b += Phi * L
-        v = lstsq(A, b, lapack_driver='gelsy')[0]
+        v = np.linalg.lstsq(A, b, rcond=None)[0]
 
         # compute episode's weights w via least-squares
         A, b = 0, 0
         for (Phi, Psi, L, _), (Phi_next, _, _, _) in pairwise(buffer):
             A += Psi @ Psi.T
             b += (L + (self.config.gamma * Phi_next - Phi).T @ v).item() * Psi
-        w = lstsq(A, b, lapack_driver='gelsy')[0]
+        w = np.linalg.lstsq(A, b, rcond=None)[0]
 
         # compute episode's update
         dJdtheta = sum(
@@ -172,10 +171,9 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
         '''Computes symbolical derivatives needed for DPG updates.'''
         # gather some variables
         theta = self.weights.symV()
-        R, tau, y, _, _ = self.V.kkt_conditions
+        R, _, y = self.V.kkt_conditions
 
         # compute the derivative of the policy (pi) w.r.t. the mpc pars (theta)
-        self._tau = tau
         self._dRdtheta = cs.simplify(cs.jacobian(R, theta)).T
         self._dRdy = cs.simplify(cs.jacobian(R, y)).T
         self._dydu0 = cs.simplify(cs.jacobian(y, self.V.vars['u'][:, 0]))
@@ -199,10 +197,6 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
         self._episode_buffer: \
             list[tuple[np.ndarray, np.ndarray, float, np.ndarray]] = []
 
-        # pre-compute some constants for the worker
-        self._offset = self.V.nx + self.V.ng_eq
-        self._dLdw_and_g_eq_idx = np.arange(self._offset)
-
     def _do_work(self) -> None:
         '''Actual method executed by the worker thread.'''
         while True:
@@ -212,14 +206,9 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
             dRdy = sol.value(self._dRdy)
             dydu0 = sol.value(self._dydu0)
             dRdtheta = sol.value(self._dRdtheta)
-            q = lstsq(dRdy, dydu0, lapack_driver='gelsy')[0]
+            q = np.linalg.solve(dRdy, dydu0)
             dpidtheta = -dRdtheta @ q
             assert (dRdy @ q - dydu0).max() <= 1e-10, 'Linear solver failed.'
-            # NOTE: Other methods to solving the linear system are
-            # 1. q = np.linalg.solve(dRdy, dydu0)
-            # 2. U, S, VT = np.linalg.svd(dRdy)
-            #    y = np.linalg.solve(np.diag(S), U.T @ dydu0)
-            #    q = np.linalg.solve(VT, y)
 
             # compute Phi
             Phi = self._Phi(s).full()
