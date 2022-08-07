@@ -58,21 +58,21 @@ class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
         pass
 
     @abstractmethod
-    def consolidate_episode_experience(self) -> np.ndarray:
+    def consolidate_episode_experience(self) -> None:
         '''
         At the end of an episode, computes the remaining operations and 
-        saves results to the replay memory.
-        
-        Returns
-        -------
-        gradient : array_like
-            Gradient of the update thanks to the collected information from
-            this episode.
+        saves results to the replay memory as arrays.
         '''
         pass
 
     @abstractmethod
-    def update(self) -> None:
+    def update(self) -> np.ndarray:
         '''Updates the MPC function approximation's weights based on the 
-        information stored in the replay memory.'''
+        information stored in the replay memory.
+
+        Returns
+        -------
+        gradient : array_like
+            Gradient of the update.
+        '''
         pass

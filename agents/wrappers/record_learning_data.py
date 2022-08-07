@@ -29,17 +29,17 @@ class RecordLearningData(Generic[AgentType]):
     def agent(self) -> AgentType:
         return self._agent
 
-    def consolidate_episode_experience(self, *args, **kwargs) -> np.ndarray:
-        grad = self._agent.consolidate_episode_experience(*args, **kwargs)
-        x = np.linalg.norm(grad, axis=0).squeeze()
-        self.update_gradient_norm.append(x.item() if np.isscalar(x) else x)
-        return grad
-
-    def update(self, *args, **kwargs) -> None:
-        o = self._agent.update(*args, **kwargs)
+    def update(self, *args, **kwargs) -> np.ndarray:
+        grad = self._agent.update(*args, **kwargs)
+        
+        # save gradient norm
+        g = np.linalg.norm(grad, axis=0).squeeze()
+        self.update_gradient_norm.append(g.item() if np.isscalar(g) else g)
+        
+        # save new weights
         for n, w in self.weights_hitory.items():
             w.append(self._agent.weights[n].value)
-        return o
+        return grad
 
     def __getattr__(self, name) -> Any:
         '''Reroutes attributes to the wrapped agent instance.'''
