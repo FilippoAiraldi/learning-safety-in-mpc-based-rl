@@ -20,7 +20,7 @@ if __name__ == '__main__':
 
     # initialize env and agent
     episodes = 2
-    max_episode_steps = 50
+    max_episode_steps = 100
     env: envs.QuadRotorEnv = envs.QuadRotorEnv.get_wrapped(
         max_episode_steps=max_episode_steps)
 
@@ -36,6 +36,8 @@ if __name__ == '__main__':
         # simulate this episode
         for _ in tqdm(range(max_episode_steps), total=max_episode_steps):
             # compute V(s)
+            # _, _, solution = agent.predict(deterministic=True)
+            # u, _, _ = agent.predict(deterministic=False)
             u, _, solution = agent.predict(deterministic=False,
                                            perturb_gradient=False)
             assert solution.success, 'Unexpected MPC failure.'

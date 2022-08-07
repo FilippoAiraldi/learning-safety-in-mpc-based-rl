@@ -40,7 +40,7 @@ class QuadRotorDPGAgentConfig:
 
     # RL parameters
     gamma: float = 1  # it is episodic...
-    lr: float = 1e0
+    lr: float = 1e-6
 
     @property
     def init_pars(self) -> dict[str, float | np.ndarray]:
@@ -104,11 +104,11 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
         # during learning, DPG must always perturb the action in order to learn
         self.perturbation_chance = 1.0
 
-        # initialize the replay memory. It saves one object per episode
-        #       sum_k=1^K { dpidtheta(s_k) * dpidtheta(s_k).T w }
-        # which represents the strenght of the update from one episode.
-        self.replay_memory = ReplayMemory[np.ndarray](
-            maxlen=agent_config.replay_maxlen, seed=seed)
+        # initialize the replay memory. Per each episode the memory saves an
+        # array of Phi(s), Psi(s,a), L(s,a) and dpidtheta(s).
+        self.replay_memory = ReplayMemory[
+            tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]](
+                maxlen=agent_config.replay_maxlen, seed=seed)
 
         # initialize symbols for derivatives to be used later and worker to
         # compute these numerically. Also initialize the QP solver used to
@@ -123,41 +123,52 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
             self._worker.start()
         self._work_queue.put((*sar, solution))
 
-    def consolidate_episode_experience(self) -> np.ndarray:
+    def consolidate_episode_experience(self) -> None:
         # wait for the current episode's transitions to be fully saved
         self._work_queue.join()
-        buffer = self._episode_buffer
 
-        # compute episode's weights v via least-squares
-        A, b = 0, 0
-        for (Phi, _, L, _), (Phi_next, _, _, _) in pairwise(buffer):
-            A += Phi @ (Phi - self.config.gamma * Phi_next).T
-            b += Phi * L
-        v = np.linalg.lstsq(A, b, rcond=None)[0]
+        # consolidate list of Phi(s), Psi(s,a), L(s,a), dpidtheta(s) into array
+        item = tuple(np.stack(o, axis=0) for o in zip(*self._episode_buffer))
 
-        # compute episode's weights w via least-squares
-        A, b = 0, 0
-        for (Phi, Psi, L, _), (Phi_next, _, _, _) in pairwise(buffer):
-            A += Psi @ Psi.T
-            b += (L + (self.config.gamma * Phi_next - Phi).T @ v).item() * Psi
-        w = np.linalg.lstsq(A, b, rcond=None)[0]
+        # save this episode to memory and clear buffer
+        self.replay_memory.append(item)
+        self._episode_buffer.clear()
+
+    def update(self) -> np.ndarray:
+        # sample the replay memory
+        sample = list(self.replay_memory.sample(
+            self.config.replay_sample_size, self.config.replay_include_last))
+        m = len(sample)
+        gamma = self.config.gamma
+        transp = lambda o: np.transpose(o, axes=(0, 2, 1))
+
+        # compute weights v via least-squares and averaging over episodes
+        v = 0
+        for Phi, _, L, _ in sample:
+            A = (Phi[:-1] @ transp(Phi[:-1] - gamma * Phi[1:])).sum(axis=0)
+            b = (Phi[:-1] * L[:-1]).sum(axis=0)
+            try:
+                v += np.linalg.solve(A, b)
+            except np.linalg.LinAlgError:
+                v += np.linalg.lstsq(A, b, rcond=None)[0]
+        v = v.reshape(1, -1, 1) / m
+
+        # compute weights w via least-squares and averaging over episodes
+        w = 0
+        for Phi, Psi, L, _ in sample:
+            A = (Psi[:-1] @ transp(Psi[:-1])).sum(axis=0)
+            b = (
+                (L[:-1] + transp(gamma * Phi[1:] - Phi[:-1]) @ v) * Psi[:-1]
+            ).sum(axis=0)
+            w += np.linalg.solve(A, b)
+        w = w.reshape(1, -1, 1) / m
 
         # compute episode's update
-        dJdtheta = sum(
-            dpidtheta @ dpidtheta.T @ w for _, _, _, dpidtheta in buffer)
-
-        # save this episode's update to memory and clear buffer
-        self.replay_memory.append(dJdtheta.flatten())
-        self._episode_buffer.clear()
-        return dJdtheta
-
-    def update(self) -> None:
-        # sample the replay memory
-        dJdtheta = list(self.replay_memory.sample(
-            self.config.replay_sample_size, self.config.replay_include_last))
-        c = self.config.lr * np.mean(dJdtheta, axis=0)
+        dJdtheta = 1 / m * sum((dpidtheta @ transp(dpidtheta) @ w).sum(axis=0)
+                               for _, _, _, dpidtheta in sample).flatten()
 
         # perform update
+        c = self.config.lr * dJdtheta
         theta = self.weights.values()
         bounds = self.weights.bounds()
         sol = self._solver(lbx=bounds[:, 0], ubx=bounds[:, 1], x0=theta - c,
@@ -166,6 +177,7 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
 
         # update weights
         self.weights.update_values(theta_new)
+        return dJdtheta
 
     def _init_symbols(self) -> None:
         '''Computes symbolical derivatives needed for DPG updates.'''
@@ -176,9 +188,7 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
         # compute the derivative of the policy (pi) w.r.t. the mpc pars (theta)
         self._dRdtheta = cs.simplify(cs.jacobian(R, theta)).T
         self._dRdy = cs.simplify(cs.jacobian(R, y)).T
-        self._dydu0 = cs.simplify(cs.jacobian(y, self.V.vars['u'][:, 0]))
-        # NOTE: cannot go further with symbolic computations as they get too
-        # heavy due to matrix inversion of dRdy, which tends to be quite big.
+        self._dydu0 = cs.DM(cs.jacobian(y, self.V.vars['u'][:, 0])).full()
 
         # compute baseline function approximating the value function with
         # monomials as basis
@@ -204,11 +214,11 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
 
             # compute the derivative of the policy w.r.t. the mpc weights theta
             dRdy = sol.value(self._dRdy)
-            dydu0 = sol.value(self._dydu0)
             dRdtheta = sol.value(self._dRdtheta)
-            q = np.linalg.solve(dRdy, dydu0)
+            q = np.linalg.solve(dRdy, self._dydu0)
             dpidtheta = -dRdtheta @ q
-            assert (dRdy @ q - dydu0).max() <= 1e-10, 'Linear solver failed.'
+            assert (dRdy @ q - self._dydu0).max() <= 1e-10, \
+                'Linear solver failed.'
 
             # compute Phi
             Phi = self._Phi(s).full()
@@ -216,6 +226,9 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
             # compute Psi
             u_opt = sol.value(sol.vals['u'][:, 0])  # i.e., V(s), pi(s)
             Psi = (dpidtheta @ (a - u_opt)).reshape(-1, 1)
+
+            # reshape L into an array
+            L = np.array(L).reshape(1, 1)
 
             # save in temporary buffer
             self._episode_buffer.append((Phi, Psi, L, dpidtheta))
