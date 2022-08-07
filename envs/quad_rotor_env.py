@@ -208,13 +208,13 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
     @property
     def x(self) -> np.ndarray:
         '''Gets the current state of the quadrotor.'''
-        return self._x
+        return self._x.copy()
 
     @x.setter
     def x(self, val: np.ndarray) -> None:
         '''Sets the current state of the quadrotor.'''
         assert self.observation_space.contains(val), f'Invalid state {val}.'
-        self._x = val
+        self._x = val.copy()
 
     def error(self, x: np.ndarray) -> float:
         '''Error of the given state w.r.t. the final position.'''
@@ -282,7 +282,7 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
         self.config.__dict__['x0'] = x0
         self.config.__dict__['xf'] = xf
         self._n_within_termination = 0
-        return x0
+        return self.x
 
     def step(self, u: np.ndarray) -> tuple[np.ndarray, float, bool, dict]:
         '''

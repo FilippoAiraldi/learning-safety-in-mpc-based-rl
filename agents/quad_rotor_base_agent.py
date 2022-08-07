@@ -119,7 +119,7 @@ class QuadRotorBaseAgent(ABC):
         self.last_solution = mpc.solve(pars, sol0)
 
         # get the optimal action
-        u_opt = self.last_solution.vals['u'][:, 0]
+        u_opt = self.last_solution.vals['u'][:, 0].copy()
         return u_opt, self.last_solution
 
     def predict(
