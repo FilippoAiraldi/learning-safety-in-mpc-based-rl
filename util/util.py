@@ -88,10 +88,9 @@ def set_np_mpl_defaults() -> None:
         'color',
         ['#0072BD', '#D95319', '#EDB120', '#7E2F8E', '#77AC30', '#A2142F'])
     mpl.rcParams['lines.linewidth'] = 1
-    # ax.spines['top'].set_visible(False)
-    # ax.spines['right'].set_visible(False)
-    # ax.tick_params(which='both', direction='in')
-    # ax.legend(frameon=False)
+    # mpl.rcParams['font.family'] = 'serif'
+    # mpl.rcParams['text.usetex'] = True
+    # mpl.rcParams['pgf.rcfonts'] = False
 
 
 def get_run_name(prefix: str = None) -> str:
