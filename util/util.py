@@ -1,13 +1,16 @@
 import casadi as cs
-import numpy as np
+import cloudpickle
+import contextlib
+import joblib
+import logging
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-import cloudpickle
-import logging
+import numpy as np
 from cycler import cycler
-from scipy.special import comb
-from itertools import combinations
 from datetime import datetime
+from itertools import combinations
+from scipy.special import comb
+from tqdm import tqdm
 from typing import Iterable, Any
 
 
@@ -159,3 +162,27 @@ def create_logger(run_name: str) -> logging.Logger:
     logger.addHandler(fh)
 
     return logger
+
+
+@contextlib.contextmanager
+def tqdm_joblib(*args, **kwargs):
+    '''Context manager to patch joblib to report into tqdm progress bar
+    given as argument.'''
+    # thanks to: https://stackoverflow.com/questions/24983493/tracking-progress-of-joblib-parallel-execution/58936697#58936697
+    tqdm_object = tqdm(*args, **kwargs)
+
+    class TqdmBatchCompletionCallback(joblib.parallel.BatchCompletionCallBack):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+
+        def __call__(self, *args, **kwargs):
+            tqdm_object.update(n=self.batch_size)
+            return super().__call__(*args, **kwargs)
+
+    old_batch_callback = joblib.parallel.BatchCompletionCallBack
+    joblib.parallel.BatchCompletionCallBack = TqdmBatchCompletionCallback
+    try:
+        yield tqdm_object
+    finally:
+        joblib.parallel.BatchCompletionCallBack = old_batch_callback
+        tqdm_object.close()

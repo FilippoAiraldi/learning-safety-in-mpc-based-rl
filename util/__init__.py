@@ -9,5 +9,6 @@ from util.util import (
     cs_prod,
     monomial_powers,
     get_run_name,
-    create_logger
+    create_logger,
+    tqdm_joblib
 )
