@@ -21,6 +21,7 @@ class QuadRotorMPCConfig:
         'ipopt': {
             'tol': 1e-6,
             'barrier_tol_factor': 1,
+            'sb': 'yes',
             # debug
             'print_level': 0,
             'print_user_options': 'no',
