@@ -116,19 +116,31 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
         # compute these numerically. Also initialize the QP solver used to
         # compute updates
         self._init_symbols()
-        self._init_worker()
+        self._init_work()
         self._init_qp_solver()
 
-    def save_transition(self, sar: tuple[np.ndarray, np.ndarray, float],
+    def save_transition(self, s: np.ndarray, a: np.ndarray, L: float,
                         solution: Solution) -> None:
-        if not self._worker.is_alive():
-            self._worker.start()
-        self._work_queue.put((*sar, solution))
+        # compute the derivative of the policy w.r.t. the mpc weights theta
+        dRdy = solution.value(self._dRdy)
+        dRdtheta = solution.value(self._dRdtheta)
+        q = np.linalg.solve(dRdy, self._dydu0)
+        dpidtheta = -dRdtheta @ q
+
+        # compute Phi
+        Phi = self._Phi(s).full()
+
+        # compute Psi
+        u_opt = solution.value(solution.vals['u'][:, 0])  # i.e., V(s), pi(s)
+        Psi = (dpidtheta @ (a - u_opt)).reshape(-1, 1)
+
+        # reshape L into an array
+        L = np.array(L).reshape(1, 1)
+
+        # save in temporary buffer
+        self._episode_buffer.append((Phi, Psi, L, dpidtheta))
 
     def consolidate_episode_experience(self) -> None:
-        # wait for the current episode's transitions to be fully saved
-        self._work_queue.join()
-
         # consolidate Phi(s), Psi(s,a), L(s,a), dpidtheta(s) into arrays
         Phi, Psi, L, dpidtheta = tuple(
             np.stack(o, axis=0) for o in zip(*self._episode_buffer))
@@ -204,42 +216,9 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
             *(cs_prod(x**p) for p in monomial_powers(x.size1(), 2)))
         self._Phi = cs.Function('Phi', [x], [y], ['s'], ['Phi(s)'])
 
-    def _init_worker(self) -> None:
-        '''initialize worker thread tasked with computing the derivatives per
-        each transition (computationally heavy). Results for the current
-        episode are then saved in the buffer.'''
-        self._worker = Thread(daemon=True, target=self._do_work)
-        self._work_queue = \
-            Queue[tuple[np.ndarray, np.ndarray, float, Solution]]()
+    def _init_work(self) -> None:
         self._episode_buffer: \
             list[tuple[np.ndarray, np.ndarray, float, np.ndarray]] = []
-
-    def _do_work(self) -> None:
-        '''Actual method executed by the worker thread.'''
-        while True:
-            s, a, L, sol = self._work_queue.get()
-
-            # compute the derivative of the policy w.r.t. the mpc weights theta
-            dRdy = sol.value(self._dRdy)
-            dRdtheta = sol.value(self._dRdtheta)
-            q = np.linalg.solve(dRdy, self._dydu0)
-            dpidtheta = -dRdtheta @ q
-            assert (dRdy @ q - self._dydu0).max() <= 1e-10, \
-                'Linear solver failed.'
-
-            # compute Phi
-            Phi = self._Phi(s).full()
-
-            # compute Psi
-            u_opt = sol.value(sol.vals['u'][:, 0])  # i.e., V(s), pi(s)
-            Psi = (dpidtheta @ (a - u_opt)).reshape(-1, 1)
-
-            # reshape L into an array
-            L = np.array(L).reshape(1, 1)
-
-            # save in temporary buffer
-            self._episode_buffer.append((Phi, Psi, L, dpidtheta))
-            self._work_queue.task_done()
 
     def _init_qp_solver(self) -> None:
         n = sum(self.weights.sizes())

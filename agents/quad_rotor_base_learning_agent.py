@@ -38,7 +38,7 @@ class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
         return self._Q
 
     @abstractmethod
-    def save_transition(self, sar: tuple[np.ndarray, np.ndarray, float],
+    def save_transition(self, s: np.ndarray, a: np.ndarray, L: float,
                         solution: Solution) -> None:
         '''
         Schedules the current time-step data to be processed and saved into the
@@ -46,7 +46,7 @@ class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
 
         Parameters 
         ----------
-        sar : tuple of (array_like, array_like, float)
+        s, a, L : array_like, array_like, float
             The SAR tuple which stands for
                 - State for which the MPC V(s) is run
                 - Action taken as a result of computing V(s) (not necessarily the 
