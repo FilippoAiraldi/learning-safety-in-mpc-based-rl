@@ -1,7 +1,5 @@
 import numpy as np
 import casadi as cs
-from threading import Thread
-from queue import Queue
 from dataclasses import dataclass
 from envs import QuadRotorEnvConfig, QuadRotorEnv
 from mpc import Solution, QuadRotorMPCConfig
