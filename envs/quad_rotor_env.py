@@ -13,7 +13,7 @@ class QuadRotorEnvConfig:
     are included, as well as the numerical tolerance.
     '''
     # model parameters
-    T: float = 0.2  # NOTE: should T be learnable?
+    T: float = 0.2
     g: float = 9.81
     thrust_coeff: float = 1.4
     pitch_d: float = 10
@@ -310,7 +310,6 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
             self._C @ self.phi(self.x[2]) * self.np_random.random() +
             self._e
         ).flatten()
-        assert self.observation_space.contains(self.x), 'Invalid state.'
 
         # compute cost
         error = self.error(self.x)

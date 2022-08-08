@@ -2,27 +2,29 @@ import gym
 from abc import ABC
 from gym.wrappers import TimeLimit, OrderEnforcing
 from envs.wrappers import RecordData, ClipActionIfClose
-from typing import TypeVar
+from typing import TypeVar, Type
 
 
 ObsType = TypeVar('ObsType')
 ActType = TypeVar('ActType')
+SuperEnvType = TypeVar('SuperEnvType')
 
 
 class BaseEnv(gym.Env[ObsType, ActType], ABC):
     @classmethod
     def get_wrapped(
-        cls,
+        cls: Type[SuperEnvType],
         max_episode_steps: int = 50,
         deque_size: int = None,
         *env_args, **env_kwargs
-    ):
+    ) -> SuperEnvType:
         '''
         Returns the environment properly encapsulated in some useful wrappers.
         The wrappers are (from in to outward)
             - OrderEnforcing
-            - TimeLimit
+            - ClipActionIfClose
             - RecordData
+            - TimeLimit
 
         Parameters
         ---------

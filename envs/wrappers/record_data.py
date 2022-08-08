@@ -77,9 +77,9 @@ class RecordData(gym.Wrapper):
             a = self.ep_actions
             r = self.ep_rewards
             if self.as_numpy:
-                o = np.stack(o, axis=-1)
-                a = np.stack(a, axis=-1)
-                r = np.stack(r, axis=-1)
+                o = np.stack(o, axis=0)
+                a = np.stack(a, axis=0)
+                r = np.stack(r, axis=0)
 
             # append data
             self.observations.append(o)
