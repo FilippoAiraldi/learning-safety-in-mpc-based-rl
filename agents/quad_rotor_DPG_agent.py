@@ -17,7 +17,7 @@ class QuadRotorDPGAgentConfig:
     init_pitch_d: float = 14
     init_pitch_dd: float = 10
     init_pitch_gain: float = 14
-    init_roll_d: float = 6
+    init_roll_d: float = 20 # 6
     init_roll_dd: float = 7
     init_roll_gain: float = 9
     # cost

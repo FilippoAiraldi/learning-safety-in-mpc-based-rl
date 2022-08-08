@@ -19,8 +19,8 @@ class QuadRotorMPCConfig:
     solver_opts: dict = field(default_factory=lambda: {
         'expand': True, 'print_time': False,
         'ipopt': {
-            'tol': 1e-6,
-            'barrier_tol_factor': 1,
+            'tol': 1e-7,
+            'barrier_tol_factor': 9,
             'sb': 'yes',
             # debug
             'print_level': 0,

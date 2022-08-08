@@ -87,12 +87,12 @@ if __name__ == '__main__':
     # launch training
     train_args = (args.num_ep, args.max_ep_steps, logger)
     if args.num_envs == 1:
-        data = train(*train_args, 45)
+        data = train(*train_args, 45) # args.seed
     else:
         with util.tqdm_joblib(desc='Training', total=args.num_envs):
             data = jl.Parallel(n_jobs=-1)(
                 jl.delayed(train)(
-                    *train_args, 42 + i) for i in range(args.num_envs))
+                    *train_args, args.seed + i) for i in range(args.num_envs))
 
     # save results and launch plotting (is blocking)
     fn = util.save_results(filename=run_name, data=data)

@@ -209,22 +209,22 @@ class QuadRotorBaseAgent(ABC):
         # symbols
         names_and_bnds = [
             # model
-            ('g', (1e-1, np.inf)),
-            ('thrust_coeff', (1e-1, np.inf)),
-            ('pitch_d', (1e-1, np.inf)),
-            ('pitch_dd', (1e-1, np.inf)),
-            ('pitch_gain', (1e-1, np.inf)),
-            ('roll_d', (1e-1, np.inf)),
-            ('roll_dd', (1e-1, np.inf)),
-            ('roll_gain', (1e-1, np.inf)),
+            ('g', (1, 40)),
+            ('thrust_coeff', (0.1, 4)),
+            ('pitch_d', (1, 40)),
+            ('pitch_dd', (1, 40)),
+            ('pitch_gain', (1, 40)),
+            ('roll_d', (1, 40)),
+            ('roll_dd', (1, 40)),
+            ('roll_gain', (1, 40)),
             # cost
             ('w_L', (1e-3, np.inf)),
             ('w_V', (1e-3, np.inf)),
             ('w_s', (1e-3, np.inf)),
             ('w_s_f', (1e-3, np.inf)),
-            ('xf', (-np.inf, np.inf)),
+            ('xf', self.env.config.x_bounds),
             # others
-            ('backoff', (0, np.inf))
+            ('backoff', (0, 0.2))
         ]
         self.weights = RLParameterCollection(
             RLParameter(name, init_pars.get(name, np.nan), bnd,
