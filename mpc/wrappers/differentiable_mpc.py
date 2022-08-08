@@ -8,11 +8,7 @@ MPCType = TypeVar('MPCType', bound=GenericMPC)
 
 
 class DifferentiableMPC(Generic[MPCType]):
-    def __init__(
-        self,
-        mpc: MPCType,
-        reduce_redundant_x_bounds: bool = True
-    ) -> None:
+    def __init__(self, mpc: MPCType) -> None:
         '''
         Wraps an MPC controller to allow computing its symbolic derivatives.
 
@@ -20,12 +16,8 @@ class DifferentiableMPC(Generic[MPCType]):
         ----------
         mpc : GenericMPC or subclasses
             The MPC instance to wrap.
-        reduce_redundant_x_bounds : bool, optional
-            Whether the redundant (i.e., lb=-inf, ub=+inf) on the decision 
-            variables should be removed automatically.
         '''
         self._mpc = mpc
-        self.reduce_redundant_x_bounds = reduce_redundant_x_bounds
 
     @property
     def mpc(self) -> MPCType:
@@ -35,15 +27,11 @@ class DifferentiableMPC(Generic[MPCType]):
     def _non_redundant_x_bound_indices(self) -> tuple[np.ndarray, np.ndarray]:
         '''
         Gets the indices of lbx and ubx which are not redundant, i.e., 
-                idx = { i : not ( lbx[i]=-inf and ubx[i]=+inf ) },
-        if not disabled. Otherwise, simply returns all the indices.
+        different from +/-inf.
         '''
-        return (
-            (np.where(self._mpc.lbx != -np.inf)[0], 
-            np.where(self._mpc.ubx != np.inf)[0])
-            if self.reduce_redundant_x_bounds else
-            (np.arange(self._mpc.nx), np.arange(self._mpc.nx))
-        )
+        return (np.where(self._mpc.lbx != -np.inf)[0], 
+                np.where(self._mpc.ubx != np.inf)[0])
+        
 
     @property
     def lagrangian(self) -> cs.SX:
