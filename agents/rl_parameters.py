@@ -26,11 +26,16 @@ class RLParameter:
 
     def update_value(self, new_val: np.ndarray) -> None:
         '''Updates the parameter's current value to the new one.'''
-        self.__dict__['value'] = np.broadcast_to(new_val, self.bounds.shape[0])
-        assert (
-            (self.bounds[:, 0] <= self.value).all() and
-            (self.value <= self.bounds[:, 1]).all()), \
-            'Parameter value outside bounds.'
+        new_val = np.broadcast_to(new_val, self.bounds.shape[0])
+        assert ((
+            (self.bounds[:, 0] <= new_val) |
+            np.isclose(new_val, self.bounds[:, 0])
+        ).all() and (
+            (new_val <= self.bounds[:, 1]) |
+            np.isclose(new_val, self.bounds[:, 1])
+        ).all()), 'Parameter value outside bounds.'
+        self.__dict__['value'] = np.clip(
+            new_val, self.bounds[:, 0], self.bounds[:, 1])
 
 
 class RLParameterCollection(Sequence[RLParameter]):
