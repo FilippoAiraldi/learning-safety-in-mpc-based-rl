@@ -1,4 +1,3 @@
-import warnings
 import casadi as cs
 import numpy as _np
 from itertools import count
@@ -15,6 +14,7 @@ from typing import Any
 class Solution:
     '''A class containing information on the solution of an MPC run.'''
     f: float
+    vars: dict[str, cs.SX]
     vals: dict[str, _np.ndarray]
     stats: dict[str, Any]
     get_value: partial
@@ -288,8 +288,8 @@ class GenericMPC:
         vals = {name: get_value(var) for name, var in self.vars.items()}
 
         # build solution
-        sol_ = Solution(f=float(sol['f']), vals=vals, get_value=get_value,
-                        stats=self.solver.stats().copy())
+        sol_ = Solution(f=float(sol['f']), vars=self.vars.copy(), vals=vals, 
+                        get_value=get_value, stats=self.solver.stats().copy())
         self.failures += int(not sol_.success)
         return sol_
 
