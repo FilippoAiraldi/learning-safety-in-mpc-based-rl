@@ -92,6 +92,8 @@ class QuadRotorBaseAgent(ABC):
             Last numerical solution of the MPC used to warmstart. If not given,
             a heuristic is used.
         '''
+        mpc: QuadRotorMPC = getattr(self, type)
+
         # if the state which to solve the MPC for is not provided, use current
         if state is None:
             state = self.env.x
@@ -102,9 +104,10 @@ class QuadRotorBaseAgent(ABC):
         if sol0 is None:
             if self.last_solution is None:
                 sol0 = {
-                    'x': np.tile(
-                        state.reshape(-1, 1), (1, self.Q.config.Np + 1)),
-                    'u': 0,  # what value?
+                    'x': np.tile(state.reshape(-1, 1), (1, mpc.config.Np)),
+                    'u': np.tile(
+                        [0, self.weights['g'].value.item(), 0], 
+                        (mpc.config.Nc, 1)).T,  
                     'slack': 0
                 }
             else:
@@ -115,7 +118,6 @@ class QuadRotorBaseAgent(ABC):
                 self.fixed_pars | {'x0': state})
 
         # call the MPC
-        mpc: QuadRotorMPC = getattr(self, type)
         self.last_solution = mpc.solve(pars, sol0)
 
         # get the optimal action
