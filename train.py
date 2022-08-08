@@ -21,27 +21,28 @@ def train(episodes: int, max_ep_steps: int, logger: Logger, seed: int) -> dict:
     # simulate
     for i in range(1, episodes + 1):
         # reset env
-        env.reset(seed=seed * i)
+        state = env.reset(seed=seed * i)
 
         # simulate this episode
         for t in range(max_ep_steps):
-            # _, _, solution = agent.predict(deterministic=True)
-            # u, _, _ = agent.predict(deterministic=False)
+            # _, _, solution = agent.predict(state, deterministic=True)
+            # u, _, _ = agent.predict(state, deterministic=False)
             #
-            u, _, solution = agent.predict(deterministic=False,
-                                           perturb_gradient=False)
+            action, _, solution = agent.predict(
+                state, deterministic=False, perturb_gradient=False)
             #
             assert solution.success, f'Unexpected MPC failure at time {t}.'
 
             # step environment
-            _, r, done, _ = env.step(u)
+            new_state, cost, done, _ = env.step(action)
 
             # save transition
-            agent.save_transition(env.x, u, r, solution)
+            agent.save_transition(state, action, cost, solution)
 
             # check if episode is done
             if done:
                 break
+            state = new_state
 
         # perform RL update
         agent.consolidate_episode_experience()
@@ -87,7 +88,7 @@ if __name__ == '__main__':
     # launch training
     train_args = (args.num_ep, args.max_ep_steps, logger)
     if args.num_envs == 1:
-        data = train(*train_args, 45) # args.seed
+        data = train(*train_args, args.seed)
     else:
         with util.tqdm_joblib(desc='Training', total=args.num_envs):
             data = jl.Parallel(n_jobs=-1)(

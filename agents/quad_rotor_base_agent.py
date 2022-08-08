@@ -104,10 +104,10 @@ class QuadRotorBaseAgent(ABC):
         if sol0 is None:
             if self.last_solution is None:
                 sol0 = {
-                    'x': np.tile(state.reshape(-1, 1), (1, mpc.config.Np)),
-                    'u': np.tile(
-                        [0, self.weights['g'].value.item(), 0], 
-                        (mpc.config.Nc, 1)).T,  
+                    'x': np.tile(state,
+                                 (mpc.vars['x'].shape[1], 1)).T,
+                    'u': np.tile([0, self.weights['g'].value.item(), 0],
+                                 (mpc.vars['u'].shape[1], 1)).T,
                     'slack': 0
                 }
             else:
