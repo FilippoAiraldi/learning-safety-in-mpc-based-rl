@@ -82,7 +82,7 @@ class QuadRotorMPC(GenericMPC):
 
         # 1) create variables - states are softly constrained
         nx, nu, ns = env.nx, env.nu, not_red_idx.size
-        x, _, _ = self.add_var('x', nx, Np + 1)
+        x, _, _ = self.add_var('x', nx, Np)
         u, _, _ = self.add_var('u', nu, Nc,
                                lb=env.config.u_bounds[:, 0, None],
                                ub=env.config.u_bounds[:, 1, None])
@@ -98,13 +98,14 @@ class QuadRotorMPC(GenericMPC):
         # =========== #
 
         # 1) constraint on initial conditions
-        x0 = self.add_par('x0', env.nx, 1)  # initial conditions
-        self.add_con('init_state', x[:, 0], '==', x0)
+        x0 = self.add_par('x0', env.nx, 1)
+        x_exp = cs.horzcat(x0, x)
 
         # 2) constraints on dynamics
         u_exp = cs.horzcat(u, cs.repmat(u[:, -1], 1, Np - Nc))
         A, B, e = self._get_dynamics_matrices(env)
-        self.add_con('dyn', x[:, 1:], '==', A @ x[:, :-1] + B @ u_exp + e)        
+        self.add_con('dyn',
+                     x_exp[:, 1:], '==', A @ x_exp[:, :-1] + B @ u_exp + e)
 
         # 3) constraint on state (soft, backed off, without infinity in g, and
         # removing redundant entries)
@@ -114,10 +115,10 @@ class QuadRotorMPC(GenericMPC):
         # set the state constraints as
         #  - soft-backedoff minimum constraint: (1+back)*lb - slack <= x
         #  - soft-backedoff maximum constraint: x <= (1-back)*ub + slack
-        self.add_con('state_min', 
-                     (1 + backoff) * lb - slack, '<=', x[not_red_idx, 1:])
-        self.add_con('state_max', 
-                     x[not_red_idx, 1:], '<=', (1 - backoff) * ub + slack)
+        self.add_con('state_min',
+                     (1 + backoff) * lb - slack, '<=', x[not_red_idx, :])
+        self.add_con('state_max',
+                     x[not_red_idx, :], '<=', (1 - backoff) * ub + slack)
 
         # ========= #
         # Objective #
@@ -130,13 +131,13 @@ class QuadRotorMPC(GenericMPC):
         xf = self.add_par('xf', nx, 1)
         w_L = self.add_par('w_L', nx, 1)  # weights for stage
         w_s = self.add_par('w_s', ns, 1)  # weights for slack
-        J += sum(quad_form(w_L, x[:, k] - xf) + cs.dot(w_s, slack[:, k - 1])
-                 for k in range(1, Np))
+        J += sum(quad_form(w_L, x[:, k] - xf) + cs.dot(w_s, slack[:, k])
+                 for k in range(Np - 1))
 
         # 3) terminal cost
         w_V = self.add_par('w_V', nx, 1)  # weights for final
         w_s_f = self.add_par('w_s_f', ns, 1)  # weights for final slack
-        J += quad_form(w_V, x[:, Np] - xf) + cs.dot(w_s_f, slack[:, Np - 1])
+        J += quad_form(w_V, x[:, -1] - xf) + cs.dot(w_s_f, slack[:, -1])
 
         # assign cost
         self.minimize(J)

@@ -121,7 +121,7 @@ class QuadRotorBaseAgent(ABC):
         self.last_solution = mpc.solve(pars, sol0)
 
         # get the optimal action
-        u_opt = self.last_solution.vals['u'][:, 0].copy()
+        u_opt = self.last_solution.vals['u'][:, 0]
         return u_opt, self.last_solution
 
     def predict(
@@ -183,7 +183,7 @@ class QuadRotorBaseAgent(ABC):
             if not perturb_gradient:
                 u = np.clip(u + rng, u_bnd[:, 0], u_bnd[:, 1])
 
-        x_next = sol.value(self.V.vars['x'][:, 1])
+        x_next = sol.vals['x'][:, 0]
         return u, x_next, sol
 
     def init_mpc_parameters(

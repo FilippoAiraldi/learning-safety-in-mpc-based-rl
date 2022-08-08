@@ -129,7 +129,7 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
         Phi = self._Phi(s).full()
 
         # compute Psi
-        u_opt = solution.value(solution.vals['u'][:, 0])  # i.e., V(s), pi(s)
+        u_opt = solution.vals['u'][:, 0]  # i.e., V(s), pi(s)
         Psi = (dpidtheta @ (a - u_opt)).reshape(-1, 1)
 
         # reshape L into an array
