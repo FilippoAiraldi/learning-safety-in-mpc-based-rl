@@ -57,8 +57,9 @@ def train(
     for s in range(sessions):
         # run each episode
         for e in range(episodes):
-            # reset env
+            # reset env and agent
             state = env.reset(seed=seed * (s * 10 + e))
+            agent.reset()
 
             # simulate this episode
             for t in range(max_ep_steps):

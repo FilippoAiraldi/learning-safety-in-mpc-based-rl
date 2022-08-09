@@ -72,6 +72,15 @@ class QuadRotorBaseAgent(ABC):
         '''Gets the Q action-value function approximation MPC scheme.'''
         return self._Q
 
+    def reset(self) -> None:
+        '''Resets internal variables of the agent.''' 
+        # reset MPC last solution
+        self.last_solution = None
+
+        # reset MPC failure count
+        self._Q.failures = 0
+        self._V.failures = 0
+
     def solve_mpc(
         self,
         type: str,
