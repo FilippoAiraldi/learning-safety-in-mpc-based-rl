@@ -38,6 +38,7 @@ class QuadRotorDPGAgentConfig:
     # RL parameters
     gamma: float = 0.97
     lr: float = 1e-6
+    max_perc_update: float = np.inf
 
     @property
     def init_pars(self) -> dict[str, float | np.ndarray]:
@@ -48,7 +49,7 @@ class QuadRotorDPGAgentConfig:
         }
 
 
-transp = lambda o: np.transpose(o, axes=(0, 2, 1))
+trsp = lambda o: np.transpose(o, axes=(0, 2, 1))
 
 
 class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
@@ -147,7 +148,7 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
         Psi = dpidtheta @ (A - U_opt).reshape(K, -1, 1)
 
         # compute this episode's weights v via LSTD
-        A = (Phi @ transp(Phi - self.config.gamma * Phi_next)).sum(axis=0)
+        A = (Phi @ trsp(Phi - self.config.gamma * Phi_next)).sum(axis=0)
         b = (Phi * L).sum(axis=0)
         try:
             v = np.linalg.solve(A, b)
@@ -160,8 +161,9 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
 
     def update(self) -> np.ndarray:
         # sample the memory. Each item in the sample comes from one episode
+        cfg = self.config
         sample = list(self.replay_memory.sample(
-            self.config.replay_sample_size, self.config.replay_include_last))
+            cfg.replay_sample_size, cfg.replay_include_last))
         m = len(sample)
 
         # average weights over m episodes
@@ -170,23 +172,27 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
         # compute weights w via LSTD and averaging over m episodes
         w = 0
         for Phi, Phi_next, Psi, L, _, _ in sample:
-            A = (Psi @ transp(Psi)).sum(axis=0)
-            b = (
-                (L + transp(self.config.gamma * Phi - Phi_next) @ v) * Psi
-            ).sum(axis=0)
+            A = (Psi @ trsp(Psi)).sum(axis=0)
+            b = ((L + trsp(cfg.gamma * Phi - Phi_next) @ v) * Psi).sum(axis=0)
             w += np.linalg.solve(A, b)
         w /= m
 
         # compute episode's update
-        dJdtheta = sum((dpidtheta @ transp(dpidtheta) @ w).sum(axis=0)
+        dJdtheta = sum((dpidtheta @ trsp(dpidtheta) @ w).sum(axis=0)
                        for _, _, _, _, dpidtheta, _ in sample).flatten() / m
+        c = cfg.lr * dJdtheta
 
-        # perform update
-        c = self.config.lr * dJdtheta
+        # perform update in the form of a QP problem
         theta = self.weights.values()
         bounds = self.weights.bounds()
-        sol = self._solver(lbx=bounds[:, 0], ubx=bounds[:, 1], x0=theta - c,
+        max_delta = np.maximum(np.abs(cfg.max_perc_update * theta), 0.1)
+        lb = np.maximum(bounds[:, 0], theta - max_delta)
+        ub = np.minimum(bounds[:, 1], theta + max_delta)
+
+        # run QP solver
+        sol = self._solver(lbx=lb, ubx=ub, x0=theta - c,
                            p=np.concatenate((theta, c)))
+        assert self._solver.stats()['success'], 'RL update failed.'
         theta_new: np.ndarray = sol['x'].full().flatten()
 
         # update weights
