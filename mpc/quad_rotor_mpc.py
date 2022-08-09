@@ -157,7 +157,9 @@ class QuadRotorMPC(GenericMPC):
         # initialize solver
         self.init_solver(config.solver_opts)
 
-    def _get_dynamics_matrices(self, env: QuadRotorEnv):
+    def _get_dynamics_matrices(
+        self, env: QuadRotorEnv
+    ) -> tuple[cs.SX, cs.SX, cs.SX]:
         T = env.config.T  # NOTE: T is here fixed
         pars = self.pars
         Ad = cs.diag(cs.vertcat(pars['pitch_d'], pars['roll_d']))

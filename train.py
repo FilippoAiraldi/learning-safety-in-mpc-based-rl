@@ -2,8 +2,10 @@ import agents
 import argparse
 import envs
 import joblib as jl
+import numpy as np
 import util
 from logging import Logger
+from typing import Any
 
 
 # NOTE: if we opt for fixed-duration episodes, then we can better stack
@@ -11,49 +13,86 @@ from logging import Logger
 # episodes). However, what about the MPC horizon?
 
 
-def train(episodes: int, max_ep_steps: int, logger: Logger, seed: int) -> dict:
-    # initialize env and agent
+def train(
+    agent_n: int,
+    sessions: int,
+    episodes: int,
+    max_ep_steps: int,
+    logger: Logger,
+    seed: int
+) -> dict[str, Any]:
+    '''
+    Training of a single agent.    
+
+    Parameters
+    ----------
+    agent_n : int
+        Number of the agent.
+    sessions : int
+        Number of training sessions. At the end of each session, an RL update 
+        is carried out.
+    episodes : int
+        Episodes per training sessions.
+    max_ep_steps : int
+        Maximum number of time steps simulated per each episode.
+    logger : Logger
+        A logging utility.
+    seed : int
+        RNG seed.
+
+    Returns
+    -------
+    dict[str, Any]
+        Data resulting from the training.
+    '''
     env = envs.QuadRotorEnv.get_wrapped(max_episode_steps=max_ep_steps)
-    # agent = agents.QuadRotorPIAgent(env=env, agentname='PI', seed=seed * 10)
     agent: agents.QuadRotorDPGAgent = agents.wrappers.RecordLearningData(
-        agents.QuadRotorDPGAgent(env=env, agentname='DPG', seed=seed * 69))
+        agents.QuadRotorDPGAgent(env=env, agentname=f'DPG_{agent_n}',
+                                 agent_config={
+                                     'replay_maxlen': episodes,
+                                     'replay_sample_size': episodes,
+                                 }, seed=seed * (agent_n + 1)))
 
-    # simulate
-    for i in range(1, episodes + 1):
-        # reset env
-        state = env.reset(seed=seed * i)
+    # simulate m episodes for each session
+    for s in range(sessions):
+        # run each episode
+        for e in range(episodes):
+            # reset env
+            state = env.reset(seed=seed * (s * 10 + e))
 
-        # simulate this episode
-        for t in range(max_ep_steps):
-            # _, _, solution = agent.predict(state, deterministic=True)
-            # u, _, _ = agent.predict(state, deterministic=False)
-            #
-            action, _, solution = agent.predict(
-                state, deterministic=False, perturb_gradient=False)
-            #
-            assert solution.success, f'Unexpected MPC failure at time {t}.'
+            # simulate this episode
+            for t in range(max_ep_steps):
+                # _, _, solution = agent.predict(state, deterministic=True)
+                # u, _, _ = agent.predict(state, deterministic=False)
+                #
+                action, _, solution = agent.predict(
+                    state, deterministic=False, perturb_gradient=False)
+                #
+                assert solution.success, f'{agent_n}|{s}|{e}|{t}: MPC failed.'
 
-            # step environment
-            new_state, cost, done, _ = env.step(action)
+                # step environment
+                new_state, cost, done, _ = env.step(action)
 
-            # save transition
-            agent.save_transition(state, action, cost, solution)
+                # save transition
+                agent.save_transition(state, action, cost, solution)
 
-            # check if episode is done
-            if done:
-                break
-            state = new_state
+                # check if episode is done
+                if done:
+                    break
+                state = new_state
 
-        # perform RL update
-        agent.consolidate_episode_experience()
+            # when the episode is done, consolidate its experience into memory
+            agent.consolidate_episode_experience()
+
+        # when all m episodes are done, perform RL update and reduce
+        # exploration strength
         agent.update()
-
-        # reduce exploration strength
         agent.perturbation_strength *= 0.97
 
-        # log episode outcomes
-        logger.debug(f'J={env.cum_rewards[-1]:.3f} - '
-                     f'||dJdtheta||={agent.update_gradient_norm[-1]:.3f}')
+        # log session outcomes
+        logger.debug(f'{agent_n}|{s}|{e}: '
+                     f'J={np.mean(env.cum_rewards[-episodes:]):.3f} '
+                     f'||dJ||={agent.update_gradient_norm[-1]:.3e}')
 
     # return data to be saved
     return {
@@ -71,10 +110,12 @@ def train(episodes: int, max_ep_steps: int, logger: Logger, seed: int) -> dict:
 if __name__ == '__main__':
     # parse arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument('--num_ep', type=int, default=3,  # 30
-                        help='Number of training episodes.')
-    parser.add_argument('--num_envs', type=int, default=1,  # 100
-                        help='Number of parallel environments to train on.')
+    parser.add_argument('--agents', type=int, default=1,  # 100
+                        help='Number of parallel agent to train.')
+    parser.add_argument('--sessions', type=int, default=3,  # 20
+                        help='Number of training sessions.')
+    parser.add_argument('--episodes', type=int, default=3,  # 10
+                        help='Number of training episodes per session.')
     parser.add_argument('--max_ep_steps', type=int, default=5,  # 100
                         help='Maximum number of steps per episode.')
     parser.add_argument('--seed', type=int, default=42, help='RNG seed.')
@@ -86,14 +127,14 @@ if __name__ == '__main__':
     logger = util.create_logger(run_name)
 
     # launch training
-    train_args = (args.num_ep, args.max_ep_steps, logger)
-    if args.num_envs == 1:
-        data = train(*train_args, args.seed)
+    const_args = (args.sessions, args.episodes, args.max_ep_steps, logger)
+    if args.agents == 1:
+        data = train(1, *const_args, args.seed)
     else:
-        with util.tqdm_joblib(desc='Training', total=args.num_envs):
+        with util.tqdm_joblib(desc='Training', total=args.agents):
             data = jl.Parallel(n_jobs=-1)(
                 jl.delayed(train)(
-                    *train_args, args.seed + i) for i in range(args.num_envs))
+                    i, *const_args, args.seed + i) for i in range(args.agents))
 
     # save results and launch plotting (is blocking)
     fn = util.save_results(filename=run_name, data=data)
