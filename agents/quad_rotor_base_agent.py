@@ -98,6 +98,10 @@ class QuadRotorBaseAgent(ABC):
         if state is None:
             state = self.env.x
 
+        # merge all parameters in a single dict
+        pars = (self.weights.values(as_dict=True) |
+                self.fixed_pars | {'x0': state})
+
         # if provided, use vals0 to warmstart the MPC. If not provided,
         # use the last_sol field. If the latter is not available yet,
         # just use some default values
@@ -106,16 +110,12 @@ class QuadRotorBaseAgent(ABC):
                 sol0 = {
                     'x': np.tile(state,
                                  (mpc.vars['x'].shape[1], 1)).T,
-                    'u': np.tile([0, self.weights['g'].value.item(), 0],
+                    'u': np.tile([0, 0, self.weights['g'].value.item()],
                                  (mpc.vars['u'].shape[1], 1)).T,
                     'slack': 0
                 }
             else:
                 sol0 = self.last_solution.vals
-
-        # merge all parameters in a single dict
-        pars = (self.weights.values(as_dict=True) |
-                self.fixed_pars | {'x0': state})
 
         # call the MPC
         self.last_solution = mpc.solve(pars, sol0)

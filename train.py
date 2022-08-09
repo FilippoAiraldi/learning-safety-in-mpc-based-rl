@@ -90,8 +90,8 @@ def train(
         agent.perturbation_strength *= 0.97
 
         # log session outcomes
-        logger.debug(f'{agent_n}|{s}|{e}: '
-                     f'J={np.mean(env.cum_rewards[-episodes:]):.3f} '
+        J_mean = np.mean([env.cum_rewards[i] for i in range(-episodes, 0)])
+        logger.debug(f'{agent_n}|{s}|{e}: J_mean={J_mean:.3f} '
                      f'||dJ||={agent.update_gradient_norm[-1]:.3e}')
 
     # return data to be saved

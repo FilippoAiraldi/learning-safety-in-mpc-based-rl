@@ -1,11 +1,11 @@
 import numpy as np
 import casadi as cs
+from agents.quad_rotor_base_learning_agent import QuadRotorBaseLearningAgent
+from agents.replay_memory import ReplayMemory
 from dataclasses import dataclass
 from envs import QuadRotorEnvConfig, QuadRotorEnv
 from mpc import Solution, QuadRotorMPCConfig
 from util import monomial_powers, cs_prod
-from agents.quad_rotor_base_learning_agent import QuadRotorBaseLearningAgent
-from agents.replay_memory import ReplayMemory
 
 
 @dataclass(frozen=True)
@@ -17,7 +17,7 @@ class QuadRotorDPGAgentConfig:
     init_pitch_d: float = 14
     init_pitch_dd: float = 10
     init_pitch_gain: float = 14
-    init_roll_d: float = 6
+    init_roll_d: float = 6  # 40
     init_roll_dd: float = 7
     init_roll_gain: float = 9
     # cost
@@ -36,7 +36,7 @@ class QuadRotorDPGAgentConfig:
     replay_include_last: float = 5  # include in the sample the last 5 episodes
 
     # RL parameters
-    gamma: float = 1  # it is episodic...
+    gamma: float = 0.97
     lr: float = 1e-6
 
     @property
