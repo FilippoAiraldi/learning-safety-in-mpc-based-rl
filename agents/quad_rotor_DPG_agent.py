@@ -106,9 +106,8 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
 
         # initialize the replay memory. Per each episode the memory saves an
         # array of Phi(s), Psi(s,a), L(s,a), dpidtheta(s) and weights v.
-        self.replay_memory = ReplayMemory[
-            tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]](
-                maxlen=agent_config.replay_maxlen, seed=seed)
+        self.replay_memory = ReplayMemory[tuple[np.ndarray, ...]](
+            maxlen=agent_config.replay_maxlen, seed=seed)
 
         # initialize symbols for derivatives to be used later and worker to
         # compute these numerically. Also initialize the QP solver used to
@@ -117,70 +116,70 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
         self._init_work()
         self._init_qp_solver()
 
-    def save_transition(self, s: np.ndarray, a: np.ndarray, L: float,
-                        solution: Solution) -> None:
-        # compute the derivative of the policy w.r.t. the mpc weights theta
-        dRdy = solution.value(self._dRdy)
-        dRdtheta = solution.value(self._dRdtheta)
-        q = np.linalg.solve(dRdy, self._dydu0)
-        dpidtheta = -dRdtheta @ q
-
-        # compute Phi
-        Phi = self._Phi(s).full()
-
-        # compute Psi
-        u_opt = solution.vals['u'][:, 0]  # i.e., V(s), pi(s)
-        Psi = (dpidtheta @ (a - u_opt)).reshape(-1, 1)
-
-        # reshape L into an array
-        L = np.array(L).reshape(1, 1)
-
-        # save in temporary buffer
-        self._episode_buffer.append((Phi, Psi, L, dpidtheta))
+    def save_transition(
+        self, sars: tuple[np.ndarray, ...], solution: Solution
+    ) -> None:
+        self._episode_buffer.append((*sars, solution))
 
     def consolidate_episode_experience(self) -> None:
-        # consolidate Phi(s), Psi(s,a), L(s,a), dpidtheta(s) into arrays
-        Phi, Psi, L, dpidtheta = tuple(
+        S, A, L, S_next, sols = tuple(
             np.stack(o, axis=0) for o in zip(*self._episode_buffer))
+        K = sols.size
+        L = L.reshape(-1, 1, 1)
+
+        # compute Phi (value function approximation basis functions)
+        Phi = self._Phi(S.T).full().T.reshape(K, -1, 1)
+        Phi_next = self._Phi(S_next.T).full().T.reshape(K, -1, 1)
+
+        # compute Psi
+        #
+        dRdy, dRdtheta, U_opt = [], [], []
+        for sol in sols:
+            dRdy.append(sol.value(self._dRdy))
+            dRdtheta.append(sol.value(self._dRdtheta))
+            U_opt.append(sol.vals['u'][:, 0])
+        dRdy = np.stack(dRdy, axis=0)
+        dRdtheta = np.stack(dRdtheta, axis=0)
+        q = np.linalg.solve(dRdy, np.tile(self._dydu0, (sols.size, 1, 1)))
+        dpidtheta = -dRdtheta @ q
+        #
+        U_opt = np.stack(U_opt, axis=0)
+        Psi = dpidtheta @ (A - U_opt).reshape(K, -1, 1)
 
         # compute this episode's weights v via LSTD
-        A = (
-            Phi[:-1] @ transp(Phi[:-1] - self.config.gamma * Phi[1:])
-        ).sum(axis=0)
-        b = (Phi[:-1] * L[:-1]).sum(axis=0)
+        A = (Phi @ transp(Phi - self.config.gamma * Phi_next)).sum(axis=0)
+        b = (Phi * L).sum(axis=0)
         try:
             v = np.linalg.solve(A, b)
         except np.linalg.LinAlgError:
             v = np.linalg.lstsq(A, b, rcond=None)[0]
-        v = v.reshape(1, -1, 1)
 
         # save this episode to memory and clear buffer
-        self.replay_memory.append((Phi, Psi, L, dpidtheta, v))
+        self.replay_memory.append((Phi, Phi_next, Psi, L, dpidtheta, v))
         self._episode_buffer.clear()
 
     def update(self) -> np.ndarray:
-        # sample the replay memory
+        # sample the memory. Each item in the sample comes from one episode
         sample = list(self.replay_memory.sample(
             self.config.replay_sample_size, self.config.replay_include_last))
         m = len(sample)
 
         # average weights over m episodes
-        v = sum(v for _, _, _, _, v in sample) / m
+        v = sum(v for _, _, _, _, _, v in sample) / m
 
         # compute weights w via LSTD and averaging over m episodes
         w = 0
-        for Phi, Psi, L, _, _ in sample:
-            A = (Psi[:-1] @ transp(Psi[:-1])).sum(axis=0)
+        for Phi, Phi_next, Psi, L, _, _ in sample:
+            A = (Psi @ transp(Psi)).sum(axis=0)
             b = (
-                (L[:-1] +
-                 transp(self.config.gamma * Phi[1:] - Phi[:-1]) @ v) * Psi[:-1]
+                (L + transp(self.config.gamma * Phi - Phi_next) @ v) * Psi
             ).sum(axis=0)
             w += np.linalg.solve(A, b)
-        w = w.reshape(1, -1, 1) / m
+        w /= m
 
         # compute episode's update
-        dJdtheta = 1 / m * sum((dpidtheta @ transp(dpidtheta) @ w).sum(axis=0)
-                               for _, _, _, dpidtheta, _ in sample).flatten()
+        dJdtheta = sum((dpidtheta @ transp(dpidtheta) @ w).sum(axis=0)
+                       for _, _, _, _, dpidtheta, _ in sample).flatten() / m
 
         # perform update
         c = self.config.lr * dJdtheta
@@ -216,7 +215,8 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
 
     def _init_work(self) -> None:
         self._episode_buffer: \
-            list[tuple[np.ndarray, np.ndarray, float, np.ndarray]] = []
+            list[tuple[np.ndarray, np.ndarray, float, np.ndarray, Solution]] \
+            = []
 
     def _init_qp_solver(self) -> None:
         n = sum(self.weights.sizes())

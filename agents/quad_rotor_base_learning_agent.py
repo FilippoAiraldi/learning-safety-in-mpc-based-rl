@@ -38,20 +38,21 @@ class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
         return self._Q
 
     @abstractmethod
-    def save_transition(self, s: np.ndarray, a: np.ndarray, L: float,
-                        solution: Solution) -> None:
+    def save_transition(
+            self, sars: tuple[np.ndarray, ...], solution: Solution) -> None:
         '''
         Schedules the current time-step data to be processed and saved into the
         experience replay memory.
 
         Parameters 
         ----------
-        s, a, L : array_like, array_like, float
-            The SAR tuple which stands for
+        s, a, L, s+ : array_like, array_like, float, array_like
+            The SARS tuple which stands for
                 - State for which the MPC V(s) is run
-                - Action taken as a result of computing V(s) (not necessarily the 
-                  optimal one, e.g., due to exploration).
+                - Action taken as a result of computing V(s) (not necessarily 
+                  the optimal one, e.g., due to exploration).
                 - Reward/cost incurred subsequently.
+                - next State after taking the action in the current state.
         solution : Solution
             Solution object of V(s), where s is the current state.
         '''

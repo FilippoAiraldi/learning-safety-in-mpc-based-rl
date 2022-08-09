@@ -65,16 +65,16 @@ def train(
                 # _, _, solution = agent.predict(state, deterministic=True)
                 # u, _, _ = agent.predict(state, deterministic=False)
                 #
-                action, _, solution = agent.predict(
+                action, _, sol = agent.predict(
                     state, deterministic=False, perturb_gradient=False)
                 #
-                assert solution.success, f'{agent_n}|{s}|{e}|{t}: MPC failed.'
+                assert sol.success, f'{agent_n}|{s}|{e}|{t}: MPC failed.'
 
                 # step environment
                 new_state, cost, done, _ = env.step(action)
 
                 # save transition
-                agent.save_transition(state, action, cost, solution)
+                agent.save_transition((state, action, cost, new_state), sol)
 
                 # check if episode is done
                 if done:
@@ -116,7 +116,7 @@ if __name__ == '__main__':
                         help='Number of training sessions.')
     parser.add_argument('--episodes', type=int, default=3,  # 10
                         help='Number of training episodes per session.')
-    parser.add_argument('--max_ep_steps', type=int, default=5,  # 100
+    parser.add_argument('--max_ep_steps', type=int, default=50,  # 100
                         help='Maximum number of steps per episode.')
     parser.add_argument('--seed', type=int, default=42, help='RNG seed.')
     args = parser.parse_args()
