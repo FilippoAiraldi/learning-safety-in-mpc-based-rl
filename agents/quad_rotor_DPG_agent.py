@@ -38,7 +38,7 @@ class QuadRotorDPGAgentConfig:
     # RL parameters
     gamma: float = 0.97
     lr: float = 1e-6
-    max_perc_update: float = np.inf
+    max_perc_update: float = 1e6 # np.inf
 
     @property
     def init_pars(self) -> dict[str, float | np.ndarray]:

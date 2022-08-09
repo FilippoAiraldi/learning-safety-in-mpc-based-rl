@@ -8,11 +8,6 @@ from logging import Logger
 from typing import Any
 
 
-# NOTE: if we opt for fixed-duration episodes, then we can better stack
-# the recorded data, and perform better updates (instead of looping over
-# episodes). However, what about the MPC horizon?
-
-
 def train(
     agent_n: int,
     sessions: int,
@@ -111,13 +106,13 @@ def train(
 if __name__ == '__main__':
     # parse arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument('--agents', type=int, default=1,  # 100
+    parser.add_argument('--agents', type=int, default=1,
                         help='Number of parallel agent to train.')
-    parser.add_argument('--sessions', type=int, default=3,  # 20
+    parser.add_argument('--sessions', type=int, default=20,
                         help='Number of training sessions.')
-    parser.add_argument('--episodes', type=int, default=3,  # 10
+    parser.add_argument('--episodes', type=int, default=5,
                         help='Number of training episodes per session.')
-    parser.add_argument('--max_ep_steps', type=int, default=50,  # 100
+    parser.add_argument('--max_ep_steps', type=int, default=50,
                         help='Maximum number of steps per episode.')
     parser.add_argument('--seed', type=int, default=42, help='RNG seed.')
     args = parser.parse_args()
@@ -130,7 +125,7 @@ if __name__ == '__main__':
     # launch training
     const_args = (args.sessions, args.episodes, args.max_ep_steps, logger)
     if args.agents == 1:
-        data = train(1, *const_args, args.seed)
+        data = train(0, *const_args, args.seed)
     else:
         with util.tqdm_joblib(desc='Training', total=args.agents):
             data = jl.Parallel(n_jobs=-1)(
