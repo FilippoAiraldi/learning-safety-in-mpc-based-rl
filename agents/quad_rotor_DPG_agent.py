@@ -19,7 +19,7 @@ class QuadRotorDPGAgentConfig:
     init_pitch_d: float = 14
     init_pitch_dd: float = 10
     init_pitch_gain: float = 14
-    init_roll_d: float = 6  # 40
+    init_roll_d: float = 6
     init_roll_dd: float = 7
     init_roll_gain: float = 9
     # cost
@@ -40,7 +40,7 @@ class QuadRotorDPGAgentConfig:
     # RL parameters
     gamma: float = 0.97
     lr: float = 1e-6
-    clip_grad_norm: float = 1e6
+    clip_grad_norm: float = None
 
     @property
     def init_pars(self) -> dict[str, Union[float, np.ndarray]]:
@@ -125,6 +125,8 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
         self._episode_buffer.append((*sars, solution))
 
     def consolidate_episode_experience(self) -> None:
+        if len(self._episode_buffer) == 0:
+            return
         S, A, L, S_next, sols = tuple(
             np.stack(o, axis=0) for o in zip(*self._episode_buffer))
         K = sols.size
