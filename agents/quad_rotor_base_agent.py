@@ -233,7 +233,7 @@ class QuadRotorBaseAgent(ABC):
             ('w_V', (1e-3, np.inf)),
             ('w_s', (1e-3, np.inf)),
             ('w_s_f', (1e-3, np.inf)),
-            ('xf', self.env.config.x_bounds),
+            ('xf', self.env.config.xf.reshape(-1, 1) + np.array([[-.5, .5]])),
             # others
             ('backoff', (0, 0.2))
         ]
