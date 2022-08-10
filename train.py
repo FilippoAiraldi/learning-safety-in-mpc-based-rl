@@ -60,17 +60,17 @@ def train(
             for t in range(max_ep_steps):
                 # _, _, solution = agent.predict(state, deterministic=True)
                 # u, _, _ = agent.predict(state, deterministic=False)
-                #
                 action, _, sol = agent.predict(
                     state, deterministic=False, perturb_gradient=False)
-                #
-                assert sol.success, f'{agent_n}|{s}|{e}|{t}: MPC failed.'
+                if not sol.success:
+                    logger.warning(f'{agent_n}|{s}|{e}|{t}: MPC failed.')
 
                 # step environment
-                new_state, cost, done, _ = env.step(action)
+                new_state, r, done, _ = env.step(action)
 
                 # save transition
-                agent.save_transition((state, action, cost, new_state), sol)
+                if sol.success:
+                    agent.save_transition((state, action, r, new_state), sol)
 
                 # check if episode is done
                 if done:
