@@ -40,7 +40,7 @@ class QuadRotorDPGAgentConfig:
     # RL parameters
     gamma: float = 0.97
     lr: float = 1e-6
-    max_perc_update: float = 1e6 # np.inf
+    clip_grad_norm: float = 1e6
 
     @property
     def init_pars(self) -> dict[str, Union[float, np.ndarray]]:
@@ -182,17 +182,19 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
         # compute episode's update
         dJdtheta = sum((dpidtheta @ trsp(dpidtheta) @ w).sum(axis=0)
                        for _, _, _, _, dpidtheta, _ in sample).flatten() / m
-        c = cfg.lr * dJdtheta
 
-        # perform update in the form of a QP problem
-        theta = self.weights.values()
-        bounds = self.weights.bounds()
-        max_delta = np.maximum(np.abs(cfg.max_perc_update * theta), 0.1)
-        lb = np.maximum(bounds[:, 0], theta - max_delta)
-        ub = np.minimum(bounds[:, 1], theta + max_delta)
+        # clip gradient if requested
+        if cfg.clip_grad_norm is None:
+            c = cfg.lr * dJdtheta
+        else:
+            clip_coef = min(
+                cfg.clip_grad_norm / (np.linalg.norm(dJdtheta) + 1e-6), 1.0)
+            c = (cfg.lr * clip_coef) * dJdtheta
 
         # run QP solver
-        sol = self._solver(lbx=lb, ubx=ub, x0=theta - c,
+        theta = self.weights.values()
+        bounds = self.weights.bounds()
+        sol = self._solver(lbx=bounds[:, 0], ubx=bounds[:, 1], x0=theta - c,
                            p=np.concatenate((theta, c)))
         assert self._solver.stats()['success'], 'RL update failed.'
         theta_new: np.ndarray = sol['x'].full().flatten()

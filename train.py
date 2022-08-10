@@ -4,7 +4,6 @@ import envs
 import joblib as jl
 import numpy as np
 import util
-from logging import Logger
 from typing import Any
 
 
@@ -13,7 +12,7 @@ def train(
     sessions: int,
     episodes: int,
     max_ep_steps: int,
-    logger: Logger,
+    run_name: str,
     seed: int
 ) -> dict[str, Any]:
     '''
@@ -30,8 +29,8 @@ def train(
         Episodes per training sessions.
     max_ep_steps : int
         Maximum number of time steps simulated per each episode.
-    logger : Logger
-        A logging utility.
+    run_name : str
+        The name of this run.
     seed : int
         RNG seed.
 
@@ -40,6 +39,7 @@ def train(
     dict[str, Any]
         Data resulting from the training.
     '''
+    logger = util.create_logger(run_name)
     env = envs.QuadRotorEnv.get_wrapped(max_episode_steps=max_ep_steps)
     agent: agents.QuadRotorDPGAgent = agents.wrappers.RecordLearningData(
         agents.QuadRotorDPGAgent(env=env, agentname=f'DPG_{agent_n}',
@@ -60,17 +60,17 @@ def train(
             for t in range(max_ep_steps):
                 # _, _, solution = agent.predict(state, deterministic=True)
                 # u, _, _ = agent.predict(state, deterministic=False)
-                #
                 action, _, sol = agent.predict(
                     state, deterministic=False, perturb_gradient=False)
-                #
-                assert sol.success, f'{agent_n}|{s}|{e}|{t}: MPC failed.'
+                if not sol.success:
+                    logger.warning(f'{agent_n}|{s}|{e}|{t}: MPC failed.')
 
                 # step environment
-                new_state, cost, done, _ = env.step(action)
+                new_state, r, done, _ = env.step(action)
 
                 # save transition
-                agent.save_transition((state, action, cost, new_state), sol)
+                if sol.success:
+                    agent.save_transition((state, action, r, new_state), sol)
 
                 # check if episode is done
                 if done:
@@ -88,16 +88,12 @@ def train(
         # log session outcomes
         J_mean = np.mean([env.cum_rewards[i] for i in range(-episodes, 0)])
         logger.debug(f'{agent_n}|{s}|{e}: J_mean={J_mean:.3f} '
-                     f'||dJ||={agent.update_gradient_norm[-1]:.3e}')
+                     f'||dJ||={agent.update_gradient_norm[-1]:.3e}; '
+                     + agent.weights.values2str())
 
-    # return data to be saved
+    # return data to be saved (cannot save agent directly)
     return {
-        'observations': list(env.observations),
-        'actions': list(env.actions),
-        'rewards': list(env.rewards),
-        'cum_rewards': list(env.cum_rewards),
-        'episode_lengths': list(env.episode_lengths),
-        'exec_times': list(env.exec_times),
+        'env': env,
         'weight_history': agent.weights_hitory,
         'update_gradient_norm': agent.update_gradient_norm,
     }
@@ -120,12 +116,11 @@ if __name__ == '__main__':
     # set up defaults
     util.set_np_mpl_defaults()
     run_name = util.get_run_name()
-    logger = util.create_logger(run_name)
 
     # launch training
-    const_args = (args.sessions, args.episodes, args.max_ep_steps, logger)
+    const_args = (args.sessions, args.episodes, args.max_ep_steps, run_name)
     if args.agents == 1:
-        data = train(0, *const_args, args.seed)
+        data = [train(0, *const_args, args.seed)]
     else:
         with util.tqdm_joblib(desc='Training', total=args.agents):
             data = jl.Parallel(n_jobs=-1)(

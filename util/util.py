@@ -148,7 +148,7 @@ def create_logger(run_name: str) -> logging.Logger:
     # create logger
     logger = logging.getLogger(run_name)
     logger.setLevel(logging.DEBUG)
-    formatter = logging.Formatter('%(name)s: %(message)s')
+    formatter = logging.Formatter('%(message)s')
 
     # create console handler
     ch = logging.StreamHandler()
