@@ -4,7 +4,6 @@ import envs
 import joblib as jl
 import numpy as np
 import util
-from logging import Logger
 from typing import Any
 
 
@@ -13,7 +12,7 @@ def train(
     sessions: int,
     episodes: int,
     max_ep_steps: int,
-    logger: Logger,
+    run_name: str,
     seed: int
 ) -> dict[str, Any]:
     '''
@@ -30,8 +29,8 @@ def train(
         Episodes per training sessions.
     max_ep_steps : int
         Maximum number of time steps simulated per each episode.
-    logger : Logger
-        A logging utility.
+    run_name : str
+        The name of this run.
     seed : int
         RNG seed.
 
@@ -40,6 +39,7 @@ def train(
     dict[str, Any]
         Data resulting from the training.
     '''
+    logger = util.create_logger(run_name)
     env = envs.QuadRotorEnv.get_wrapped(max_episode_steps=max_ep_steps)
     agent: agents.QuadRotorDPGAgent = agents.wrappers.RecordLearningData(
         agents.QuadRotorDPGAgent(env=env, agentname=f'DPG_{agent_n}',
@@ -88,7 +88,8 @@ def train(
         # log session outcomes
         J_mean = np.mean([env.cum_rewards[i] for i in range(-episodes, 0)])
         logger.debug(f'{agent_n}|{s}|{e}: J_mean={J_mean:.3f} '
-                     f'||dJ||={agent.update_gradient_norm[-1]:.3e}')
+                     f'||dJ||={agent.update_gradient_norm[-1]:.3e}; '
+                     + agent.weights.values2str())
 
     # return data to be saved
     return {
@@ -120,10 +121,9 @@ if __name__ == '__main__':
     # set up defaults
     util.set_np_mpl_defaults()
     run_name = util.get_run_name()
-    logger = util.create_logger(run_name)
 
     # launch training
-    const_args = (args.sessions, args.episodes, args.max_ep_steps, logger)
+    const_args = (args.sessions, args.episodes, args.max_ep_steps, run_name)
     if args.agents == 1:
         data = train(0, *const_args, args.seed)
     else:
