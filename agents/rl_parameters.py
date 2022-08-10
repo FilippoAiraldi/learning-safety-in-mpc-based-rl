@@ -1,7 +1,7 @@
 import numpy as np
 import casadi as cs
 from dataclasses import dataclass
-from typing import Iterable, Iterator, Sequence
+from typing import Iterable, Iterator, Sequence, Union
 
 
 @dataclass(frozen=True)
@@ -65,7 +65,8 @@ class RLParameterCollection(Sequence[RLParameter]):
         return self._dict.keys()
 
     def values(
-            self, as_dict: bool = False) -> np.ndarray | dict[str, np.ndarray]:
+        self, as_dict: bool = False
+    ) -> Union[np.ndarray, dict[str, np.ndarray]]:
         '''Returns the values of the parameters in the collection concatenated
         into a single array, by default. Otherwise, if as_dict is True, a dict
         with each value is returned.'''
@@ -74,7 +75,8 @@ class RLParameterCollection(Sequence[RLParameter]):
         return np.concatenate([p.value for p in self._list])
 
     def bounds(
-            self, as_dict: bool = False) -> np.ndarray | dict[str, np.ndarray]:
+        self, as_dict: bool = False
+    ) -> Union[np.ndarray, dict[str, np.ndarray]]:
         '''Returns the bounds of the parameters in the collection concatenated
         into a single array, by default. Otherwise, if as_dict is True, a dict
         with each bound is returned.'''
@@ -82,7 +84,7 @@ class RLParameterCollection(Sequence[RLParameter]):
             return {name: p.bounds for name, p in self.items()}
         return np.row_stack([p.bounds for p in self._list])
 
-    def symV(self, as_dict: bool = False) -> cs.SX | dict[str, cs.SX]:
+    def symV(self, as_dict: bool = False) -> Union[cs.SX, dict[str, cs.SX]]:
         '''Returns the symbols of the parameters in the collection concatenated
         into a single array, by default. Otherwise, if as_dict is True, a dict
         with each symbolical V variable is returned.'''
@@ -90,7 +92,7 @@ class RLParameterCollection(Sequence[RLParameter]):
             return {name: p.symV for name, p in self.items()}
         return cs.vertcat(*(p.symV for p in self._list))
 
-    def symQ(self, as_dict: bool = False) -> cs.SX | dict[str, cs.SX]:
+    def symQ(self, as_dict: bool = False) -> Union[cs.SX, dict[str, cs.SX]]:
         '''Returns the symbols of the parameters in the collection concatenated
         into a single array, by default. Otherwise, if as_dict is True, a dict
         with each symbolical Q variable is returned.'''
@@ -98,7 +100,7 @@ class RLParameterCollection(Sequence[RLParameter]):
             return {name: p.symQ for name, p in self.items()}
         return cs.vertcat(*(p.symQ for p in self._list))
 
-    def sizes(self, as_dict: bool = False) -> list[int] | dict[str, int]:
+    def sizes(self, as_dict: bool = False) -> Union[list[int], dict[str, int]]:
         '''Returns the size of each parameter.'''
         if as_dict:
             return {p.name: p.symV.shape[0] for p in self._list}
@@ -106,7 +108,7 @@ class RLParameterCollection(Sequence[RLParameter]):
 
     def update_values(
         self,
-        new_vals: np.ndarray | list[np.ndarray] | dict[str, np.ndarray]
+        new_vals: Union[np.ndarray, list[np.ndarray], dict[str, np.ndarray]]
     ) -> None:
         '''Updates the values of each parameter in the collection.'''
         if isinstance(new_vals, np.ndarray):
@@ -134,8 +136,8 @@ class RLParameterCollection(Sequence[RLParameter]):
 
     def __getitem__(
         self,
-        index: str | Iterable[str] | int | slice | Iterable[int]
-    ) -> RLParameter | list[RLParameter]:
+        index: Union[str, Iterable[str], int, slice, Iterable[int]]
+    ) -> Union[RLParameter, list[RLParameter]]:
         if isinstance(index, str):
             return self._dict[index]
         if isinstance(index, (int, slice)):

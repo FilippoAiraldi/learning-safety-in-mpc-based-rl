@@ -2,7 +2,7 @@ import numpy as np
 from collections import deque
 from itertools import chain
 from gym.utils.seeding import np_random
-from typing import Iterable, TypeVar
+from typing import Iterable, TypeVar, Optional, Union
 
 
 T = TypeVar('T')
@@ -18,7 +18,7 @@ class ReplayMemory(deque[T]):
     def __init__(
         self,
         *args,
-        maxlen: int | None,
+        maxlen: Optional[int],
         seed: int = None
     ) -> None:
         '''
@@ -38,8 +38,8 @@ class ReplayMemory(deque[T]):
 
     def sample(
         self,
-        n: int | float,
-        include_last_n: int | float
+        n: Union[int, float],
+        include_last_n: Union[int, float]
     ) -> Iterable[T]:
         '''
         Samples the memory and yields the sampled elements.

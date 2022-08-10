@@ -1,10 +1,11 @@
 import numpy as np
 from abc import ABC
-from itertools import count
-from gym.utils.seeding import np_random
-from mpc import QuadRotorMPC, QuadRotorMPCConfig, Solution
-from envs import QuadRotorEnv
 from agents import RLParameter, RLParameterCollection
+from envs import QuadRotorEnv
+from gym.utils.seeding import np_random
+from itertools import count
+from mpc import QuadRotorMPC, QuadRotorMPCConfig, Solution
+from typing import Union
 
 
 class QuadRotorBaseAgent(ABC):
@@ -20,7 +21,7 @@ class QuadRotorBaseAgent(ABC):
         agentname: str = None,
         init_pars: dict[str, np.ndarray] = None,
         fixed_pars: dict[str, np.ndarray] = None,
-        mpc_config: dict | QuadRotorMPCConfig = None,
+        mpc_config: Union[dict, QuadRotorMPCConfig] = None,
         seed: int = None
     ) -> None:
         '''

@@ -1,10 +1,10 @@
 import casadi as cs
 import numpy as _np
-from itertools import count
-from functools import partial
 from dataclasses import dataclass
+from functools import partial
+from itertools import count
 from mpc.mpc_debug import MPCDebug
-from typing import Any
+from typing import Any, Union
 
 
 # NOTE: np.flatten and cs.vec operate on row- and column-wise, respectively!
@@ -189,19 +189,18 @@ class GenericMPC:
         dims = expr.shape
 
         # create bounds
-        match op:
-            case '=' | '==':
-                is_eq = True
-                lb, ub = _np.zeros(dims), _np.zeros(dims)
-            case '<' | '<=':
-                is_eq = False
-                lb, ub = _np.full(dims, -_np.inf), _np.zeros(dims)
-            case '>' | '>=':
-                is_eq = False
-                expr = -expr
-                lb, ub = _np.full(dims, -_np.inf), _np.zeros(dims)
-            case _:
-                raise ValueError(f'Unrecognized operator {op}.')
+        if op in {'=', '=='}:
+            is_eq = True
+            lb, ub = _np.zeros(dims), _np.zeros(dims)
+        elif op in {'<', '<='}:
+            is_eq = False
+            lb, ub = _np.full(dims, -_np.inf), _np.zeros(dims)
+        elif op in {'>', '>='}:
+            is_eq = False
+            expr = -expr
+            lb, ub = _np.full(dims, -_np.inf), _np.zeros(dims)
+        else:
+            raise ValueError(f'Unrecognized operator {op}.')
         expr = cs.simplify(expr)
         lb, ub = cs.vec(lb).full().flatten(), cs.vec(ub).full().flatten()
 
@@ -288,7 +287,7 @@ class GenericMPC:
         vals = {name: get_value(var) for name, var in self.vars.items()}
 
         # build solution
-        sol_ = Solution(f=float(sol['f']), vars=self.vars.copy(), vals=vals, 
+        sol_ = Solution(f=float(sol['f']), vars=self.vars.copy(), vals=vals,
                         get_value=get_value, stats=self.solver.stats().copy())
         self.failures += int(not sol_.success)
         return sol_
@@ -311,10 +310,10 @@ class GenericMPC:
 
 def subsevalf(
     expr: cs.SX,
-    old: cs.SX | dict[str, cs.SX] | list[cs.SX] | tuple[cs.SX],
-    new: cs.SX | dict[str, cs.SX] | list[cs.SX] | tuple[cs.SX],
+    old: Union[cs.SX, dict[str, cs.SX], list[cs.SX], tuple[cs.SX]],
+    new: Union[cs.SX, dict[str, cs.SX], list[cs.SX], tuple[cs.SX]],
     eval: bool = True
-) -> cs.SX | _np.ndarray:
+) -> Union[cs.SX, _np.ndarray]:
     '''
     Substitute in the expression the old variable with
     the new one, evaluating the expression if required.
