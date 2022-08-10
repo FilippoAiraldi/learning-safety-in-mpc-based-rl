@@ -91,7 +91,7 @@ def train(
                      f'||dJ||={agent.update_gradient_norm[-1]:.3e}; '
                      + agent.weights.values2str())
 
-    # return data to be saved 
+    # return data to be saved
     return { 'env': env, 'agent': agent }
 
 
@@ -102,7 +102,7 @@ if __name__ == '__main__':
                         help='Number of parallel agent to train.')
     parser.add_argument('--sessions', type=int, default=20,
                         help='Number of training sessions.')
-    parser.add_argument('--episodes', type=int, default=5,
+    parser.add_argument('--episodes', type=int, default=10,
                         help='Number of training episodes per session.')
     parser.add_argument('--max_ep_steps', type=int, default=50,
                         help='Maximum number of steps per episode.')

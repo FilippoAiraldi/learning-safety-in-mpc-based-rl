@@ -17,7 +17,7 @@ class QuadRotorDPGAgentConfig:
     init_pitch_d: float = 14
     init_pitch_dd: float = 10
     init_pitch_gain: float = 14
-    init_roll_d: float = 6  # 40
+    init_roll_d: float = 6
     init_roll_dd: float = 7
     init_roll_gain: float = 9
     # cost
@@ -38,7 +38,7 @@ class QuadRotorDPGAgentConfig:
     # RL parameters
     gamma: float = 0.97
     lr: float = 1e-6
-    clip_grad_norm: float = 1e6
+    clip_grad_norm: float = None
 
     @property
     def init_pars(self) -> dict[str, float | np.ndarray]:
