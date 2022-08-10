@@ -5,6 +5,7 @@ from agents.replay_memory import ReplayMemory
 from dataclasses import dataclass
 from envs import QuadRotorEnvConfig, QuadRotorEnv
 from mpc import Solution, QuadRotorMPCConfig
+from scipy.linalg import lstsq
 from util import monomial_powers, cs_prod
 
 
@@ -47,9 +48,6 @@ class QuadRotorDPGAgentConfig:
             name.removeprefix('init_'): val
             for name, val in self.__dict__.items() if name.startswith('init_')
         }
-
-
-trsp = lambda o: np.transpose(o, axes=(0, 2, 1))
 
 
 class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
@@ -125,38 +123,38 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
     def consolidate_episode_experience(self) -> None:
         if len(self._episode_buffer) == 0:
             return
-            
-        S, A, L, S_next, sols = tuple(
-            np.stack(o, axis=0) for o in zip(*self._episode_buffer))
-        K = sols.size
-        L = L.reshape(-1, 1, 1)
 
-        # compute Phi (value function approximation basis functions)
-        Phi = self._Phi(S.T).full().T.reshape(K, -1, 1)
-        Phi_next = self._Phi(S_next.T).full().T.reshape(K, -1, 1)
-
-        # compute Psi
-        #
-        dRdy, dRdtheta, U_opt = [], [], []
-        for sol in sols:
+        # stack everything in arrays and compute derivatives
+        S, L, S_next = [], [], []
+        E = []  # exploration
+        dRdy, dRdtheta = [], []
+        for s, a, r, s_next, sol in self._episode_buffer:
+            S.append(s)
+            L.append(r)
+            S_next.append(s_next)
+            E.append(a - sol.vals['u'][:, 0])
             dRdy.append(sol.value(self._dRdy))
             dRdtheta.append(sol.value(self._dRdtheta))
-            U_opt.append(sol.vals['u'][:, 0])
+        K = len(S)
+        S = np.stack(S, axis=0)
+        L = np.stack(L, axis=0).reshape(K, 1)
+        S_next = np.stack(S_next, axis=0)
+        E = np.stack(E, axis=0).reshape(K, -1, 1)
         dRdy = np.stack(dRdy, axis=0)
         dRdtheta = np.stack(dRdtheta, axis=0)
-        q = np.linalg.solve(dRdy, np.tile(self._dydu0, (sols.size, 1, 1)))
+
+        # compute Phi (value function approximation basis functions)
+        Phi = self._Phi(S.T).full().T
+        Phi_next = self._Phi(S_next.T).full().T
+
+        # compute Psi
+        q = np.linalg.solve(dRdy, np.tile(self._dydu0, (K, 1, 1)))
         dpidtheta = -dRdtheta @ q
-        #
-        U_opt = np.stack(U_opt, axis=0)
-        Psi = dpidtheta @ (A - U_opt).reshape(K, -1, 1)
+        Psi = np.squeeze(dpidtheta @ E)
 
         # compute this episode's weights v via LSTD
-        A = (Phi @ trsp(Phi - self.config.gamma * Phi_next)).sum(axis=0)
-        b = (Phi * L).sum(axis=0)
-        try:
-            v = np.linalg.solve(A, b)
-        except np.linalg.LinAlgError:
-            v = np.linalg.lstsq(A, b, rcond=None)[0]
+        v = lstsq(Phi - self.config.gamma * Phi_next, L,
+                  lapack_driver='gelsy')[0]
 
         # save this episode to memory and clear buffer
         self.replay_memory.append((Phi, Phi_next, Psi, L, dpidtheta, v))
@@ -175,14 +173,15 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
         # compute weights w via LSTD and averaging over m episodes
         w = 0
         for Phi, Phi_next, Psi, L, _, _ in sample:
-            A = (Psi @ trsp(Psi)).sum(axis=0)
-            b = ((L + trsp(cfg.gamma * Phi - Phi_next) @ v) * Psi).sum(axis=0)
+            A = Psi.T @ Psi
+            b = Psi.T @ (L + (cfg.gamma * Phi_next - Phi) @ v)
             w += np.linalg.solve(A, b)
         w /= m
 
         # compute episode's update
-        dJdtheta = sum((dpidtheta @ trsp(dpidtheta) @ w).sum(axis=0)
-                       for _, _, _, _, dpidtheta, _ in sample).flatten() / m
+        dJdtheta = sum(
+            (dpidth @ np.transpose(dpidth, axes=(0, 2, 1)) @ w).sum(axis=0) 
+            for _, _, _, _, dpidth, _ in sample).flatten() / m
 
         # clip gradient if requested
         if cfg.clip_grad_norm is None:
