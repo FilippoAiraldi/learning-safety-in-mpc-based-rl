@@ -23,6 +23,7 @@ class RecordLearningData(Generic[AgentType]):
         self.weights_hitory: dict[str, list[np.ndarray]] = {
             n: [p.value] for n, p in agent.weights.as_dict.items()
         }
+        self.update_gradient: list[np.ndarray] = []
         self.update_gradient_norm: list[np.ndarray] = []
 
     @property
@@ -31,11 +32,12 @@ class RecordLearningData(Generic[AgentType]):
 
     def update(self, *args, **kwargs) -> np.ndarray:
         grad = self._agent.update(*args, **kwargs)
-        
-        # save gradient norm
+
+        # save gradient and its norm
+        self.update_gradient.append(grad)
         g = np.linalg.norm(grad, axis=0).squeeze()
         self.update_gradient_norm.append(g.item() if np.isscalar(g) else g)
-        
+
         # save new weights
         for n, w in self.weights_hitory.items():
             w.append(self._agent.weights[n].value)
@@ -44,6 +46,18 @@ class RecordLearningData(Generic[AgentType]):
     def __getattr__(self, name) -> Any:
         '''Reroutes attributes to the wrapped agent instance.'''
         return getattr(self._agent, name)
+
+    def __getstate__(self) -> dict[str, Any]:
+        '''Returns the instance's state to be pickled.'''
+        state = self.__dict__.copy()
+        del state['_agent']
+        return state
+
+    def __setstate__(self, state: dict[str, Any]) -> None:
+        '''Sets the instance's state after loading from pickle.'''
+        self._agent = None
+        for attr, val in state.items():
+            self.__setattr__(attr, val)
 
     def __str__(self) -> str:
         '''Returns the wrapper name and the unwrapped agent string.'''
