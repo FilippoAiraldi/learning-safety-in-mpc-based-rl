@@ -91,14 +91,9 @@ def train(
                      f'||dJ||={agent.update_gradient_norm[-1]:.3e}; '
                      + agent.weights.values2str())
 
-    # return data to be saved
+    # return data to be saved (cannot save agent directly)
     return {
-        'observations': list(env.observations),
-        'actions': list(env.actions),
-        'rewards': list(env.rewards),
-        'cum_rewards': list(env.cum_rewards),
-        'episode_lengths': list(env.episode_lengths),
-        'exec_times': list(env.exec_times),
+        'env': env,
         'weight_history': agent.weights_hitory,
         'update_gradient_norm': agent.update_gradient_norm,
     }
@@ -125,7 +120,7 @@ if __name__ == '__main__':
     # launch training
     const_args = (args.sessions, args.episodes, args.max_ep_steps, run_name)
     if args.agents == 1:
-        data = train(0, *const_args, args.seed)
+        data = [train(0, *const_args, args.seed)]
     else:
         with util.tqdm_joblib(desc='Training', total=args.agents):
             data = jl.Parallel(n_jobs=-1)(
