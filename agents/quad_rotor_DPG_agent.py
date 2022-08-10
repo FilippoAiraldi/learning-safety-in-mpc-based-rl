@@ -123,6 +123,9 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
         self._episode_buffer.append((*sars, solution))
 
     def consolidate_episode_experience(self) -> None:
+        if len(self._episode_buffer) == 0:
+            return
+            
         S, A, L, S_next, sols = tuple(
             np.stack(o, axis=0) for o in zip(*self._episode_buffer))
         K = sols.size
