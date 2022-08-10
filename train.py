@@ -91,12 +91,8 @@ def train(
                      f'||dJ||={agent.update_gradient_norm[-1]:.3e}; '
                      + agent.weights.values2str())
 
-    # return data to be saved (cannot save agent directly)
-    return {
-        'env': env,
-        'weight_history': agent.weights_hitory,
-        'update_gradient_norm': agent.update_gradient_norm,
-    }
+    # return data to be saved 
+    return { 'env': env, 'agent': agent }
 
 
 if __name__ == '__main__':

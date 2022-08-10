@@ -138,7 +138,10 @@ def load_results(filename: str) -> dict:
         The saved data in the shape of a dictionary.
     '''
     with open(filename, 'rb') as f:
-        return cloudpickle.load(f)
+        data = cloudpickle.load(f)
+    if isinstance(data, dict) and len(data.keys()) == 1:
+        data = data[next(iter(data.keys()))]
+    return data
 
 
 def create_logger(run_name: str) -> logging.Logger:
