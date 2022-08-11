@@ -86,7 +86,8 @@ def set_np_mpl_defaults() -> None:
     mpl.style.use('seaborn-darkgrid')
     mpl.rcParams['axes.prop_cycle'] = cycler(
         'color',
-        ['#0072BD', '#D95319', '#EDB120', '#7E2F8E', '#77AC30', '#A2142F'])
+        ['#0072BD', '#D95319', '#EDB120', '#7E2F8E', '#77AC30', '#4DBEEE',
+         '#A2142F'])
     mpl.rcParams['lines.linewidth'] = 1
     # mpl.rcParams['font.family'] = 'serif'
     # mpl.rcParams['text.usetex'] = True
