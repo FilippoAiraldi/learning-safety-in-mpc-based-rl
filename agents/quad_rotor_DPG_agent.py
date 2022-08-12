@@ -132,7 +132,7 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
             S.append(s)
             L.append(r)
             S_next.append(s_next)
-            E.append(a - sol.vals['u'][:, 0])
+            E.append(self.V.config.Tu @ a - sol.vals['u'][:, 0])
             dRdy.append(sol.value(self._dRdy))
             dRdtheta.append(sol.value(self._dRdtheta))
         K = len(S)
