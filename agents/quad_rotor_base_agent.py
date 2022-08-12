@@ -52,7 +52,7 @@ class QuadRotorBaseAgent(ABC):
         self.fixed_pars = {} if fixed_pars is None else fixed_pars
         self.np_random, _ = np_random(seed)
         self.perturbation_chance = 0.2
-        self.perturbation_strength = 0.1
+        self.perturbation_strength = 0.07
         self.last_solution: Solution = None
 
         # initialize MPCs
@@ -73,7 +73,7 @@ class QuadRotorBaseAgent(ABC):
         return self._Q
 
     def reset(self) -> None:
-        '''Resets internal variables of the agent.''' 
+        '''Resets internal variables of the agent.'''
         # reset MPC last solution
         self.last_solution = None
 
@@ -86,7 +86,7 @@ class QuadRotorBaseAgent(ABC):
         type: str,
         state: np.ndarray = None,
         sol0: Solution = None,
-    ) -> tuple[np.ndarray, Solution]:
+    ) -> Solution:
         '''
         Solves the MPC optimization problem embedded in the agent.
 
@@ -100,6 +100,11 @@ class QuadRotorBaseAgent(ABC):
         sol0 : Solution
             Last numerical solution of the MPC used to warmstart. If not given,
             a heuristic is used.
+
+        Returns
+        -------
+        sol : Solution
+            Solution object containing values and information of the solution.
         '''
         mpc: QuadRotorMPC = getattr(self, type)
 
@@ -128,10 +133,7 @@ class QuadRotorBaseAgent(ABC):
 
         # call the MPC
         self.last_solution = mpc.solve(pars, sol0)
-
-        # get the optimal action
-        u_opt = self.last_solution.vals['u'][:, 0]
-        return u_opt, self.last_solution
+        return self.last_solution
 
     def predict(
         self,
@@ -163,8 +165,8 @@ class QuadRotorBaseAgent(ABC):
             The optimal action to take in the current state.
         next_state : np.ndarray
             The predicted next state of the environment.
-        solution : Solution
-            Solution object containing some information on the solution.
+        sol : Solution
+            Solution object containing values and information of the solution.
         '''
         perturbation_in_dict = 'perturbation' in self.fixed_pars
         if perturbation_in_dict:
@@ -172,7 +174,8 @@ class QuadRotorBaseAgent(ABC):
 
         if deterministic or self.np_random.random() > self.perturbation_chance:
             # just solve the V scheme without noise
-            u, sol = self.solve_mpc(type='V', state=state, **solve_mpc_kwargs)
+            sol = self.solve_mpc(type='V', state=state, **solve_mpc_kwargs)
+            u_opt = sol.vals['u_unscaled'][:, 0]
         else:
             # set std to a % of the action range
             u_bnd = self.env.config.u_bounds
@@ -186,14 +189,15 @@ class QuadRotorBaseAgent(ABC):
                     'No parameter \'perturbation\' found to perturb gradient.'
                 self.fixed_pars['perturbation'] = rng
 
-            u, sol = self.solve_mpc(type='V', state=state, **solve_mpc_kwargs)
+            sol = self.solve_mpc(type='V', state=state, **solve_mpc_kwargs)
+            u_opt = sol.vals['u_unscaled'][:, 0]
 
             # otherwise, directly perturb the action
             if not perturb_gradient:
-                u = np.clip(u + rng, u_bnd[:, 0], u_bnd[:, 1])
+                u_opt = np.clip(u_opt + rng, u_bnd[:, 0], u_bnd[:, 1])
 
-        x_next = sol.vals['x'][:, 0]
-        return u, x_next, sol
+        x_next = sol.vals['x_unscaled'][:, 0]
+        return u_opt, x_next, sol
 
     def init_mpc_parameters(
             self, init_pars: dict[str, np.ndarray] = None) -> None:
