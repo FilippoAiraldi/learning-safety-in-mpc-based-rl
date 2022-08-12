@@ -32,7 +32,7 @@ class QuadRotorMPCConfig:
     # The scaling operation is x_scaled = Tx * x, and yields a scaled state
     # whose elements lay in comparable ranges
     Tx: np.ndarray = field(default_factory=lambda: np.diag(
-        [1e-1, 1e-1, 1e-1, 1e-1, 1e-1, 1e-1, 1, 1, 1e-1, 1e-1]) / 1e2)
+        [1e-1, 1e-1, 1e-1, 1e-1, 1e-1, 1e-1, 1, 1, 1e-1, 1e-1]))
     Tu: np.ndarray = field(default_factory=lambda: np.diag([1e-1, 1e-1, 1e-2]))
 
     def __post_init__(self) -> None:
@@ -100,6 +100,10 @@ class QuadRotorMPC(GenericMPC):
                                ub=config.Tu @ env.config.u_bounds[:, 1, None])
         slack, _, _ = self.add_var('slack', ns, Np, lb=0)
 
+        # scale the variables
+        x = config.Tx_inv @ x
+        u = config.Tu_inv @ u
+
         # 2) create model parameters
         for name in ('g', 'thrust_coeff', 'pitch_d', 'pitch_dd', 'pitch_gain',
                      'roll_d', 'roll_dd', 'roll_gain'):
@@ -109,17 +113,15 @@ class QuadRotorMPC(GenericMPC):
         # Constraints #
         # =========== #
 
-        # 1) constraint on initial conditions - remember to scale also x0
-        # because, when passed as parameter, env's x0 won't be scaled.
-        x0 = config.Tx @ self.add_par('x0', env.nx, 1)
+        # 1) constraint on initial conditions
+        x0 = self.add_par('x0', env.nx, 1)
         x_exp = cs.horzcat(x0, x)
 
         # 2) constraints on dynamics
         u_exp = cs.horzcat(u, cs.repmat(u[:, -1], 1, Np - Nc))
         A, B, e = self._get_dynamics_matrices(env)
-        As, Bs, es = self._scale_dynamics_matrices(A, B, e, config)
         self.add_con('dyn',
-                     x_exp[:, 1:], '==', As @ x_exp[:, :-1] + Bs @ u_exp + es)
+                     x_exp[:, 1:], '==', A @ x_exp[:, :-1] + B @ u_exp + e)
 
         # 3) constraint on state (soft, backed off, without infinity in g, and
         # removing redundant entries)
@@ -129,13 +131,10 @@ class QuadRotorMPC(GenericMPC):
         # set the state constraints as
         #  - soft-backedoff minimum constraint: (1+back)*lb - slack <= x
         #  - soft-backedoff maximum constraint: x <= (1-back)*ub + slack
-        _Tx_inv = np.diag(config.Tx_inv[not_red_idx, not_red_idx])
-        self.add_con(
-            'state_min',
-            (1 + backoff) * lb - slack, '<=', _Tx_inv @ x[not_red_idx, :])
-        self.add_con(
-            'state_max',
-            _Tx_inv @ x[not_red_idx, :], '<=', (1 - backoff) * ub + slack)
+        self.add_con('state_min',
+                     (1 + backoff) * lb - slack, '<=', x[not_red_idx, :])
+        self.add_con('state_max',
+                     x[not_red_idx, :], '<=', (1 - backoff) * ub + slack)
 
         # ========= #
         # Objective #
@@ -166,7 +165,7 @@ class QuadRotorMPC(GenericMPC):
         # case-specific modifications
         if type == 'Q':
             u0 = self.add_par('u0', nu, 1)
-            self.add_con('init_action', u[:, 0], '==', config.Tu @ u0)
+            self.add_con('init_action', u[:, 0], '==', u0)
         else:
             perturbation = self.add_par('perturbation', nu, 1)
             self.f += cs.dot(perturbation, u[:, 0])
@@ -202,17 +201,6 @@ class QuadRotorMPC(GenericMPC):
             np.zeros((4, 1))
         )
         return A, B, e
-
-    def _scale_dynamics_matrices(
-        self, A: cs.SX, B: cs.SX, e: cs.SX, config: QuadRotorMPCConfig
-    ) -> tuple[cs.SX, cs.SX, cs.SX]:
-        Tx, Tx_inv = config.Tx, config.Tx_inv
-        Tu, Tu_inv = config.Tu, config.Tu_inv
-        return (
-            Tx @ A @ Tx_inv,
-            Tx @ B @ Tu_inv,
-            Tx @ e
-        )
 
     def solve(
         self, pars: dict[str, np.ndarray], vals0: dict[str, np.ndarray] = None
