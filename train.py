@@ -92,7 +92,7 @@ def train(
                      + agent.weights.values2str())
 
     # return data to be saved
-    return { 'env': env, 'agent': agent }
+    return {'env': env, 'agent': agent}
 
 
 if __name__ == '__main__':
