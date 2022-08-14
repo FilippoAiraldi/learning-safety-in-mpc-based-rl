@@ -58,16 +58,19 @@ def train(
 
             # simulate this episode
             for t in range(max_ep_steps):
-                # get action and step env
-                # _, _, solution = agent.predict(state, deterministic=True)
+                # action_opt, _, sol = agent.predict(state, deterministic=True)
                 # action, _, _ = agent.predict(state, deterministic=False)
+                #
                 action, _, sol = agent.predict(
                     state, deterministic=False, perturb_gradient=False)
+                action_opt = sol.vals['u_unscaled'][:, 0]
+                #
                 new_state, r, done, _ = env.step(action)
 
                 # save transition
                 if sol.success:
-                    agent.save_transition((state, action, r, new_state), sol)
+                    agent.save_transition(
+                        (state, action, action_opt, r, new_state, sol))
                 else:
                     logger.warning(f'{agent_n}|{s}|{e}|{t}: MPC failed.')
 

@@ -103,21 +103,31 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
         self.perturbation_chance = 1.0
 
         # initialize the replay memory. Per each episode the memory saves an
-        # array of Phi(s), Psi(s,a), L(s,a), dpidtheta(s) and weights v.
+        # array of Phi(s), Psi(s,a), L(s,a), dpidtheta(s) and weights v. Also
+        # initialize the episode buffer which temporarily stores values before
+        # batch-processing them into the replay memory
         self.replay_memory = ReplayMemory[tuple[np.ndarray, ...]](
             maxlen=agent_config.replay_maxlen, seed=seed)
+        self._episode_buffer: list[
+            tuple[np.ndarray, np.ndarray, np.ndarray, float, np.ndarray, \
+                 Solution]] = []
 
-        # initialize symbols for derivatives to be used later and worker to
-        # compute these numerically. Also initialize the QP solver used to
-        # compute updates
+        # initialize symbols for derivatives to be used later. Also initialize
+        # the QP solver used to compute updates
         self._init_symbols()
-        self._init_work()
         self._init_qp_solver()
 
     def save_transition(
-        self, sars: tuple[np.ndarray, ...], solution: Solution
+        self,
+        state: np.ndarray,
+        action_taken: np.ndarray,
+        optimal_action: np.ndarray,
+        cost: np.ndarray,
+        new_state: np.ndarray,
+        solution: Solution
     ) -> None:
-        self._episode_buffer.append((*sars, solution))
+        item = (state, action_taken, optimal_action, cost, new_state, solution)
+        self._episode_buffer.append(item)
 
     def consolidate_episode_experience(self) -> None:
         if len(self._episode_buffer) == 0:
@@ -127,11 +137,11 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
         S, L, S_next = [], [], []
         E = []  # exploration
         dRdy, dRdtheta = [], []
-        for s, a, r, s_next, sol in self._episode_buffer:
+        for s, a, a_opt, r, s_next, sol in self._episode_buffer:
             S.append(s)
             L.append(r)
             S_next.append(s_next)
-            E.append(a - sol.vals['u_unscaled'][:, 0])
+            E.append(a - a_opt)
             dRdy.append(sol.value(self._dRdy))
             dRdtheta.append(sol.value(self._dRdtheta))
         K = len(S)
@@ -229,11 +239,6 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
             x,
             *(cs_prod(x**p) for p in monomial_powers(x.size1(), 2)))
         self._Phi = cs.Function('Phi', [x], [y], ['s'], ['Phi(s)'])
-
-    def _init_work(self) -> None:
-        self._episode_buffer: \
-            list[tuple[np.ndarray, np.ndarray, float, np.ndarray, Solution]] \
-            = []
 
     def _init_qp_solver(self) -> None:
         n = sum(self.weights.sizes())
