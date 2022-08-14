@@ -51,10 +51,14 @@ class QuadRotorBaseAgent(ABC):
         # save some stuff
         self.env = env
         self.fixed_pars = {} if fixed_pars is None else fixed_pars
+        if 'xf' not in self.fixed_pars:
+            self.fixed_pars['xf'] = env.config.xf
+        self.last_solution: Solution = None
+
+        # set RNG and disturbances
         self.np_random, _ = np_random(seed)
         self.perturbation_chance = 0.2
         self.perturbation_strength = 0.07
-        self.last_solution: Solution = None
 
         # initialize MPCs
         self._Q = QuadRotorMPC(env, config=mpc_config, type='Q')
@@ -214,7 +218,7 @@ class QuadRotorBaseAgent(ABC):
         # learnable parameters are:
         #   - model pars: 'thrust_coeff', 'pitch_d', 'pitch_dd', 'pitch_gain',
         #                 'roll_d', 'roll_dd', 'roll_gain'
-        #   - cost pars: 'w_L', 'w_V', 'w_s', 'w_s_f', 'xf'
+        #   - cost pars: 'w_L', 'w_V', 'w_s', 'w_s_f'
         #   - constraint pars: 'backoff'
         # NOTE: all these parameters must be column vectors. Cannot deal with
         # multidimensional matrices!
@@ -238,7 +242,6 @@ class QuadRotorBaseAgent(ABC):
             ('w_V', (1e-3, np.inf)),
             ('w_s', (1e-3, np.inf)),
             ('w_s_f', (1e-3, np.inf)),
-            ('xf', self.env.config.xf.reshape(-1, 1) + np.array([[-.5, .5]])),
             # others
             ('backoff', (0, 0.2))
         ]

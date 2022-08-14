@@ -3,7 +3,7 @@ import numpy as np
 from dataclasses import dataclass, field
 from envs.quad_rotor_env import QuadRotorEnv
 from functools import cached_property
-from mpc.generic_mpc import GenericMPC
+from mpc.generic_mpc import GenericMPC, Solution
 from typing import Union
 from util import quad_form
 
