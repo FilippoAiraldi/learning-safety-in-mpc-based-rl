@@ -132,7 +132,7 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
             S.append(s)
             L.append(r)
             S_next.append(s_next)
-            E.append(self.V.config.Tu @ a - sol.vals['u'][:, 0])
+            E.append(a - sol.vals['u_unscaled'][:, 0])
             dRdy.append(sol.value(self._dRdy))
             dRdtheta.append(sol.value(self._dRdtheta))
         K = len(S)
@@ -142,6 +142,14 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
         E = np.stack(E, axis=0).reshape(K, -1, 1)
         dRdy = np.stack(dRdy, axis=0)
         dRdtheta = np.stack(dRdtheta, axis=0)
+
+        # The transitions come from an env which is most likely unscaled. So,
+        # before getting the value of the derivatives (which were computed
+        # symbolically), the sars must be scaled.
+        S = S @ self.V.config.Tx.T
+        E = E @ self.V.config.Tu.T
+        # L = (L - L.mean()) / (L.std() + 1e-10)
+        S_next = S_next @ self.V.config.Tx.T
 
         # compute Phi (value function approximation basis functions)
         Phi = self._Phi(S.T).full().T
@@ -180,7 +188,7 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
 
         # compute episode's update
         dJdtheta = sum(
-            (dpidth @ np.transpose(dpidth, axes=(0, 2, 1)) @ w).sum(axis=0) 
+            (dpidth @ np.transpose(dpidth, axes=(0, 2, 1)) @ w).sum(axis=0)
             for _, _, _, _, dpidth, _ in sample).flatten() / m
 
         # clip gradient if requested

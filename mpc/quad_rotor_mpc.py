@@ -1,9 +1,10 @@
 import numpy as np
 import casadi as cs
 from dataclasses import dataclass, field
-from util import quad_form
 from envs.quad_rotor_env import QuadRotorEnv
+from functools import cached_property
 from mpc.generic_mpc import GenericMPC, Solution
+from util import quad_form
 
 
 @dataclass(frozen=True)
@@ -31,19 +32,31 @@ class QuadRotorMPCConfig:
     # NLP scaling
     # The scaling operation is x_scaled = Tx * x, and yields a scaled state
     # whose elements lay in comparable ranges
-    Tx: np.ndarray = field(default_factory=lambda: np.diag(
-        [1e-1, 1e-1, 1e-1, 1e-1, 1e-1, 1e-1, 1, 1, 1e-1, 1e-1]))
-    Tu: np.ndarray = field(default_factory=lambda: np.diag([1e-1, 1e-1, 1e-2]))
+    scaling_x: list[float] = field(default_factory=lambda: 
+        [1e-1, 1e-1, 1e-1, 1e-1, 1e-1, 1e-1, 1, 1, 1e-1, 1e-1])
+    scaling_u: list[float] = field(default_factory=lambda: 
+        [1e-1, 1e-1, 1e-2])
+
+    @cached_property
+    def Tx(self) -> np.ndarray:
+        return np.diag(self.scaling_x)
+
+    @cached_property
+    def Tu(self) -> np.ndarray:
+        return np.diag(self.scaling_u)
+
+    @cached_property
+    def Tx_inv(self) -> np.ndarray:
+        return np.linalg.inv(self.Tx)
+
+    @cached_property
+    def Tu_inv(self) -> np.ndarray:
+        return np.linalg.inv(self.Tu)
 
     def __post_init__(self) -> None:
         # overwrite Nc if None
         if self.Nc is None:
             self.__dict__['Nc'] = self.Np
-
-        # create also the inverse scaling matrices
-        self.__dict__['Tx_inv'] = np.linalg.inv(self.Tx)
-        self.__dict__['Tu_inv'] = np.linalg.inv(self.Tu)
-
 
 
 class QuadRotorMPC(GenericMPC):
