@@ -70,7 +70,7 @@ def train(
                 # save transition
                 if sol.success:
                     agent.save_transition(
-                        (state, action, action_opt, r, new_state, sol))
+                        state, action, action_opt, r, new_state, sol)
                 else:
                     logger.warning(f'{agent_n}|{s}|{e}|{t}: MPC failed.')
 
