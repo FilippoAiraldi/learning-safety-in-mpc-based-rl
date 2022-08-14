@@ -139,7 +139,7 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
         S = np.stack(S, axis=0)
         L = np.stack(L, axis=0).reshape(K, 1)
         S_next = np.stack(S_next, axis=0)
-        E = np.stack(E, axis=0).reshape(K, -1, 1)
+        E = np.stack(E, axis=0)
         dRdy = np.stack(dRdy, axis=0)
         dRdtheta = np.stack(dRdtheta, axis=0)
 
@@ -158,7 +158,7 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
         # compute Psi
         q = np.linalg.solve(dRdy, np.tile(self._dydu0, (K, 1, 1)))
         dpidtheta = -dRdtheta @ q
-        Psi = np.squeeze(dpidtheta @ E)
+        Psi = np.squeeze(dpidtheta @ E.reshape(K, -1, 1))
 
         # compute this episode's weights v via LSTD
         v = lstsq(Phi - self.config.gamma * Phi_next, L,
