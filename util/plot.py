@@ -106,15 +106,15 @@ def plot_trajectory_in_time(env: RecordData, traj_num: int) -> None:
     X = env.observations[traj_num]
     U = env.actions[traj_num]
     R = env.rewards[traj_num]
-    t = np.arange(X.shape[1]) * env.config.T  # time
-    error = env.error(X.T)
+    t = np.arange(X.shape[0]) * env.config.T  # time
+    error = env.error(X)
     items = [
-        [X[:3].T, ('x', 'y', 'z'), 'Position [$m$]', xf[:3], x_bnd[:3]],
-        [X[3:6].T, ('x', 'y', 'z'), 'Speed [$m/s$]', xf[3:6], x_bnd[3:6]],
-        [X[6:8].T, ('pitch', 'roll'), 'Angle [$rad$]', xf[6:8], x_bnd[6:8]],
-        [X[8:].T, ('pitch', 'roll'), 'Angular Speed [$rad/s$]', xf[8:], x_bnd[8:]],
-        [U[:2].T, ('desired pitch', 'desired roll'), 'Angle [$rad$]', None, u_bnd[:2]],
-        [U[-1].T, ('desired z acc.',), 'Acceleration [$m/s^2$]', None, u_bnd[-1]],
+        [X[:, :3], ('x', 'y', 'z'), 'Position [$m$]', xf[:3], x_bnd[:3]],
+        [X[:, 3:6], ('x', 'y', 'z'), 'Speed [$m/s$]', xf[3:6], x_bnd[3:6]],
+        [X[:, 6:8], ('pitch', 'roll'), 'Angle [$rad$]', xf[6:8], x_bnd[6:8]],
+        [X[:, 8:], ('pitch', 'roll'), 'Angular Speed [$rad/s$]', xf[8:], x_bnd[8:]],
+        [U[:, :2], ('desired pitch', 'desired roll'), 'Angle [$rad$]', None, u_bnd[:2]],
+        [U[:, -1], ('desired z acc.',), 'Acceleration [$m/s^2$]', None, u_bnd[-1]],
         [error, None, 'Termination error', None, env.config.termination_error],
         [R, None, 'Reward', None, None],
     ]
