@@ -16,14 +16,14 @@ def train(
     seed: int
 ) -> dict[str, Any]:
     '''
-    Training of a single agent.    
+    Training of a single agent.
 
     Parameters
     ----------
     agent_n : int
         Number of the agent.
     sessions : int
-        Number of training sessions. At the end of each session, an RL update 
+        Number of training sessions. At the end of each session, an RL update
         is carried out.
     episodes : int
         Episodes per training sessions.

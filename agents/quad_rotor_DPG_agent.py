@@ -53,12 +53,12 @@ class QuadRotorDPGAgentConfig:
 
 class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
     '''
-    Deterministic Policy Gradient based RL agent for the quad rotor 
+    Deterministic Policy Gradient based RL agent for the quad rotor
     environment. The agent adapts its MPC parameters/weights by policy gradient
     methods, with the goal of improving performance/reducing cost of each
     episode.
 
-    The policy gradient-based RL update exploits a replay memory to spread out 
+    The policy gradient-based RL update exploits a replay memory to spread out
     the gradient noise.
     '''
 
@@ -71,7 +71,7 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
         seed: int = None
     ) -> None:
         '''
-        Initializes a Deterministic-Policy-Gradient agent for the quad rotor 
+        Initializes a Deterministic-Policy-Gradient agent for the quad rotor
         env.
 
         Parameters
@@ -81,10 +81,10 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
         agentname : str, optional
             Name of the DPG agent.
         agent_config : dict, QuadRotorDPGAgentConfig
-            A set of parameters for the quadrotor DPG agent. If not given, the 
+            A set of parameters for the quadrotor DPG agent. If not given, the
             default ones are used.
         mpc_config : dict, QuadRotorMPCConfig
-            A set of parameters for the agent's MPC. If not given, the default 
+            A set of parameters for the agent's MPC. If not given, the default
             ones are used.
         seed : int, optional
             Seed for the random number generator.
@@ -176,12 +176,12 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
         for Phi, Phi_next, Psi, L, _, _ in sample:
             A = Psi.T @ Psi
             b = Psi.T @ (L + (cfg.gamma * Phi_next - Phi) @ v)
-            w += np.linalg.solve(A, b)
+            w += lstsq(A, b, lapack_driver='gelsy')[0]
         w /= m
 
         # compute episode's update
         dJdtheta = sum(
-            (dpidth @ np.transpose(dpidth, axes=(0, 2, 1)) @ w).sum(axis=0) 
+            (dpidth @ np.transpose(dpidth, axes=(0, 2, 1)) @ w).sum(axis=0)
             for _, _, _, _, dpidth, _ in sample).flatten() / m
 
         # clip gradient if requested

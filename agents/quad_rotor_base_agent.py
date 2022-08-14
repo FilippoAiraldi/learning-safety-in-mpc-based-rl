@@ -10,8 +10,8 @@ from typing import Union
 
 class QuadRotorBaseAgent(ABC):
     '''
-    Abstract base agent class that contains the two MPC function approximators 
-    Q and V. 
+    Abstract base agent class that contains the two MPC function approximators
+    Q and V.
     '''
     _ids = count(0)
 
@@ -34,12 +34,12 @@ class QuadRotorBaseAgent(ABC):
         agentname : str, optional
             Name of the agent.
         init_pars : dict[str, np.ndarray]
-            A dictionary containing for each RL parameter the corresponding 
+            A dictionary containing for each RL parameter the corresponding
             initial value.
         fixed_pars : dict[str, np.ndarray]
             A dictionary containing MPC parameters that are fixed.
         mpc_config : dict, QuadRotorMPCConfig
-            A set of parameters for the agent's MPC. If not given, the default 
+            A set of parameters for the agent's MPC. If not given, the default
             ones are used.
         seed : int, optional
             Seed for the random number generator.
@@ -74,7 +74,7 @@ class QuadRotorBaseAgent(ABC):
         return self._Q
 
     def reset(self) -> None:
-        '''Resets internal variables of the agent.''' 
+        '''Resets internal variables of the agent.'''
         # reset MPC last solution
         self.last_solution = None
 
@@ -96,7 +96,7 @@ class QuadRotorBaseAgent(ABC):
         type : 'Q' or 'V'
             Type of MPC function approximation to run.
         state : array_like, optional
-            Environment's state for which to solve the MPC problem. If not 
+            Environment's state for which to solve the MPC problem. If not
             given, the current state of the environment is used.
         sol0 : Solution
             Last numerical solution of the MPC used to warmstart. If not given,
@@ -142,15 +142,15 @@ class QuadRotorBaseAgent(ABC):
         **solve_mpc_kwargs
     ) -> tuple[np.ndarray, np.ndarray, Solution]:
         '''
-        Computes the optimal action for the given state by solving the MPC 
+        Computes the optimal action for the given state by solving the MPC
         scheme V and predicts the next state.
 
         Parameters
         ----------
         state : array_like, optional
-            Environment's state for which to solve the MPC problem V. 
+            Environment's state for which to solve the MPC problem V.
         deterministic : bool, optional
-            Whether the computed optimal action should be modified by some 
+            Whether the computed optimal action should be modified by some
             noise (either summed or in the objective gradient).
         perturb_gradient : bool, optional
             Whether to perturb the MPC objective's gradient (if 'perturbation'
@@ -204,7 +204,7 @@ class QuadRotorBaseAgent(ABC):
         Parameters
         ----------
         init_pars : dict[str, array_like]
-            A dict containing, for each learnable parameter in the MPC scheme, 
+            A dict containing, for each learnable parameter in the MPC scheme,
             its initial value.
         '''
         # learnable parameters are:
