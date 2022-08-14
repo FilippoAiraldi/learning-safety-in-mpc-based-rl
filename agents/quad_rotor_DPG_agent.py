@@ -15,11 +15,11 @@ class QuadRotorDPGAgentConfig:
     # initial RL pars
     # model
     init_g: float = 9.81
-    init_thrust_coeff: float = 1.0
-    init_pitch_d: float = 14
-    init_pitch_dd: float = 10
-    init_pitch_gain: float = 14
-    init_roll_d: float = 6
+    init_thrust_coeff: float = 1.2
+    init_pitch_d: float = 12
+    init_pitch_dd: float = 9
+    init_pitch_gain: float = 11
+    init_roll_d: float = 8
     init_roll_dd: float = 7
     init_roll_gain: float = 9
     # cost
@@ -27,8 +27,6 @@ class QuadRotorDPGAgentConfig:
     init_w_V: np.ndarray = 1
     init_w_s: np.ndarray = 1e2
     init_w_s_f: np.ndarray = 1e2
-    init_xf: np.ndarray = \
-        QuadRotorEnvConfig.__dataclass_fields__['xf'].default_factory()
     # others
     init_backoff: float = 0.05
 
