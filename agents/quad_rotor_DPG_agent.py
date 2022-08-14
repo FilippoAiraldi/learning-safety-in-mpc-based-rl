@@ -133,16 +133,24 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
             S.append(s)
             L.append(r)
             S_next.append(s_next)
-            E.append(a - sol.vals['u'][:, 0])
+            E.append(a - sol.vals['u_unscaled'][:, 0])
             dRdy.append(sol.value(self._dRdy))
             dRdtheta.append(sol.value(self._dRdtheta))
         K = len(S)
         S = np.stack(S, axis=0)
         L = np.stack(L, axis=0).reshape(K, 1)
         S_next = np.stack(S_next, axis=0)
-        E = np.stack(E, axis=0).reshape(K, -1, 1)
+        E = np.stack(E, axis=0)
         dRdy = np.stack(dRdy, axis=0)
         dRdtheta = np.stack(dRdtheta, axis=0)
+
+        # The transitions come from an env which is most likely unscaled. So,
+        # before getting the value of the derivatives (which were computed
+        # symbolically), the sars must be scaled.
+        S = S @ self.V.config.Tx.T
+        E = E @ self.V.config.Tu.T
+        # L = (L - L.mean()) / (L.std() + 1e-10)
+        S_next = S_next @ self.V.config.Tx.T
 
         # compute Phi (value function approximation basis functions)
         Phi = self._Phi(S.T).full().T
@@ -151,7 +159,7 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
         # compute Psi
         q = np.linalg.solve(dRdy, np.tile(self._dydu0, (K, 1, 1)))
         dpidtheta = -dRdtheta @ q
-        Psi = np.squeeze(dpidtheta @ E)
+        Psi = np.squeeze(dpidtheta @ E.reshape(K, -1, 1))
 
         # compute this episode's weights v via LSTD
         v = lstsq(Phi - self.config.gamma * Phi_next, L,

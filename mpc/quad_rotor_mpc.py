@@ -2,9 +2,11 @@ import casadi as cs
 import numpy as np
 from dataclasses import dataclass, field
 from envs.quad_rotor_env import QuadRotorEnv
+from functools import cached_property
 from mpc.generic_mpc import GenericMPC
 from typing import Union
 from util import quad_form
+
 
 @dataclass(frozen=True)
 class QuadRotorMPCConfig:
@@ -27,6 +29,30 @@ class QuadRotorMPCConfig:
             'print_user_options': 'no',
             'print_options_documentation': 'no'
         }})
+
+    # NLP scaling
+    # The scaling operation is x_scaled = Tx * x, and yields a scaled state
+    # whose elements lay in comparable ranges
+    scaling_x: list[float] = field(default_factory=lambda: 
+        [1e-1, 1e-1, 1e-1, 1e-1, 1e-1, 1e-1, 1, 1, 1e-1, 1e-1])
+    scaling_u: list[float] = field(default_factory=lambda: 
+        [1e-1, 1e-1, 1e-2])
+
+    @cached_property
+    def Tx(self) -> np.ndarray:
+        return np.diag(self.scaling_x)
+
+    @cached_property
+    def Tu(self) -> np.ndarray:
+        return np.diag(self.scaling_u)
+
+    @cached_property
+    def Tx_inv(self) -> np.ndarray:
+        return np.linalg.inv(self.Tx)
+
+    @cached_property
+    def Tu_inv(self) -> np.ndarray:
+        return np.linalg.inv(self.Tu)
 
     def __post_init__(self) -> None:
         # overwrite Nc if None
@@ -84,9 +110,13 @@ class QuadRotorMPC(GenericMPC):
         nx, nu, ns = env.nx, env.nu, not_red_idx.size
         x, _, _ = self.add_var('x', nx, Np)
         u, _, _ = self.add_var('u', nu, Nc,
-                               lb=env.config.u_bounds[:, 0, None],
-                               ub=env.config.u_bounds[:, 1, None])
+                               lb=config.Tu @ env.config.u_bounds[:, 0, None],
+                               ub=config.Tu @ env.config.u_bounds[:, 1, None])
         slack, _, _ = self.add_var('slack', ns, Np, lb=0)
+
+        # scale the variables
+        x = config.Tx_inv @ x
+        u = config.Tu_inv @ u
 
         # 2) create model parameters
         for name in ('g', 'thrust_coeff', 'pitch_d', 'pitch_dd', 'pitch_gain',
@@ -185,3 +215,14 @@ class QuadRotorMPC(GenericMPC):
             np.zeros((4, 1))
         )
         return A, B, e
+
+    def solve(
+        self, pars: dict[str, np.ndarray], vals0: dict[str, np.ndarray] = None
+    ) -> Solution:
+        sol = super().solve(pars, vals0)
+        # add unscaled variables and values to solution
+        sol.vals['x_unscaled'] = self.config.Tx_inv @ sol.vals['x']
+        sol.vars['x_unscaled'] = self.config.Tx_inv @ sol.vars['x']
+        sol.vals['u_unscaled'] = self.config.Tu_inv @ sol.vals['u']
+        sol.vars['u_unscaled'] = self.config.Tu_inv @ sol.vars['u']
+        return sol
