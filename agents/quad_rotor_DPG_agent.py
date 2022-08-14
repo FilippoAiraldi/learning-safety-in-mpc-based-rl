@@ -23,12 +23,10 @@ class QuadRotorDPGAgentConfig:
     init_roll_dd: float = 7
     init_roll_gain: float = 9
     # cost
-    init_w_L: np.ndarray = 1
-    init_w_V: np.ndarray = 1
+    init_w_L: np.ndarray = 1e1
+    init_w_V: np.ndarray = 1e2
     init_w_s: np.ndarray = 1e2
     init_w_s_f: np.ndarray = 1e2
-    # others
-    init_backoff: float = 0.05
 
     # experience replay parameters
     replay_maxlen: float = 20  # 20 episodes

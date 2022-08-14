@@ -47,13 +47,17 @@ class QuadRotorBaseAgent(ABC):
         super().__init__()
         self.id = next(self._ids)
         self.name = f'Agent{self.id}' if agentname is None else agentname
-
-        # save some stuff
         self.env = env
+
+        # initialize default MPC parameters
         self.fixed_pars = {} if fixed_pars is None else fixed_pars
-        if 'xf' not in self.fixed_pars:
-            self.fixed_pars['xf'] = env.config.xf
-        self.last_solution: Solution = None
+        default_pars = [
+            ('xf', env.config.xf),
+            ('backoff', 0.05),
+        ]
+        for p, default in default_pars:
+            if p not in self.fixed_pars:
+                self.fixed_pars[p] = default
 
         # set RNG and disturbances
         self.np_random, _ = np_random(seed)
@@ -61,6 +65,7 @@ class QuadRotorBaseAgent(ABC):
         self.perturbation_strength = 0.01
 
         # initialize MPCs
+        self.last_solution: Solution = None
         self._Q = QuadRotorMPC(env, config=mpc_config, type='Q')
         self._V = QuadRotorMPC(env, config=mpc_config, type='V')
 
@@ -219,7 +224,6 @@ class QuadRotorBaseAgent(ABC):
         #   - model pars: 'thrust_coeff', 'pitch_d', 'pitch_dd', 'pitch_gain',
         #                 'roll_d', 'roll_dd', 'roll_gain'
         #   - cost pars: 'w_L', 'w_V', 'w_s', 'w_s_f'
-        #   - constraint pars: 'backoff'
         # NOTE: all these parameters must be column vectors. Cannot deal with
         # multidimensional matrices!
         if init_pars is None:
@@ -242,8 +246,6 @@ class QuadRotorBaseAgent(ABC):
             ('w_V', (1e-3, np.inf)),
             ('w_s', (1e-3, np.inf)),
             ('w_s_f', (1e-3, np.inf)),
-            # others
-            ('backoff', (0, 0.2))
         ]
         self.weights = RLParameterCollection(
             RLParameter(name, init_pars.get(name, np.nan), bnd,
