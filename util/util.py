@@ -11,10 +11,10 @@ from datetime import datetime
 from itertools import combinations
 from scipy.special import comb
 from tqdm import tqdm
-from typing import Iterable, Any
+from typing import Any, Iterable, Union
 
 
-def cs_prod(x: cs.SX | cs.DM, axis: int = 0) -> cs.SX | cs.DM:
+def cs_prod(x: Union[cs.SX, cs.DM], axis: int = 0) -> Union[cs.SX, cs.DM]:
     '''I couldn't find an equivalent of np.prod in CasADi...'''
     if x.is_vector():
         return cs.det(cs.diag(x))
@@ -22,7 +22,8 @@ def cs_prod(x: cs.SX | cs.DM, axis: int = 0) -> cs.SX | cs.DM:
     return cs.exp(sum_(cs.log(x))) if axis == 0 else cs.exp(sum_(cs.log(x)))
 
 
-def nchoosek(n: int | Iterable[Any], k: int) -> int | Iterable[tuple[Any]]:
+def nchoosek(
+    n: Union[int, Iterable[Any]], k: int) -> Union[int, Iterable[tuple[Any]]]:
     '''Returns the binomial coefficient, i.e.,  the number of combinations of n
     items taken k at a time. If n is an iterable, then it returns an iterable 
     containing all possible combinations of the elements of n taken k at a 
@@ -43,14 +44,15 @@ def monomial_powers(d: int, k: int) -> np.ndarray:
     return np.diff(dividers, axis=1) - 1
 
 
-def quad_form(A: cs.SX | cs.DM, x: cs.SX | cs.DM) -> cs.SX | cs.DM:
+def quad_form(
+    A: Union[cs.SX, cs.DM], x: Union[cs.SX, cs.DM]) -> Union[cs.SX, cs.DM]:
     '''Calculates quadratic form x^T A x.'''
     if A.is_vector():
         A = cs.diag(A)
     return cs.bilin(A, x, x)
 
 
-def spy(H: cs.SX | cs.DM | np.ndarray, **original_kwargs) -> None:
+def spy(H: Union[cs.SX, cs.DM, np.ndarray], **original_kwargs) -> None:
     '''See Matplotlib.pyplot.spy.'''
     # try convert to numerical; if it fails, then use symbolic method from cs
     try:

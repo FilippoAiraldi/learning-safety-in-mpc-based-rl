@@ -1,10 +1,10 @@
-import numpy as np
 import casadi as cs
+import numpy as np
 from dataclasses import dataclass, field
-from util import quad_form
 from envs.quad_rotor_env import QuadRotorEnv
 from mpc.generic_mpc import GenericMPC
-
+from typing import Union
+from util import quad_form
 
 @dataclass(frozen=True)
 class QuadRotorMPCConfig:
@@ -40,7 +40,7 @@ class QuadRotorMPC(GenericMPC):
     def __init__(
         self,
         env: QuadRotorEnv,
-        config: dict | QuadRotorMPCConfig = None,
+        config: Union[dict, QuadRotorMPCConfig] = None,
         type: str = 'V'
     ) -> None:
         '''

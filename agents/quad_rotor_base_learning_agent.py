@@ -5,6 +5,7 @@ from envs.quad_rotor_env import QuadRotorEnv
 from mpc.generic_mpc import Solution
 from mpc.quad_rotor_mpc import QuadRotorMPC, QuadRotorMPCConfig
 from mpc.wrappers import DifferentiableMPC
+from typing import Union
 
 
 class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
@@ -19,7 +20,7 @@ class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
         agentname: str = None,
         init_pars: dict[str, np.ndarray] = None,
         fixed_pars: dict[str, np.ndarray] = None,
-        mpc_config: dict | QuadRotorMPCConfig = None,
+        mpc_config: Union[dict, QuadRotorMPCConfig] = None,
         seed: int = None
     ) -> None:
         super().__init__(

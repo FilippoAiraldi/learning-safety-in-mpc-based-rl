@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from envs import QuadRotorEnvConfig, QuadRotorEnv
 from mpc import Solution, QuadRotorMPCConfig
 from scipy.linalg import lstsq
+from typing import Union
 from util import monomial_powers, cs_prod
 
 
@@ -42,7 +43,7 @@ class QuadRotorDPGAgentConfig:
     clip_grad_norm: float = None
 
     @property
-    def init_pars(self) -> dict[str, float | np.ndarray]:
+    def init_pars(self) -> dict[str, Union[float, np.ndarray]]:
         '''Groups the initial RL parameters into a dictionary.'''
         return {
             name.removeprefix('init_'): val
@@ -65,8 +66,8 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
         self,
         env: QuadRotorEnv,
         agentname: str = None,
-        agent_config: dict | QuadRotorDPGAgentConfig = None,
-        mpc_config: dict | QuadRotorMPCConfig = None,
+        agent_config: Union[dict, QuadRotorDPGAgentConfig] = None,
+        mpc_config: Union[dict, QuadRotorMPCConfig] = None,
         seed: int = None
     ) -> None:
         '''

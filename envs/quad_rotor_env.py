@@ -1,7 +1,8 @@
 import numpy as np
-from gym import spaces
 from dataclasses import dataclass, field
 from envs.base_env import BaseEnv
+from gym import spaces
+from typing import Union
 
 
 @dataclass(frozen=True)
@@ -122,7 +123,7 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
 
     def __init__(
         self,
-        config: dict | QuadRotorEnvConfig = None,
+        config: Union[dict, QuadRotorEnvConfig] = None,
     ) -> None:
         '''
         This environment simulates a 10-state quadrotor system with limited 
@@ -223,7 +224,7 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
         return np.sqrt(np.inner(np.square(x - self.config.xf),
                                 [1, 1, 1, 1, 1, 1, 1e1, 1e1, 1, 1]))
 
-    def phi(self, alt: float | np.ndarray) -> np.ndarray:
+    def phi(self, alt: Union[float, np.ndarray]) -> np.ndarray:
         '''
         Computes the wind disturbance's radial basis functions at the given 
         altitude.
