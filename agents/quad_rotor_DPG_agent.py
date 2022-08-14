@@ -35,7 +35,7 @@ class QuadRotorDPGAgentConfig:
 
     # RL parameters
     gamma: float = 0.97
-    lr: float = 1e-6
+    lr: float = 1e-1
     clip_grad_norm: float = None
 
     @property
@@ -107,8 +107,8 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
         self.replay_memory = ReplayMemory[tuple[np.ndarray, ...]](
             maxlen=agent_config.replay_maxlen, seed=seed)
         self._episode_buffer: list[
-            tuple[np.ndarray, np.ndarray, np.ndarray, float, np.ndarray, \
-                 Solution]] = []
+            tuple[np.ndarray, np.ndarray, np.ndarray, float, np.ndarray,
+                  Solution]] = []
 
         # initialize symbols for derivatives to be used later. Also initialize
         # the QP solver used to compute updates
@@ -155,7 +155,7 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
         # symbolically), the sars must be scaled.
         S = S @ self.V.config.Tx.T
         E = E @ self.V.config.Tu.T
-        # L = (L - L.mean()) / (L.std() + 1e-10)
+        L = (L - L.mean()) / (L.std() + 1e-10)
         S_next = S_next @ self.V.config.Tx.T
 
         # compute Phi (value function approximation basis functions)
