@@ -36,6 +36,7 @@ class QuadRotorDPGAgentConfig:
     # RL parameters
     gamma: float = 0.97
     lr: float = 1e-1
+    max_perc_update: float = 1 / 5
     clip_grad_norm: float = None
 
     @property
@@ -206,10 +207,15 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
                 cfg.clip_grad_norm / (np.linalg.norm(dJdtheta) + 1e-6), 1.0)
             c = (cfg.lr * clip_coef) * dJdtheta
 
-        # run QP solver
+        # compute bounds on parameter update
         theta = self.weights.values()
         bounds = self.weights.bounds()
-        sol = self._solver(lbx=bounds[:, 0], ubx=bounds[:, 1], x0=theta - c,
+        max_delta = np.maximum(np.abs(cfg.max_perc_update * theta), 0.1)
+        lb = np.maximum(bounds[:, 0], theta - max_delta)
+        ub = np.minimum(bounds[:, 1], theta + max_delta)
+
+        # run QP solver
+        sol = self._solver(lbx=lb, ubx=ub, x0=theta - c,
                            p=np.concatenate((theta, c)))
         assert self._solver.stats()['success'], 'RL update failed.'
         theta_new: np.ndarray = sol['x'].full().flatten()
