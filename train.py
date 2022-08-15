@@ -74,6 +74,10 @@ def train(
                 else:
                     logger.warning(
                         f'{agent_n}|{s}|{e}|{t}: MPC failed: {sol.status}.')
+                    util.save_results('bug.pkl', 
+                        s=state, w=agent.weights.values(), 
+                        last_sol=agent.last_solution)
+                    raise ValueError('AHHHHHHH')
 
                 # check if episode is done
                 if done:
