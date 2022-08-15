@@ -25,7 +25,7 @@ class ClipActionIfClose(ClipAction):
             the action is numerically close to the bounds.
         '''
         super().__init__(env)
-        self.np_isclose_kwargs = np_isclose_kwargs
+        self._kw = np_isclose_kwargs
 
     def action(self, action):
         '''
@@ -49,7 +49,7 @@ class ClipActionIfClose(ClipAction):
         '''
         low = self.env.action_space.low
         high = self.env.action_space.high
-        if (((action < low) & ~np.isclose(action, low)).any() or 
-            ((action > high) & ~np.isclose(action, high)).any()):
+        if (((action < low) & ~np.isclose(action, low, **self._kw)).any() or 
+                ((action > high) & ~np.isclose(action, high, **self._kw)).any()):
             raise InvalidAction('Action outside bounds\' numerical check')
         return super().action(action)
