@@ -63,7 +63,7 @@ class QuadRotorBaseAgent(ABC):
         # set RNG and disturbances
         self.np_random, _ = np_random(seed)
         self.perturbation_chance = 0.2
-        self.perturbation_strength = 0.01
+        self.perturbation_strength = 0.05
 
         # initialize MPCs
         self.last_solution: Solution = None
