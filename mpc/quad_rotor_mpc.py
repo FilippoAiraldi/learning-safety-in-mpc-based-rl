@@ -35,8 +35,7 @@ class QuadRotorMPCConfig:
     # whose elements lay in comparable ranges
     scaling_x: list[float] = field(default_factory=lambda: 
         [1e-1, 1e-1, 1e-1, 1e-1, 1e-1, 1e-1, 1, 1, 1e-1, 1e-1])
-    scaling_u: list[float] = field(default_factory=lambda: 
-        [1e-1, 1e-1, 1e-2])
+    scaling_u: list[float] = field(default_factory=lambda: [1e-1, 1e-1, 1e-2])
 
     @cached_property
     def Tx(self) -> np.ndarray:
@@ -159,9 +158,11 @@ class QuadRotorMPC(GenericMPC):
 
         # 2) stage cost
         xf = self.add_par('xf', nx, 1)
-        w_L = self.add_par('w_L', nx, 1)  # weights for stage
-        w_s = self.add_par('w_s', ns, 1)  # weights for slack
-        J += sum(quad_form(w_L, x[:, k] - xf) + cs.dot(w_s, slack[:, k])
+        gamma = self.add_par('gamma', 1, 1)  # discount factor
+        w_L = self.add_par('w_L', nx, 1)    # weights for stage
+        w_s = self.add_par('w_s', ns, 1)    # weights for slack
+        J += sum(gamma ** (k + 1) *
+                 (quad_form(w_L, x[:, k] - xf) + cs.dot(w_s, slack[:, k]))
                  for k in range(Np - 1))
 
         # 3) terminal cost

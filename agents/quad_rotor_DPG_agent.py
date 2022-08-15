@@ -3,7 +3,7 @@ import casadi as cs
 from agents.quad_rotor_base_learning_agent import QuadRotorBaseLearningAgent
 from agents.replay_memory import ReplayMemory
 from dataclasses import dataclass
-from envs import QuadRotorEnvConfig, QuadRotorEnv
+from envs import QuadRotorEnv
 from mpc import Solution, QuadRotorMPCConfig
 from scipy.linalg import lstsq
 from typing import Union
@@ -34,7 +34,7 @@ class QuadRotorDPGAgentConfig:
     replay_include_last: float = 5  # include in the sample the last 5 episodes
 
     # RL parameters
-    gamma: float = 0.97
+    gamma: float = 1
     lr: float = 1e-1
     max_perc_update: float = 1 / 5
     clip_grad_norm: float = None
@@ -95,7 +95,10 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
         self.config = agent_config
         super().__init__(env, agentname=agentname,
                          init_pars=self.config.init_pars,
-                         fixed_pars={'perturbation': np.nan},
+                         fixed_pars={
+                            'perturbation': np.nan, 
+                            'gamma': self.config.gamma
+                         },
                          mpc_config=mpc_config, seed=seed)
 
         # during learning, DPG must always perturb the action in order to learn

@@ -54,6 +54,7 @@ class QuadRotorBaseAgent(ABC):
         default_pars = [
             ('xf', env.config.xf),
             ('backoff', 0.05),
+            ('gamma', 1)
         ]
         for p, default in default_pars:
             if p not in self.fixed_pars:
