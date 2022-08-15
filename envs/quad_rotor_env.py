@@ -186,6 +186,12 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
             shape=(self.nu,),
             dtype=np.float64)
 
+        # create weights for final position and input errors - more or less
+        # similar to the NLP scaling, but with a different purpose
+        self.Wx = np.ones((10,))  # np.array(
+        # [1e-1, 1e-1, 1e-1, 1e-1, 1e-1, 1e-1, 1, 1, 1e-1, 1e-1])
+        self.Wu = np.ones((3,))  # np.array([1, 1, 1e-1])
+
     @property
     def A(self) -> np.ndarray:
         '''Returns the dynamics A matrix.'''
@@ -217,12 +223,13 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
         assert self.observation_space.contains(val), f'Invalid state {val}.'
         self._x = val.copy()
 
-    def error(self, x: np.ndarray) -> float:
+    def position_error(self, x: np.ndarray) -> float:
         '''Error of the given state w.r.t. the final position.'''
-        # return np.linalg.norm(x - self.config.xf)
-        # give more weight to pitch and roll
-        return np.sqrt(np.inner(np.square(x - self.config.xf),
-                                [1, 1, 1, 1, 1, 1, 1e1, 1e1, 1, 1]))
+        return np.square((x - self.config.xf) * self.Wx).sum()
+
+    def control_usage(self, u: np.ndarray) -> float:
+        '''Error of the given action related to its norm.'''
+        return np.square((u - np.array([0, 0, self.config.g])) * self.Wu).sum()
 
     def phi(self, alt: Union[float, np.ndarray]) -> np.ndarray:
         '''
@@ -313,15 +320,13 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
         ).flatten()
 
         # compute cost
-        error = self.error(self.x)
-        cost = float(
-            error +
-            2 * np.linalg.norm(u) +
-            1e2 * (
-                np.maximum(0, self.config.x_bounds[:, 0] - self.x) +
-                np.maximum(0, self.x - self.config.x_bounds[:, 1])
-            ).sum()
-        )
+        error = self.position_error(self.x)
+        usage = self.control_usage(u)
+        violation = 1e2 * (
+            np.maximum(0, self.config.x_bounds[:, 0] - self.x) +
+            np.maximum(0, self.x - self.config.x_bounds[:, 1])
+        ).sum()
+        cost = float(error + usage + violation)
 
         # check if done
         within_bounds = ((self.config.x_bounds[:, 0] <= self._x) &
