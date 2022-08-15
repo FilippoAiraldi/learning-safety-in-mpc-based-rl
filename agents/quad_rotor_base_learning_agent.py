@@ -2,7 +2,6 @@ import numpy as np
 from abc import ABC, abstractmethod
 from agents.quad_rotor_base_agent import QuadRotorBaseAgent
 from envs.quad_rotor_env import QuadRotorEnv
-from mpc.generic_mpc import Solution
 from mpc.quad_rotor_mpc import QuadRotorMPC, QuadRotorMPCConfig
 from mpc.wrappers import DifferentiableMPC
 from typing import Union
