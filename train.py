@@ -74,8 +74,8 @@ def train(
                 else:
                     logger.warning(
                         f'{agent_n}|{s}|{e}|{t}: MPC failed: {sol.status}.')
-                    util.save_results('bug.pkl', 
-                        s=state, w=agent.weights.values(), 
+                    util.save_results('bug.pkl',
+                        s=state, w=agent.weights.values(),
                         last_sol=agent.last_solution.vals)
                     raise ValueError('AHHHHHHH')
 
@@ -111,7 +111,7 @@ if __name__ == '__main__':
                         help='Number of training sessions.')
     parser.add_argument('--episodes', type=int, default=10,
                         help='Number of training episodes per session.')
-    parser.add_argument('--max_ep_steps', type=int, default=50,
+    parser.add_argument('--max_ep_steps', type=int, default=100,
                         help='Maximum number of steps per episode.')
     parser.add_argument('--seed', type=int, default=42, help='RNG seed.')
     args = parser.parse_args()

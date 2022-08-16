@@ -36,7 +36,7 @@ class QuadRotorDPGAgentConfig:
     # RL parameters
     gamma: float = 1
     lr: float = 1e-1
-    max_perc_update: float = 1 / 5
+    max_perc_update: float = 1 / 2
     clip_grad_norm: float = None
 
     @property
