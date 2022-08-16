@@ -195,21 +195,20 @@ class QuadRotorMPC(GenericMPC):
         pars = self.pars
         Ad = cs.diag(cs.vertcat(pars['pitch_d'], pars['roll_d']))
         Add = cs.diag(cs.vertcat(pars['pitch_dd'], pars['roll_dd']))
-        A = T * cs.vertcat(
-            cs.horzcat(np.zeros((3, 3)), np.eye(3), np.zeros((3, 4))),
-            cs.horzcat(
-                np.zeros((2, 6)), np.eye(2) * pars['g'], np.zeros((2, 2))),
-            np.zeros((1, 10)),
-            cs.horzcat(np.zeros((2, 6)), -Ad, np.eye(2)),
-            cs.horzcat(np.zeros((2, 6)), -Add, np.zeros((2, 2)))
-        ) + np.eye(10)
-        B = T * cs.vertcat(
-            np.zeros((5, 3)),
-            cs.horzcat(0, 0, pars['thrust_coeff']),
-            np.zeros((2, 3)),
-            cs.horzcat(pars['pitch_gain'], 0, 0),
-            cs.horzcat(0, pars['roll_gain'], 0)
-        )
+        A = T * cs.blockcat([
+            [np.zeros((3, 3)), np.eye(3), np.zeros((3, 4))],
+            [np.zeros((2, 6)), np.eye(2) * pars['g'], np.zeros((2, 2))],
+            [np.zeros((1, 10))],
+            [np.zeros((2, 6)), -Ad, np.eye(2)],
+            [np.zeros((2, 6)), -Add, np.zeros((2, 2))]
+        ]) + np.eye(10)
+        B = T * cs.blockcat([
+            [np.zeros((5, 3))],
+            [0, 0, pars['thrust_coeff']],
+            [np.zeros((2, 3))],
+            [pars['pitch_gain'], 0, 0],
+            [0, pars['roll_gain'], 0]
+        ])
         e = cs.vertcat(
             np.zeros((5, 1)),
             - T * pars['g'],

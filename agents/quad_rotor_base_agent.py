@@ -96,7 +96,7 @@ class QuadRotorBaseAgent(ABC):
         self,
         type: str,
         state: np.ndarray = None,
-        sol0: Solution = None,
+        sol0: dict[str, np.ndarray] = None,
     ) -> Solution:
         '''
         Solves the MPC optimization problem embedded in the agent.
@@ -108,7 +108,7 @@ class QuadRotorBaseAgent(ABC):
         state : array_like, optional
             Environment's state for which to solve the MPC problem. If not
             given, the current state of the environment is used.
-        sol0 : Solution
+        sol0 : dict[str, array_like]
             Last numerical solution of the MPC used to warmstart. If not given,
             a heuristic is used.
 
