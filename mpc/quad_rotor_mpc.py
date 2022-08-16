@@ -14,8 +14,7 @@ class QuadRotorMPCConfig:
     Quadrotor MPC configuration, such as horizons and CasADi/IPOPT options.
     '''
     # horizons
-    Np: int = 20
-    Nc: int = None
+    N: int = 20
 
     # solver options
     solver_opts: dict = field(default_factory=lambda: {
@@ -53,11 +52,6 @@ class QuadRotorMPCConfig:
     def Tu_inv(self) -> np.ndarray:
         return np.linalg.inv(self.Tu)
 
-    def __post_init__(self) -> None:
-        # overwrite Nc if None
-        if self.Nc is None:
-            self.__dict__['Nc'] = self.Np
-
 
 class QuadRotorMPC(GenericMPC):
     '''An MPC controller specifically designed for the quadrotor dynamics.'''
@@ -92,7 +86,7 @@ class QuadRotorMPC(GenericMPC):
             config = QuadRotorMPCConfig(
                 **{k: config[k] for k in keys if k in config})
         self.config = config
-        Np, Nc = config.Np, config.Nc
+        N = config.N
 
         # ======================= #
         # Variable and Parameters #
@@ -111,9 +105,9 @@ class QuadRotorMPC(GenericMPC):
 
         # 1) create variables - states are softly constrained
         nx, nu, ns = env.nx, env.nu, not_red_idx.size
-        x, _, _ = self.add_var('x', nx, Np)
-        u, _, _ = self.add_var('u', nu, Nc, lb=lbu, ub=ubu)
-        slack, _, _ = self.add_var('slack', ns, Np, lb=0)
+        x, _, _ = self.add_var('x', nx, N)
+        u, _, _ = self.add_var('u', nu, N, lb=lbu, ub=ubu)
+        slack, _, _ = self.add_var('slack', ns, N, lb=0)
 
         # scale the variables
         x = config.Tx_inv @ x
@@ -130,13 +124,11 @@ class QuadRotorMPC(GenericMPC):
 
         # 1) constraint on initial conditions
         x0 = self.add_par('x0', env.nx, 1)
-        x_exp = cs.horzcat(x0, x)
+        x_ = cs.horzcat(x0, x)
 
         # 2) constraints on dynamics
-        u_exp = cs.horzcat(u, cs.repmat(u[:, -1], 1, Np - Nc))
         A, B, e = self._get_dynamics_matrices(env)
-        self.add_con('dyn',
-                     x_exp[:, 1:], '==', A @ x_exp[:, :-1] + B @ u_exp + e)
+        self.add_con('dyn', x_[:, 1:], '==', A @ x_[:, :-1] + B @ u + e)
 
         # 3) constraint on state (soft, backed off, without infinity in g, and
         # removing redundant entries)
@@ -160,17 +152,22 @@ class QuadRotorMPC(GenericMPC):
 
         # 2) stage cost
         xf = self.add_par('xf', nx, 1)
-        gamma = self.add_par('gamma', 1, 1)  # discount factor
-        w_L = self.add_par('w_L', nx, 1)    # weights for stage
-        w_s = self.add_par('w_s', ns, 1)    # weights for slack
-        J += sum(gamma ** (k + 1) *
-                 (quad_form(w_L, x[:, k] - xf) + cs.dot(w_s, slack[:, k]))
-                 for k in range(Np - 1))
+        uf = cs.vertcat(0, 0, self.pars['g'])
+        w_Lx = self.add_par('w_Lx', nx, 1)    # weights for stage state
+        w_Lu = self.add_par('w_Lu', nu, 1)    # weights for stage control
+        w_Ls = self.add_par('w_Ls', ns, 1)    # weights for stage slack
+        J += sum((
+            quad_form(w_Lx, x[:, k] - xf) +
+            quad_form(w_Lu, u[:, k] - uf) +
+            cs.dot(w_Ls, slack[:, k])) for k in range(N - 1))
 
         # 3) terminal cost
-        w_V = self.add_par('w_V', nx, 1)  # weights for final
-        w_s_f = self.add_par('w_s_f', ns, 1)  # weights for final slack
-        J += quad_form(w_V, x[:, -1] - xf) + cs.dot(w_s_f, slack[:, -1])
+        w_Tx = self.add_par('w_Tx', nx, 1)  # weights for final state
+        w_Tu = self.add_par('w_Tu', nu, 1)  # weights for final control
+        w_Ts = self.add_par('w_Ts', ns, 1)  # weights for final slack
+        J += quad_form(w_Tx, x[:, -1] - xf) + \
+            quad_form(w_Tu, u[:, -1] - uf) + \
+            cs.dot(w_Ts, slack[:, -1])
 
         # assign cost
         self.minimize(J)

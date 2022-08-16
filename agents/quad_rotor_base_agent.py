@@ -53,8 +53,7 @@ class QuadRotorBaseAgent(ABC):
         self.fixed_pars = {} if fixed_pars is None else fixed_pars
         default_pars = [
             ('xf', env.config.xf),
-            ('backoff', 0.05),
-            ('gamma', 1)
+            ('backoff', 0.05)
         ]
         for p, default in default_pars:
             if p not in self.fixed_pars:
@@ -243,10 +242,12 @@ class QuadRotorBaseAgent(ABC):
             ('roll_dd', (1, 40)),
             ('roll_gain', (1, 40)),
             # cost
-            ('w_L', (1e-3, np.inf)),
-            ('w_V', (1e-3, np.inf)),
-            ('w_s', (1e-3, np.inf)),
-            ('w_s_f', (1e-3, np.inf)),
+            ('w_Lx', (1e-3, np.inf)),
+            ('w_Lu', (1e-3, np.inf)),
+            ('w_Ls', (1e-3, np.inf)),
+            ('w_Tx', (1e-3, np.inf)),
+            ('w_Tu', (1e-3, np.inf)),
+            ('w_Ts', (1e-3, np.inf)),
         ]
         self.weights = RLParameterCollection(
             RLParameter(name, init_pars.get(name, np.nan), bnd,
