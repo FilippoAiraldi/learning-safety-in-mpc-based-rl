@@ -23,10 +23,12 @@ class QuadRotorDPGAgentConfig:
     init_roll_dd: float = 7
     init_roll_gain: float = 9
     # cost
-    init_w_L: np.ndarray = 1e1
-    init_w_V: np.ndarray = 1e2
-    init_w_s: np.ndarray = 1e2
-    init_w_s_f: np.ndarray = 1e2
+    init_w_Lx: np.ndarray = 1e1
+    init_w_Lu: np.ndarray = 1e0
+    init_w_Ls: np.ndarray = 1e2
+    init_w_Tx: np.ndarray = 1e1
+    init_w_Tu: np.ndarray = 1e0
+    init_w_Ts: np.ndarray = 1e2
 
     # experience replay parameters
     replay_maxlen: float = 20  # 20 episodes
@@ -34,7 +36,6 @@ class QuadRotorDPGAgentConfig:
     replay_include_last: float = 5  # include in the sample the last 5 episodes
 
     # RL parameters
-    gamma: float = 1
     lr: float = 1e-1
     max_perc_update: float = 1 / 5
     clip_grad_norm: float = None
@@ -95,10 +96,7 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
         self.config = agent_config
         super().__init__(env, agentname=agentname,
                          init_pars=self.config.init_pars,
-                         fixed_pars={
-                            'perturbation': np.nan, 
-                            'gamma': self.config.gamma
-                         },
+                         fixed_pars={'perturbation': np.nan},
                          mpc_config=mpc_config, seed=seed)
 
         # during learning, DPG must always perturb the action in order to learn
@@ -172,7 +170,7 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
         Psi = np.squeeze(dpidtheta @ E.reshape(K, -1, 1))
 
         # compute this episode's weights v via LSTD
-        v = lstsq(Phi - self.config.gamma * Phi_next, L,
+        v = lstsq(Phi - Phi_next, L,
                   lapack_driver='gelsy')[0]
 
         # save this episode to memory and clear buffer
@@ -193,7 +191,7 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
         w = 0
         for Phi, Phi_next, Psi, L, _, _ in sample:
             A = Psi.T @ Psi
-            b = Psi.T @ (L + (cfg.gamma * Phi_next - Phi) @ v)
+            b = Psi.T @ (L + (Phi_next - Phi) @ v)
             w += lstsq(A, b, lapack_driver='gelsy')[0]
         w /= m
 

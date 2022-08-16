@@ -14,8 +14,7 @@ class QuadRotorMPCConfig:
     Quadrotor MPC configuration, such as horizons and CasADi/IPOPT options.
     '''
     # horizons
-    Np: int = 20
-    Nc: int = None
+    N: int = 20
 
     # solver options
     solver_opts: dict = field(default_factory=lambda: {
@@ -53,11 +52,6 @@ class QuadRotorMPCConfig:
     def Tu_inv(self) -> np.ndarray:
         return np.linalg.inv(self.Tu)
 
-    def __post_init__(self) -> None:
-        # overwrite Nc if None
-        if self.Nc is None:
-            self.__dict__['Nc'] = self.Np
-
 
 class QuadRotorMPC(GenericMPC):
     '''An MPC controller specifically designed for the quadrotor dynamics.'''
@@ -92,7 +86,7 @@ class QuadRotorMPC(GenericMPC):
             config = QuadRotorMPCConfig(
                 **{k: config[k] for k in keys if k in config})
         self.config = config
-        Np, Nc = config.Np, config.Nc
+        N = config.N
 
         # ======================= #
         # Variable and Parameters #
@@ -100,18 +94,20 @@ class QuadRotorMPC(GenericMPC):
 
         # within x bounds, get which are redundant (lb=-inf, ub=+inf) and which
         # are not. Create slacks only for non-redundant constraints on x.
-        lb, ub = env.config.x_bounds[:, 0], env.config.x_bounds[:, 1]
-        not_red = ~(np.isneginf(lb) & np.isposinf(ub))
+        lbx, ubx = env.config.x_bounds[:, 0], env.config.x_bounds[:, 1]
+        not_red = ~(np.isneginf(lbx) & np.isposinf(ubx))
         not_red_idx = np.where(not_red)[0]
-        lb, ub = lb[not_red].reshape(-1, 1), ub[not_red].reshape(-1, 1)
+        lbx, ubx = lbx[not_red].reshape(-1, 1), ubx[not_red].reshape(-1, 1)
+
+        # u bounds must be scaled before creating the variable
+        lbu = config.Tu @ env.config.u_bounds[:, 0, None]
+        ubu = config.Tu @ env.config.u_bounds[:, 1, None]
 
         # 1) create variables - states are softly constrained
         nx, nu, ns = env.nx, env.nu, not_red_idx.size
-        x, _, _ = self.add_var('x', nx, Np)
-        u, _, _ = self.add_var('u', nu, Nc,
-                               lb=config.Tu @ env.config.u_bounds[:, 0, None],
-                               ub=config.Tu @ env.config.u_bounds[:, 1, None])
-        slack, _, _ = self.add_var('slack', ns, Np, lb=0)
+        x, _, _ = self.add_var('x', nx, N)
+        u, _, _ = self.add_var('u', nu, N, lb=lbu, ub=ubu)
+        slack, _, _ = self.add_var('slack', ns, N, lb=0)
 
         # scale the variables
         x = config.Tx_inv @ x
@@ -128,13 +124,11 @@ class QuadRotorMPC(GenericMPC):
 
         # 1) constraint on initial conditions
         x0 = self.add_par('x0', env.nx, 1)
-        x_exp = cs.horzcat(x0, x)
+        x_ = cs.horzcat(x0, x)
 
         # 2) constraints on dynamics
-        u_exp = cs.horzcat(u, cs.repmat(u[:, -1], 1, Np - Nc))
         A, B, e = self._get_dynamics_matrices(env)
-        self.add_con('dyn',
-                     x_exp[:, 1:], '==', A @ x_exp[:, :-1] + B @ u_exp + e)
+        self.add_con('dyn', x_[:, 1:], '==', A @ x_[:, :-1] + B @ u + e)
 
         # 3) constraint on state (soft, backed off, without infinity in g, and
         # removing redundant entries)
@@ -145,9 +139,9 @@ class QuadRotorMPC(GenericMPC):
         #  - soft-backedoff minimum constraint: (1+back)*lb - slack <= x
         #  - soft-backedoff maximum constraint: x <= (1-back)*ub + slack
         self.add_con('state_min',
-                     (1 + backoff) * lb - slack, '<=', x[not_red_idx, :])
+                     (1 + backoff) * lbx - slack, '<=', x[not_red_idx, :])
         self.add_con('state_max',
-                     x[not_red_idx, :], '<=', (1 - backoff) * ub + slack)
+                     x[not_red_idx, :], '<=', (1 - backoff) * ubx + slack)
 
         # ========= #
         # Objective #
@@ -158,17 +152,22 @@ class QuadRotorMPC(GenericMPC):
 
         # 2) stage cost
         xf = self.add_par('xf', nx, 1)
-        gamma = self.add_par('gamma', 1, 1)  # discount factor
-        w_L = self.add_par('w_L', nx, 1)    # weights for stage
-        w_s = self.add_par('w_s', ns, 1)    # weights for slack
-        J += sum(gamma ** (k + 1) *
-                 (quad_form(w_L, x[:, k] - xf) + cs.dot(w_s, slack[:, k]))
-                 for k in range(Np - 1))
+        uf = cs.vertcat(0, 0, self.pars['g'])
+        w_Lx = self.add_par('w_Lx', nx, 1)    # weights for stage state
+        w_Lu = self.add_par('w_Lu', nu, 1)    # weights for stage control
+        w_Ls = self.add_par('w_Ls', ns, 1)    # weights for stage slack
+        J += sum((
+            quad_form(w_Lx, x[:, k] - xf) +
+            quad_form(w_Lu, u[:, k] - uf) +
+            cs.dot(w_Ls, slack[:, k])) for k in range(N - 1))
 
         # 3) terminal cost
-        w_V = self.add_par('w_V', nx, 1)  # weights for final
-        w_s_f = self.add_par('w_s_f', ns, 1)  # weights for final slack
-        J += quad_form(w_V, x[:, -1] - xf) + cs.dot(w_s_f, slack[:, -1])
+        w_Tx = self.add_par('w_Tx', nx, 1)  # weights for final state
+        w_Tu = self.add_par('w_Tu', nu, 1)  # weights for final control
+        w_Ts = self.add_par('w_Ts', ns, 1)  # weights for final slack
+        J += quad_form(w_Tx, x[:, -1] - xf) + \
+            quad_form(w_Tu, u[:, -1] - uf) + \
+            cs.dot(w_Ts, slack[:, -1])
 
         # assign cost
         self.minimize(J)
@@ -195,21 +194,20 @@ class QuadRotorMPC(GenericMPC):
         pars = self.pars
         Ad = cs.diag(cs.vertcat(pars['pitch_d'], pars['roll_d']))
         Add = cs.diag(cs.vertcat(pars['pitch_dd'], pars['roll_dd']))
-        A = T * cs.vertcat(
-            cs.horzcat(np.zeros((3, 3)), np.eye(3), np.zeros((3, 4))),
-            cs.horzcat(
-                np.zeros((2, 6)), np.eye(2) * pars['g'], np.zeros((2, 2))),
-            np.zeros((1, 10)),
-            cs.horzcat(np.zeros((2, 6)), -Ad, np.eye(2)),
-            cs.horzcat(np.zeros((2, 6)), -Add, np.zeros((2, 2)))
-        ) + np.eye(10)
-        B = T * cs.vertcat(
-            np.zeros((5, 3)),
-            cs.horzcat(0, 0, pars['thrust_coeff']),
-            np.zeros((2, 3)),
-            cs.horzcat(pars['pitch_gain'], 0, 0),
-            cs.horzcat(0, pars['roll_gain'], 0)
-        )
+        A = T * cs.blockcat([
+            [np.zeros((3, 3)), np.eye(3), np.zeros((3, 4))],
+            [np.zeros((2, 6)), np.eye(2) * pars['g'], np.zeros((2, 2))],
+            [np.zeros((1, 10))],
+            [np.zeros((2, 6)), -Ad, np.eye(2)],
+            [np.zeros((2, 6)), -Add, np.zeros((2, 2))]
+        ]) + np.eye(10)
+        B = T * cs.blockcat([
+            [np.zeros((5, 3))],
+            [0, 0, pars['thrust_coeff']],
+            [np.zeros((2, 3))],
+            [pars['pitch_gain'], 0, 0],
+            [0, pars['roll_gain'], 0]
+        ])
         e = cs.vertcat(
             np.zeros((5, 1)),
             - T * pars['g'],
