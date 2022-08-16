@@ -147,7 +147,7 @@ def load_results(filename: str) -> dict:
     return data
 
 
-def create_logger(run_name: str) -> logging.Logger:
+def create_logger(run_name: str, to_file: bool = True) -> logging.Logger:
     '''Returns a logger that logs to both output and to a file.'''
     # create logger
     logger = logging.getLogger(run_name)
@@ -161,10 +161,11 @@ def create_logger(run_name: str) -> logging.Logger:
     logger.addHandler(ch)
 
     # create file handler
-    fh = logging.FileHandler(f'{run_name}.txt')
-    fh.setLevel(logging.DEBUG)
-    fh.setFormatter(formatter)
-    logger.addHandler(fh)
+    if to_file:
+        fh = logging.FileHandler(f'{run_name}.txt')
+        fh.setLevel(logging.DEBUG)
+        fh.setFormatter(formatter)
+        logger.addHandler(fh)
 
     return logger
 

@@ -39,7 +39,7 @@ def train(
     dict[str, Any]
         Data resulting from the training.
     '''
-    logger = util.create_logger(run_name)
+    logger = util.create_logger(run_name, to_file=False)
     env = envs.QuadRotorEnv.get_wrapped(max_episode_steps=max_ep_steps)
     agent: agents.QuadRotorDPGAgent = agents.wrappers.RecordLearningData(
         agents.QuadRotorDPGAgent(env=env, agentname=f'DPG_{agent_n}',
