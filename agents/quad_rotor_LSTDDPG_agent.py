@@ -11,7 +11,7 @@ from util import monomial_powers, cs_prod
 
 
 @dataclass(frozen=True)
-class QuadRotorDPGAgentConfig:
+class QuadRotorLSTDDPGAgentConfig:
     # initial RL pars
     # model
     init_g: float = 9.81
@@ -49,12 +49,13 @@ class QuadRotorDPGAgentConfig:
         }
 
 
-class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
+class QuadRotorLSTDDPGAgent(QuadRotorBaseLearningAgent):
     '''
-    Deterministic Policy Gradient based RL agent for the quad rotor
-    environment. The agent adapts its MPC parameters/weights by policy gradient
-    methods, with the goal of improving performance/reducing cost of each
-    episode.
+    Least-Squares Temporal Difference-based Deterministic Policy Gradient RL 
+    agent for the quad rotor environment. The agent adapts its MPC 
+    parameters/weights by policy gradient methods, averaging over batches of 
+    episodes via Least-Squares, with the goal of improving performance/reducing
+    cost of each episode.
 
     The policy gradient-based RL update exploits a replay memory to spread out
     the gradient noise.
@@ -64,7 +65,7 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
         self,
         env: QuadRotorEnv,
         agentname: str = None,
-        agent_config: Union[dict, QuadRotorDPGAgentConfig] = None,
+        agent_config: Union[dict, QuadRotorLSTDDPGAgentConfig] = None,
         mpc_config: Union[dict, QuadRotorMPCConfig] = None,
         seed: int = None
     ) -> None:
@@ -88,10 +89,10 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
             Seed for the random number generator.
         '''
         if agent_config is None:
-            agent_config = QuadRotorDPGAgentConfig()
+            agent_config = QuadRotorLSTDDPGAgentConfig()
         elif isinstance(agent_config, dict):
-            keys = QuadRotorDPGAgentConfig.__dataclass_fields__.keys()
-            agent_config = QuadRotorDPGAgentConfig(
+            keys = QuadRotorLSTDDPGAgentConfig.__dataclass_fields__.keys()
+            agent_config = QuadRotorLSTDDPGAgentConfig(
                 **{k: agent_config[k] for k in keys if k in agent_config})
         self.config = agent_config
         super().__init__(env, agentname=agentname,

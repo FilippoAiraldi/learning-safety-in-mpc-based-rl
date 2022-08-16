@@ -41,12 +41,12 @@ def train(
     '''
     logger = util.create_logger(run_name, to_file=False)
     env = envs.QuadRotorEnv.get_wrapped(max_episode_steps=max_ep_steps)
-    agent: agents.QuadRotorDPGAgent = agents.wrappers.RecordLearningData(
-        agents.QuadRotorDPGAgent(env=env, agentname=f'DPG_{agent_n}',
-                                 agent_config={
-                                     'replay_maxlen': episodes,
-                                     'replay_sample_size': episodes,
-                                 }, seed=seed * (agent_n + 1)))
+    agent: agents.QuadRotorLSTDDPGAgent = agents.wrappers.RecordLearningData(
+        agents.QuadRotorLSTDDPGAgent(env=env, agentname=f'DPG_{agent_n}',
+                                     agent_config={
+                                         'replay_maxlen': episodes,
+                                         'replay_sample_size': episodes,
+                                     }, seed=seed * (agent_n + 1)))
 
     # simulate m episodes for each session
     for s in range(sessions):
