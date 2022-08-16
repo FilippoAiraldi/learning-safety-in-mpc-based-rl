@@ -100,17 +100,19 @@ class QuadRotorMPC(GenericMPC):
 
         # within x bounds, get which are redundant (lb=-inf, ub=+inf) and which
         # are not. Create slacks only for non-redundant constraints on x.
-        lb, ub = env.config.x_bounds[:, 0], env.config.x_bounds[:, 1]
-        not_red = ~(np.isneginf(lb) & np.isposinf(ub))
+        lbx, ubx = env.config.x_bounds[:, 0], env.config.x_bounds[:, 1]
+        not_red = ~(np.isneginf(lbx) & np.isposinf(ubx))
         not_red_idx = np.where(not_red)[0]
-        lb, ub = lb[not_red].reshape(-1, 1), ub[not_red].reshape(-1, 1)
+        lbx, ubx = lbx[not_red].reshape(-1, 1), ubx[not_red].reshape(-1, 1)
+
+        # u bounds must be scaled before creating the variable
+        lbu = config.Tu @ env.config.u_bounds[:, 0, None]
+        ubu = config.Tu @ env.config.u_bounds[:, 1, None]
 
         # 1) create variables - states are softly constrained
         nx, nu, ns = env.nx, env.nu, not_red_idx.size
         x, _, _ = self.add_var('x', nx, Np)
-        u, _, _ = self.add_var('u', nu, Nc,
-                               lb=config.Tu @ env.config.u_bounds[:, 0, None],
-                               ub=config.Tu @ env.config.u_bounds[:, 1, None])
+        u, _, _ = self.add_var('u', nu, Nc, lb=lbu, ub=ubu)
         slack, _, _ = self.add_var('slack', ns, Np, lb=0)
 
         # scale the variables
@@ -145,9 +147,9 @@ class QuadRotorMPC(GenericMPC):
         #  - soft-backedoff minimum constraint: (1+back)*lb - slack <= x
         #  - soft-backedoff maximum constraint: x <= (1-back)*ub + slack
         self.add_con('state_min',
-                     (1 + backoff) * lb - slack, '<=', x[not_red_idx, :])
+                     (1 + backoff) * lbx - slack, '<=', x[not_red_idx, :])
         self.add_con('state_max',
-                     x[not_red_idx, :], '<=', (1 - backoff) * ub + slack)
+                     x[not_red_idx, :], '<=', (1 - backoff) * ubx + slack)
 
         # ========= #
         # Objective #
