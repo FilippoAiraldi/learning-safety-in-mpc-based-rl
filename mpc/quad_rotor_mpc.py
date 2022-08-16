@@ -1,4 +1,5 @@
 import casadi as cs
+import cvxopt as cvx
 import numpy as np
 from dataclasses import dataclass, field
 from envs.quad_rotor_env import QuadRotorEnv
@@ -33,9 +34,11 @@ class QuadRotorMPCConfig:
     # NLP scaling
     # The scaling operation is x_scaled = Tx * x, and yields a scaled state
     # whose elements lay in comparable ranges
-    scaling_x: list[float] = field(default_factory=lambda: 
-        [1e-1, 1e-1, 1e-1, 1e-1, 1e-1, 1e-1, 1, 1, 1e-1, 1e-1])
-    scaling_u: list[float] = field(default_factory=lambda: [1e-1, 1e-1, 1e-2])
+    # scaling_x: list[float] = field(default_factory=lambda:
+    #     [1e-1, 1e-1, 1e-1, 1e-1, 1e-1, 1e-1, 1, 1, 1e-1, 1e-1])
+    # scaling_u: list[float] = field(default_factory=lambda: [1e-1, 1e-1, 1e-2])
+    scaling_x: list[float] = field(default_factory=lambda: np.ones(10))
+    scaling_u: list[float] = field(default_factory=lambda: np.ones(3))
 
     @cached_property
     def Tx(self) -> np.ndarray:
@@ -190,6 +193,86 @@ class QuadRotorMPC(GenericMPC):
         # initialize solver
         self.init_solver(config.solver_opts)
 
+        #######################################################################
+
+        # create cost matrices
+        x_size, u_size, s_size = x_exp.numel(), u_exp.numel(), slack.numel()
+        P = 2 * cs.diag(cs.vertcat(
+            np.zeros(nx),
+            *[gamma ** (k + 1) * w_L for k in range(Np - 1)],
+            w_V,
+            np.zeros(u_size),
+            np.zeros(s_size)
+        ))
+        q = cs.vertcat(
+            np.zeros(nx),
+            *[gamma ** (k + 1) * (-2 * w_L * xf) for k in range(Np - 1)],
+            -2 * w_V * xf,
+            np.zeros(u_size),
+            *[gamma ** (k + 1) * w_s for k in range(Np - 1)],
+            w_s_f
+        )
+        self.cost_offset = sum(gamma ** (k + 1) * (xf.T @ cs.diag(w_L) @ xf)
+                               for k in range(Np - 1)) + xf.T @ cs.diag(w_V) @ xf
+
+        # create constraint matrices
+        # dynamics
+        Aeq = cs.blockcat([
+            [np.eye(nx), np.zeros((nx, Np * (nx + nu)))],
+            [
+                cs.horzcat(cs.kron(np.eye(Np), -A), np.zeros((Np * nx, nx))) +
+                cs.horzcat(np.zeros((Np * nx, nx)), np.eye(Np * nx)),
+                cs.kron(np.eye(Np), -B)
+            ]
+        ])
+        Aeq = cs.horzcat(Aeq, np.zeros((Aeq.shape[0], s_size)))
+        beq = cs.vertcat(x0, *[e for _ in range(Np)])
+
+        # state and input constraints
+        special_eye = np.diag(not_red)[not_red, :].astype(int)
+        C_ = cs.vertcat(special_eye, -special_eye, np.zeros((2 * nu + ns, nx)))
+        D_ = cs.vertcat(np.zeros((2 * ns, nu)), np.eye(nu), -np.eye(nu),
+                        np.zeros((ns, nu)))
+        E_ = -cs.vertcat(np.eye(ns), np.eye(ns), np.zeros((2 * nu, ns)),
+                         np.eye(ns))
+        Aineq = cs.horzcat(
+            np.zeros(((2 * (ns + nu) + ns) * Np, nx)),
+            cs.kron(np.eye(Np), C_),
+            cs.kron(np.eye(Np), D_),
+            cs.kron(np.eye(Np), E_),
+        )
+        bineq = cs.kron(np.ones(Np), cs.vertcat(
+            (1 - backoff) * ubx,
+            -(1 + backoff) * lbx,
+            ubu,
+            -lbu,
+            np.zeros(ns)
+        ))
+        if type == 'Q':
+            Aeq = cs.vertcat(Aeq, cs.horzcat(
+                np.zeros((nu, x_size)), np.eye(nu),
+                np.zeros((nu, u_size - nu + s_size))
+            ))
+            beq = cs.vertcat(beq, u0)
+        else:
+            q[x_size:x_size + nu] = perturbation
+
+        self.cvx = {'P': P, 'q': q, 'G': Aineq, 'h': bineq, 'A': Aeq, 'b': beq}
+
+        # ### numeric tests ###
+        # y = cs.vertcat(cs.vec(x_exp), cs.vec(u_exp), cs.vec(slack))
+        # from mpc.generic_mpc import subsevalf
+        # y_rnd = np.random.randn(*y.shape)
+        # p_rnd = np.random.randn(*self.p.shape)
+        # J2 = 0.5 * y.T @ P @ y + q.T @ y + cost_offset
+        # J_val = float(subsevalf(J, [self.p, y], [p_rnd, y_rnd]))
+        # J2_val = float(subsevalf(J2, [self.p, y], [p_rnd, y_rnd]))
+        # print('Cost:', abs(J_val - J2_val))
+        # dyn1 = subsevalf(cs.vec(self.cons['dyn']), [self.p, y], [p_rnd, y_rnd])
+        # dyn2 = subsevalf(Aeq @ y - beq, [self.p, y], [p_rnd, y_rnd])[10:]
+        # print('Dyn: ', np.abs(dyn1 - dyn2).max())
+        # print('DONE')
+
     def _get_dynamics_matrices(
         self, env: QuadRotorEnv
     ) -> tuple[cs.SX, cs.SX, cs.SX]:
@@ -227,4 +310,30 @@ class QuadRotorMPC(GenericMPC):
         sol.vars['x_unscaled'] = self.config.Tx_inv @ sol.vars['x']
         sol.vals['u_unscaled'] = self.config.Tu_inv @ sol.vals['u']
         sol.vars['u_unscaled'] = self.config.Tu_inv @ sol.vars['u']
+
+        # solve also in cvx
+        from mpc.generic_mpc import subsevalf
+        x0 = cvx.matrix(np.array(cs.vertcat(
+            pars['x0'],
+            cs.vec(vals0['x']),
+            cs.vec(vals0['u']),
+            cs.vec(vals0['slack']))))
+        P = subsevalf(self.cvx['P'], self.pars, pars)
+        q = subsevalf(self.cvx['q'], self.pars, pars)
+        G = subsevalf(self.cvx['G'], self.pars, pars)
+        h = subsevalf(self.cvx['h'], self.pars, pars)
+        A = subsevalf(self.cvx['A'], self.pars, pars)
+        b = subsevalf(self.cvx['b'], self.pars, pars)
+        sol2 = cvx.solvers.qp(
+            P=cvx.matrix(P),
+            q=cvx.matrix(q),
+            G=cvx.matrix(G),
+            h=cvx.matrix(h),
+            A=cvx.matrix(A),
+            b=cvx.matrix(b),
+            initvals={'x': x0}
+        )
+        x = np.array(sol2['x'])
+        sol2['f'] = 0.5 * x.T @ P @ x + q.T @ x + \
+            subsevalf(self.cost_offset, self.pars, pars)
         return sol
