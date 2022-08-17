@@ -2,7 +2,6 @@ import casadi as cs
 import numpy as np
 from dataclasses import dataclass, field
 from envs.quad_rotor_env import QuadRotorEnv
-from functools import cached_property
 from mpc.generic_mpc import GenericMPC, Solution
 from typing import Union
 from util import quad_form
@@ -36,21 +35,21 @@ class QuadRotorMPCConfig:
         [1e-1, 1e-1, 1e-1, 1e-1, 1e-1, 1e-1, 1, 1, 1e-1, 1e-1])
     scaling_u: list[float] = field(default_factory=lambda: [1e-1, 1e-1, 1e-2])
 
-    @cached_property
+    @property
     def Tx(self) -> np.ndarray:
+        return np.diag(1 / self.scaling_x)
+
+    @property
+    def Tu(self) -> np.ndarray:
+        return np.diag(1 / self.scaling_u)
+
+    @property
+    def Tx_inv(self) -> np.ndarray:
         return np.diag(self.scaling_x)
 
-    @cached_property
-    def Tu(self) -> np.ndarray:
-        return np.diag(self.scaling_u)
-
-    @cached_property
-    def Tx_inv(self) -> np.ndarray:
-        return np.linalg.inv(self.Tx)
-
-    @cached_property
+    @property
     def Tu_inv(self) -> np.ndarray:
-        return np.linalg.inv(self.Tu)
+        return np.diag(self.scaling_u)
 
 
 class QuadRotorMPC(GenericMPC):
@@ -128,7 +127,9 @@ class QuadRotorMPC(GenericMPC):
 
         # 2) constraints on dynamics
         A, B, e = self._get_dynamics_matrices(env)
-        self.add_con('dyn', x_[:, 1:], '==', A @ x_[:, :-1] + B @ u + e)
+        norm = cs.sum2(cs.fabs(cs.horzcat(A, B, e))) + 1 # cs.mmax
+        self.add_con('dyn', x_[:, 1:] / norm,
+                     '==', (A @ x_[:, :-1] + B @ u + e) / norm)
 
         # 3) constraint on state (soft, backed off, without infinity in g, and
         # removing redundant entries)
@@ -138,10 +139,12 @@ class QuadRotorMPC(GenericMPC):
         # set the state constraints as
         #  - soft-backedoff minimum constraint: (1+back)*lb - slack <= x
         #  - soft-backedoff maximum constraint: x <= (1-back)*ub + slack
-        self.add_con('state_min',
-                     (1 + backoff) * lbx - slack, '<=', x[not_red_idx, :])
-        self.add_con('state_max',
-                     x[not_red_idx, :], '<=', (1 - backoff) * ubx + slack)
+        norm = cs.sum2(cs.fabs((1 + backoff) * lbx)) + 1
+        self.add_con('state_min', ((1 + backoff) * lbx - slack) / norm, 
+                     '<=', x[not_red_idx, :] / norm)
+        norm = cs.sum2(cs.fabs((1 - backoff) * ubx)) + 1
+        self.add_con('state_max', x[not_red_idx, :] / norm, 
+                     '<=', ((1 - backoff) * ubx + slack) / norm)
 
         # ========= #
         # Objective #
