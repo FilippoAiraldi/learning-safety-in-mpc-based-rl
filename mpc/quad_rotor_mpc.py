@@ -31,17 +31,18 @@ class QuadRotorMPCConfig:
     # NLP scaling
     # The scaling operation is x_scaled = Tx * x, and yields a scaled state
     # whose elements lay in comparable ranges
-    scaling_x: list[float] = field(default_factory=lambda: 
-        [1e-1, 1e-1, 1e-1, 1e-1, 1e-1, 1e-1, 1, 1, 1e-1, 1e-1])
-    scaling_u: list[float] = field(default_factory=lambda: [1e-1, 1e-1, 1e-2])
+    scaling_x: np.ndarray = field(default_factory=lambda: np.array(
+        [1e0, 1e0, 1e0, 1e1, 1e1, 1e1, 1e-1, 1e-1, 1e0, 1e0]))
+    scaling_u: np.ndarray = field(default_factory=lambda: np.array(
+        [1e0, 1e0, 1e1]))
 
     @property
     def Tx(self) -> np.ndarray:
-        return np.diag(1 / self.scaling_x)
+        return np.diag(1 / 1 / self.scaling_x)
 
     @property
     def Tu(self) -> np.ndarray:
-        return np.diag(1 / self.scaling_u)
+        return np.diag(1 / 1 / self.scaling_u)
 
     @property
     def Tx_inv(self) -> np.ndarray:
@@ -140,10 +141,10 @@ class QuadRotorMPC(GenericMPC):
         #  - soft-backedoff minimum constraint: (1+back)*lb - slack <= x
         #  - soft-backedoff maximum constraint: x <= (1-back)*ub + slack
         norm = cs.sum2(cs.fabs((1 + backoff) * lbx)) + 1
-        self.add_con('state_min', ((1 + backoff) * lbx - slack) / norm, 
+        self.add_con('state_min', ((1 + backoff) * lbx - slack) / norm,
                      '<=', x[not_red_idx, :] / norm)
         norm = cs.sum2(cs.fabs((1 - backoff) * ubx)) + 1
-        self.add_con('state_max', x[not_red_idx, :] / norm, 
+        self.add_con('state_max', x[not_red_idx, :] / norm,
                      '<=', ((1 - backoff) * ubx + slack) / norm)
 
         # ========= #
