@@ -136,8 +136,9 @@ class QuadRotorMPC(GenericMPC):
         # 2) constraints on dynamics
         u_exp = cs.horzcat(u, cs.repmat(u[:, -1], 1, Np - Nc))
         A, B, e = self._get_dynamics_matrices(env)
-        self.add_con('dyn',
-                     x_exp[:, 1:], '==', A @ x_exp[:, :-1] + B @ u_exp + e)
+        norm = cs.sum2(cs.fabs(cs.horzcat(A, B, e))) + 1 # cs.mmax
+        self.add_con('dyn', x_exp[:, 1:] / norm,
+                     '==', (A @ x_exp[:, :-1] + B @ u_exp + e) / norm)
 
         # 3) constraint on state (soft, backed off, without infinity in g, and
         # removing redundant entries)
@@ -147,10 +148,12 @@ class QuadRotorMPC(GenericMPC):
         # set the state constraints as
         #  - soft-backedoff minimum constraint: (1+back)*lb - slack <= x
         #  - soft-backedoff maximum constraint: x <= (1-back)*ub + slack
-        self.add_con('state_min',
-                     (1 + backoff) * lbx - slack, '<=', x[not_red_idx, :])
-        self.add_con('state_max',
-                     x[not_red_idx, :], '<=', (1 - backoff) * ubx + slack)
+        norm = cs.sum2(cs.fabs((1 + backoff) * lbx)) + 1
+        self.add_con('state_min', ((1 + backoff) * lbx - slack) / norm, 
+                     '<=', x[not_red_idx, :] / norm)
+        norm = cs.sum2(cs.fabs((1 - backoff) * ubx)) + 1
+        self.add_con('state_max', x[not_red_idx, :] / norm, 
+                     '<=', ((1 - backoff) * ubx + slack) / norm)
 
         # ========= #
         # Objective #
@@ -242,8 +245,8 @@ class QuadRotorMPC(GenericMPC):
         bineq = cs.kron(np.ones(Np), cs.vertcat(
             (1 - backoff) * ubx,
             -(1 + backoff) * lbx,
-            ubu,
-            -lbu,
+            env.config.u_bounds[:, 1],
+            -env.config.u_bounds[:, 0],
             np.zeros(ns)
         ))
         if type == 'Q':
@@ -309,6 +312,18 @@ class QuadRotorMPC(GenericMPC):
         sol.vals['u_unscaled'] = self.config.Tu_inv @ sol.vals['u']
         sol.vars['u_unscaled'] = self.config.Tu_inv @ sol.vars['u']
 
+        # check LICQ of active (i.e., all) constraints
+        import scipy
+        idx_lbx, idx_ubx = (
+            np.where(self.lbx != -np.inf)[0], np.where(self.ubx != np.inf)[0])
+        h_lbx = self.lbx[idx_lbx, None] - self.x[idx_lbx]
+        h_ubx = self.x[idx_ubx] - self.ubx[idx_ubx, None]
+        constraints = cs.vertcat(self.g, self.h, h_lbx, h_ubx)
+        null = scipy.linalg.null_space(sol.value(
+            cs.jacobian(constraints, self.x)))
+
+        print('-' * 128)
+
         # solve also in cvx
         from mpc.generic_mpc import subsevalf
         x0 = cvx.matrix(np.array(cs.vertcat(
@@ -322,6 +337,18 @@ class QuadRotorMPC(GenericMPC):
         h = subsevalf(self.cvx['h'], self.pars, pars)
         A = subsevalf(self.cvx['A'], self.pars, pars)
         b = subsevalf(self.cvx['b'], self.pars, pars)
+
+        # normalization to help solver
+        Gnorm = np.linalg.norm(G, ord=np.inf)
+        G = G / Gnorm
+        h = h / Gnorm
+        Anorm = np.abs(A).sum(axis=1)
+        A /= Anorm.reshape(-1, 1)
+        b /= Anorm
+        Pnorm = np.linalg.norm(P, ord=2)
+        P /= Pnorm
+        q /= Pnorm
+
         sol2 = cvx.solvers.qp(
             P=cvx.matrix(P),
             q=cvx.matrix(q),
@@ -332,6 +359,6 @@ class QuadRotorMPC(GenericMPC):
             initvals={'x': x0}
         )
         x = np.array(sol2['x'])
-        sol2['f'] = 0.5 * x.T @ P @ x + q.T @ x + \
+        sol2['f'] = 0.5 * x.T @ (Pnorm * P) @ x + (Pnorm * q).T @ x + \
             subsevalf(self.cost_offset, self.pars, pars)
         return sol
