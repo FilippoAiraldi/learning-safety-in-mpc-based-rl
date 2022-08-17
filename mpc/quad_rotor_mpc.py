@@ -3,7 +3,6 @@ import cvxopt as cvx
 import numpy as np
 from dataclasses import dataclass, field
 from envs.quad_rotor_env import QuadRotorEnv
-from functools import cached_property
 from mpc.generic_mpc import GenericMPC, Solution
 from typing import Union
 from util import quad_form
@@ -34,27 +33,26 @@ class QuadRotorMPCConfig:
     # NLP scaling
     # The scaling operation is x_scaled = Tx * x, and yields a scaled state
     # whose elements lay in comparable ranges
-    # scaling_x: list[float] = field(default_factory=lambda:
-    #     [1e-1, 1e-1, 1e-1, 1e-1, 1e-1, 1e-1, 1, 1, 1e-1, 1e-1])
-    # scaling_u: list[float] = field(default_factory=lambda: [1e-1, 1e-1, 1e-2])
-    scaling_x: list[float] = field(default_factory=lambda: np.ones(10))
-    scaling_u: list[float] = field(default_factory=lambda: np.ones(3))
+    scaling_x: np.ndarray = field(default_factory=lambda: np.array(
+        [1e0, 1e0, 1e0, 1e1, 1e1, 1e1, 1e-1, 1e-1, 1e0, 1e0]))
+    scaling_u: np.ndarray = field(default_factory=lambda: np.array(
+        [1e0, 1e0, 1e1]))
 
-    @cached_property
+    @property
     def Tx(self) -> np.ndarray:
+        return np.diag(1 / self.scaling_x)
+
+    @property
+    def Tu(self) -> np.ndarray:
+        return np.diag(1 / self.scaling_u)
+
+    @property
+    def Tx_inv(self) -> np.ndarray:
         return np.diag(self.scaling_x)
 
-    @cached_property
-    def Tu(self) -> np.ndarray:
-        return np.diag(self.scaling_u)
-
-    @cached_property
-    def Tx_inv(self) -> np.ndarray:
-        return np.linalg.inv(self.Tx)
-
-    @cached_property
+    @property
     def Tu_inv(self) -> np.ndarray:
-        return np.linalg.inv(self.Tu)
+        return np.diag(self.scaling_u)
 
     def __post_init__(self) -> None:
         # overwrite Nc if None

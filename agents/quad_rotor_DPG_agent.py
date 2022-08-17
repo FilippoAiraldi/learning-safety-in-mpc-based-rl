@@ -96,8 +96,8 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
         super().__init__(env, agentname=agentname,
                          init_pars=self.config.init_pars,
                          fixed_pars={
-                            'perturbation': np.nan, 
-                            'gamma': self.config.gamma
+                             'perturbation': np.nan,
+                             'gamma': self.config.gamma
                          },
                          mpc_config=mpc_config, seed=seed)
 
