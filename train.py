@@ -41,12 +41,13 @@ def train(
     '''
     logger = util.create_logger(run_name, to_file=False)
     env = envs.QuadRotorEnv.get_wrapped(max_episode_steps=max_ep_steps)
-    agent: agents.QuadRotorLSTDDPGAgent = agents.wrappers.RecordLearningData(
-        agents.QuadRotorLSTDDPGAgent(env=env, agentname=f'DPG_{agent_n}',
-                                     agent_config={
-                                         'replay_maxlen': episodes,
-                                         'replay_sample_size': episodes,
-                                     }, seed=seed * (agent_n + 1)))
+    # agent: agents.QuadRotorLSTDDPGAgent = agents.wrappers.RecordLearningData(
+    #     agents.QuadRotorLSTDDPGAgent(env=env, agentname=f'DPG_{agent_n}',
+    #                                  agent_config={
+    #                                      'replay_maxlen': episodes,
+    #                                      'replay_sample_size': episodes,
+    #                                  }, seed=seed * (agent_n + 1)))
+    agent = agents.QuadRotorPIAgent(env=env, agentname=f'PI_{agent_n}')
 
     # simulate m episodes for each session
     for s in range(sessions):
@@ -72,8 +73,15 @@ def train(
                     agent.save_transition(
                         state, action, action_opt, r, new_state, sol)
                 else:
+                    # If infeasibility is hit, most likely the whole episode is 
+                    # compromised, so we can terminate the episode here. 
+                    # However, the RL agent is unlikely to leave the 
+                    # infeasibility region by itself, so we have to implement
+                    # Gros' fallback mechanism when infeasibility is detected 
+                    # and restore previous weights and reduce learning rate.
                     logger.warning(
                         f'{agent_n}|{s}|{e}|{t}: MPC failed: {sol.status}.')
+                    break
 
                 # check if episode is done
                 if done:

@@ -31,10 +31,12 @@ class QuadRotorPIAgent(QuadRotorBaseAgent):
 
         # set others to some arbitrary number - should be tuned
         names_and_vals = [
-            ('w_L', 1),
-            ('w_V', 1),
-            ('w_s', 100),
-            ('w_s_f', 100),
+            ('w_Lx', 1e1),
+            ('w_Lu', 1e0),
+            ('w_Ls', 1e2),
+            ('w_Tx', 1e1),
+            ('w_Tu', 1e0),
+            ('w_Ts', 1e2),
             ('backoff', 0.05),
         ]
         for name, val in names_and_vals:
