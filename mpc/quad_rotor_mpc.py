@@ -50,7 +50,8 @@ class QuadRotorMPCConfig:
 
     @property
     def Tu_inv(self) -> np.ndarray:
-        return np.linalg.inv(self.Tu)
+        return np.diag(self.scaling_u)
+
 
 
 class QuadRotorMPC(GenericMPC):
