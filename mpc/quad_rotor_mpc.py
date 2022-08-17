@@ -1,4 +1,5 @@
 import casadi as cs
+import cvxopt as cvx
 import numpy as np
 from dataclasses import dataclass, field
 from envs.quad_rotor_env import QuadRotorEnv
@@ -38,11 +39,11 @@ class QuadRotorMPCConfig:
 
     @property
     def Tx(self) -> np.ndarray:
-        return np.diag(1 / 1 / self.scaling_x)
+        return np.diag(1 / self.scaling_x)
 
     @property
     def Tu(self) -> np.ndarray:
-        return np.diag(1 / 1 / self.scaling_u)
+        return np.diag(1 / self.scaling_u)
 
     @property
     def Tx_inv(self) -> np.ndarray:
