@@ -74,9 +74,9 @@ def train(
                 else:
                     logger.warning(
                         f'{agent_n}|{s}|{e}|{t}: MPC failed: {sol.status}.')
-                    util.save_results('bug.pkl',
-                        s=state, w=agent.weights.values(),
-                        last_sol=agent.last_solution.vals)
+                    # The solver can still reach maximum iteration and not
+                    # converge to a good solution. If that happens, break the
+                    # episode and label the parameters unsafe
                     raise ValueError('AHHHHHHH')
 
                 # check if episode is done

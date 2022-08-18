@@ -323,11 +323,11 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
         error = self.position_error(self.x)
         usage = self.control_usage(u)
         violation = (
-            1e2 * np.maximum(0, self.config.x_bounds[:, 0] - self.x) +
-            1e2 * np.maximum(0, self.x - self.config.x_bounds[:, 1]) + 
-            3e2 * np.maximum(0, self.config.u_bounds[:, 0] - u) +
-            3e2 * np.maximum(0, u - self.config.u_bounds[:, 1])
-        ).sum()
+            1e2 * np.maximum(0, self.config.x_bounds[:, 0] - self.x).sum() +
+            1e2 * np.maximum(0, self.x - self.config.x_bounds[:, 1]).sum() +
+            3e2 * np.maximum(0, self.config.u_bounds[:, 0] - u).sum() +
+            3e2 * np.maximum(0, u - self.config.u_bounds[:, 1]).sum()
+        )
         cost = float(error + usage + violation)
 
         # check if done

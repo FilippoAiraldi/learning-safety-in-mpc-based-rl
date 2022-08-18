@@ -14,12 +14,15 @@ from util import monomial_powers, cs_prod
 class QuadRotorDPGAgentConfig:
     # initial RL pars
     # model
+    # NOTE: initial values were made closer to real in an attempt to check if
+    # learning happens. Remember to reset them to more difficult values at some 
+    # point
     init_g: float = 9.81
     init_thrust_coeff: float = 1.2
     init_pitch_d: float = 12
     init_pitch_dd: float = 9
     init_pitch_gain: float = 11
-    init_roll_d: float = 19.1  # 20.278
+    init_roll_d: float = 8
     init_roll_dd: float = 7
     init_roll_gain: float = 9
     # cost
