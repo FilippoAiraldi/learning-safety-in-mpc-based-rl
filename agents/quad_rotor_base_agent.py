@@ -185,7 +185,7 @@ class QuadRotorBaseAgent(ABC):
         if deterministic or self.np_random.random() > self.perturbation_chance:
             # just solve the V scheme without noise
             sol = self.solve_mpc(type='V', state=state, **solve_mpc_kwargs)
-            u_opt = sol.vals['u_unscaled'][:, 0]
+            u_opt = sol.vals['u'][:, 0]
         else:
             # set std to a % of the action range
             u_bnd = self.env.config.u_bounds
@@ -200,13 +200,13 @@ class QuadRotorBaseAgent(ABC):
                 self.fixed_pars['perturbation'] = rng
 
             sol = self.solve_mpc(type='V', state=state, **solve_mpc_kwargs)
-            u_opt = sol.vals['u_unscaled'][:, 0]
+            u_opt = sol.vals['u'][:, 0]
 
             # otherwise, directly perturb the action
             if not perturb_gradient:
                 u_opt = np.clip(u_opt + rng, u_bnd[:, 0], u_bnd[:, 1])
 
-        x_next = sol.vals['x_unscaled'][:, 0]
+        x_next = sol.vals['x'][:, 0]
         return u_opt, x_next, sol
 
     def init_mpc_parameters(

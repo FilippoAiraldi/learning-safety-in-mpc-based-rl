@@ -152,13 +152,8 @@ class QuadRotorDPGAgent(QuadRotorBaseLearningAgent):
         dRdy = np.stack(dRdy, axis=0)
         dRdtheta = np.stack(dRdtheta, axis=0)
 
-        # The transitions come from an env which is most likely unscaled. So,
-        # before getting the value of the derivatives (which were computed
-        # symbolically), the sars must be scaled.
-        S = S @ self.V.config.Tx.T
-        E = E @ self.V.config.Tu.T
-        L = (L - L.mean()) / (L.std() + 1e-10)
-        S_next = S_next @ self.V.config.Tx.T
+        # normalize reward
+        # L = (L - L.mean()) / (L.std() + 1e-10)
 
         # compute Phi (value function approximation basis functions)
         Phi = self._Phi(S.T).full().T
