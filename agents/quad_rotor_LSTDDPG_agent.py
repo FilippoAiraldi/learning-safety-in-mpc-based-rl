@@ -14,6 +14,9 @@ from util import monomial_powers, cs_prod
 class QuadRotorLSTDDPGAgentConfig:
     # initial RL pars
     # model
+    # NOTE: initial values were made closer to real in an attempt to check if
+    # learning happens. Remember to reset them to more difficult values at some 
+    # point
     init_g: float = 9.81
     init_thrust_coeff: float = 1.2
     init_pitch_d: float = 12
@@ -37,7 +40,7 @@ class QuadRotorLSTDDPGAgentConfig:
 
     # RL parameters
     lr: float = 1e-1
-    max_perc_update: float = 1 / 5
+    max_perc_update: float = 1 / 4
     clip_grad_norm: float = None
 
     @property
@@ -153,13 +156,8 @@ class QuadRotorLSTDDPGAgent(QuadRotorBaseLearningAgent):
         dRdy = np.stack(dRdy, axis=0)
         dRdtheta = np.stack(dRdtheta, axis=0)
 
-        # The transitions come from an env which is most likely unscaled. So,
-        # before getting the value of the derivatives (which were computed
-        # symbolically), the sars must be scaled.
-        S = S @ self.V.config.Tx.T
-        E = E @ self.V.config.Tu.T
-        L = (L - L.mean()) / (L.std() + 1e-10)
-        S_next = S_next @ self.V.config.Tx.T
+        # normalize reward
+        # L = (L - L.mean()) / (L.std() + 1e-10)
 
         # compute Phi (value function approximation basis functions)
         Phi = self._Phi(S.T).full().T

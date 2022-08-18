@@ -2,7 +2,7 @@ import casadi as cs
 import numpy as np
 from dataclasses import dataclass, field
 from envs.quad_rotor_env import QuadRotorEnv
-from mpc.generic_mpc import GenericMPC, Solution
+from mpc.generic_mpc import GenericMPC
 from typing import Union
 from util import quad_form
 
@@ -19,6 +19,7 @@ class QuadRotorMPCConfig:
     solver_opts: dict = field(default_factory=lambda: {
         'expand': True, 'print_time': False,
         'ipopt': {
+            'max_iter': 500,
             'tol': 1e-6,
             'barrier_tol_factor': 1,
             'sb': 'yes',
@@ -27,31 +28,6 @@ class QuadRotorMPCConfig:
             'print_user_options': 'no',
             'print_options_documentation': 'no'
         }})
-
-    # NLP scaling
-    # The scaling operation is x_scaled = Tx * x, and yields a scaled state
-    # whose elements lay in comparable ranges
-    scaling_x: np.ndarray = field(default_factory=lambda: np.array(
-        [1e0, 1e0, 1e0, 1e1, 1e1, 1e1, 1e-1, 1e-1, 1e0, 1e0]))
-    scaling_u: np.ndarray = field(default_factory=lambda: np.array(
-        [1e0, 1e0, 1e1]))
-
-    @property
-    def Tx(self) -> np.ndarray:
-        return np.diag(1 / self.scaling_x)
-
-    @property
-    def Tu(self) -> np.ndarray:
-        return np.diag(1 / self.scaling_u)
-
-    @property
-    def Tx_inv(self) -> np.ndarray:
-        return np.diag(self.scaling_x)
-
-    @property
-    def Tu_inv(self) -> np.ndarray:
-        return np.diag(self.scaling_u)
-
 
 
 class QuadRotorMPC(GenericMPC):
@@ -100,19 +76,11 @@ class QuadRotorMPC(GenericMPC):
         not_red_idx = np.where(not_red)[0]
         lbx, ubx = lbx[not_red].reshape(-1, 1), ubx[not_red].reshape(-1, 1)
 
-        # u bounds must be scaled before creating the variable
-        lbu = config.Tu @ env.config.u_bounds[:, 0, None]
-        ubu = config.Tu @ env.config.u_bounds[:, 1, None]
-
         # 1) create variables - states are softly constrained
-        nx, nu, ns = env.nx, env.nu, not_red_idx.size
+        nx, nu, ns = env.nx, env.nu, not_red_idx.size + env.nu
         x, _, _ = self.add_var('x', nx, N)
-        u, _, _ = self.add_var('u', nu, N, lb=lbu, ub=ubu)
-        slack, _, _ = self.add_var('slack', ns, N, lb=0)
-
-        # scale the variables
-        x = config.Tx_inv @ x
-        u = config.Tu_inv @ u
+        u, _, _ = self.add_var('u', nu, N)
+        s, _, _ = self.add_var('slack', ns, N, lb=0)
 
         # 2) create model parameters
         for name in ('g', 'thrust_coeff', 'pitch_d', 'pitch_dd', 'pitch_gain',
@@ -134,15 +102,19 @@ class QuadRotorMPC(GenericMPC):
         # 3) constraint on state (soft, backed off, without infinity in g, and
         # removing redundant entries)
         # constraint backoff parameter and bounds
-        backoff = self.add_par('backoff', 1, 1)
+        bo = self.add_par('backoff', 1, 1)
 
         # set the state constraints as
         #  - soft-backedoff minimum constraint: (1+back)*lb - slack <= x
         #  - soft-backedoff maximum constraint: x <= (1-back)*ub + slack
-        self.add_con('state_min',
-                     (1 + backoff) * lbx - slack, '<=', x[not_red_idx, :])
-        self.add_con('state_max',
-                     x[not_red_idx, :], '<=', (1 - backoff) * ubx + slack)
+        s_x = s[:-env.nu, :]
+        self.add_con('x_min', (1 + bo) * lbx - s_x, '<=', x[not_red_idx, :])
+        self.add_con('x_max', x[not_red_idx, :], '<=', (1 - bo) * ubx + s_x)
+
+        # 4) constraint on input (soft)
+        s_u = s[-env.nu:, :]
+        self.add_con('u_min', env.config.u_bounds[:, 0] - s_u, '<=', u)
+        self.add_con('u_max', u, '<=', env.config.u_bounds[:, 1] + s_u)
 
         # ========= #
         # Objective #
@@ -160,7 +132,7 @@ class QuadRotorMPC(GenericMPC):
         J += sum((
             quad_form(w_Lx, x[:, k] - xf) +
             quad_form(w_Lu, u[:, k] - uf) +
-            cs.dot(w_Ls, slack[:, k])) for k in range(N - 1))
+            cs.dot(w_Ls, s[:, k])) for k in range(N - 1))
 
         # 3) terminal cost
         w_Tx = self.add_par('w_Tx', nx, 1)  # weights for final state
@@ -168,7 +140,7 @@ class QuadRotorMPC(GenericMPC):
         w_Ts = self.add_par('w_Ts', ns, 1)  # weights for final slack
         J += quad_form(w_Tx, x[:, -1] - xf) + \
             quad_form(w_Tu, u[:, -1] - uf) + \
-            cs.dot(w_Ts, slack[:, -1])
+            cs.dot(w_Ts, s[:, -1])
 
         # assign cost
         self.minimize(J)
@@ -191,7 +163,7 @@ class QuadRotorMPC(GenericMPC):
     def _get_dynamics_matrices(
         self, env: QuadRotorEnv
     ) -> tuple[cs.SX, cs.SX, cs.SX]:
-        T = env.config.T  # NOTE: T is here fixed
+        T = env.config.T
         pars = self.pars
         Ad = cs.diag(cs.vertcat(pars['pitch_d'], pars['roll_d']))
         Add = cs.diag(cs.vertcat(pars['pitch_dd'], pars['roll_dd']))
@@ -215,14 +187,3 @@ class QuadRotorMPC(GenericMPC):
             np.zeros((4, 1))
         )
         return A, B, e
-
-    def solve(
-        self, pars: dict[str, np.ndarray], vals0: dict[str, np.ndarray] = None
-    ) -> Solution:
-        sol = super().solve(pars, vals0)
-        # add unscaled variables and values to solution
-        sol.vals['x_unscaled'] = self.config.Tx_inv @ sol.vals['x']
-        sol.vars['x_unscaled'] = self.config.Tx_inv @ sol.vars['x']
-        sol.vals['u_unscaled'] = self.config.Tu_inv @ sol.vals['u']
-        sol.vars['u_unscaled'] = self.config.Tu_inv @ sol.vars['u']
-        return sol

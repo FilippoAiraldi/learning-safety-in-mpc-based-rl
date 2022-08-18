@@ -46,7 +46,9 @@ class BaseEnv(gym.Env[ObsType, ActType], ABC):
         env = cls(*env_args, **env_kwargs)
         env = TimeLimit(env, max_episode_steps=max_episode_steps)
         env = RecordData(env, deque_size=deque_size)
-        env = ClipActionIfClose(env)
+        if env.action_space.bounded_below.any() or \
+                env.action_space.bounded_above.any():
+            env = ClipActionIfClose(env)
         env = OrderEnforcing(env)
         return env
 
