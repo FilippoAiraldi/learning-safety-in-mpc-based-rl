@@ -2,7 +2,7 @@ import casadi as cs
 import numpy as np
 from dataclasses import dataclass, field
 from envs.quad_rotor_env import QuadRotorEnv
-from mpc.generic_mpc import GenericMPC, Solution
+from mpc.generic_mpc import GenericMPC
 from typing import Union
 from util import quad_form
 
@@ -19,6 +19,7 @@ class QuadRotorMPCConfig:
     solver_opts: dict = field(default_factory=lambda: {
         'expand': True, 'print_time': False,
         'ipopt': {
+            'max_iter': 500,
             'tol': 1e-6,
             'barrier_tol_factor': 1,
             'sb': 'yes',
@@ -162,7 +163,7 @@ class QuadRotorMPC(GenericMPC):
     def _get_dynamics_matrices(
         self, env: QuadRotorEnv
     ) -> tuple[cs.SX, cs.SX, cs.SX]:
-        T = env.config.T  # NOTE: T is here fixed
+        T = env.config.T
         pars = self.pars
         Ad = cs.diag(cs.vertcat(pars['pitch_d'], pars['roll_d']))
         Add = cs.diag(cs.vertcat(pars['pitch_dd'], pars['roll_dd']))

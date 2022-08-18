@@ -225,7 +225,7 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
 
     def position_error(self, x: np.ndarray) -> float:
         '''Error of the given state w.r.t. the final position.'''
-        return np.square((x - self.config.xf) * self.Wx).sum()
+        return np.square((x - self.config.xf) * self.Wx).sum(axis=-1)
 
     def control_usage(self, u: np.ndarray) -> float:
         '''Error of the given action related to its norm.'''
