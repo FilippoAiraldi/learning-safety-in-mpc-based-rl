@@ -35,7 +35,7 @@ class QuadRotorEnvConfig:
         [3, 3, 0.2, 0, 0, 0, 0, 0, 0, 0]))
 
     # constraints
-    soft_state_constraints: bool = True
+    soft_constraints: bool = True
     x_bounds: np.ndarray = field(
         default_factory=lambda: np.array([[-0.5, 3.5],
                                           [-0.5, 3.5],
@@ -92,7 +92,7 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
     | 0   | desired pitch                        | -pi  | pi  | angle (rad)   |
     | 1   | desired roll                         | -pi  | pi  | angle (rad)   |
     | 2   | desired vertical acceleration        | 0    | 2*g | acc. (m/s^2)  |
-    Again, these constraints can be changed.
+    Again, these constraints can be changed and made soft.
 
     ### Transition Dynamics:
     Given an action, the quadrotor follows the following transition dynamics:
@@ -171,26 +171,26 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
             np.zeros((5, 1)), - config.T * config.g, np.zeros((4, 1))))
 
         # create spaces
-        self.observation_space = spaces.Box(
-            low=(-np.inf
-                 if config.soft_state_constraints else
-                 config.x_bounds[:, 0]),
-            high=(np.inf
-                  if config.soft_state_constraints else
-                  config.x_bounds[:, 1]),
-            shape=(self.nx,),
-            dtype=np.float64)
-        self.action_space = spaces.Box(
-            low=config.u_bounds[:, 0],
-            high=config.u_bounds[:, 1],
-            shape=(self.nu,),
-            dtype=np.float64)
+        if config.soft_constraints:
+            low_x, high_w = -np.inf, np.inf
+            low_u, high_u = -np.inf, np.inf
+        else:
+            low_x, high_w = config.x_bounds[:, 0], config.x_bounds[:, 1]
+            low_u, high_u = config.u_bounds[:, 0], config.u_bounds[:, 0]
+        self.observation_space = spaces.Box(low=low_x,
+                                            high=high_w,
+                                            shape=(self.nx,),
+                                            dtype=np.float64)
+        self.action_space = spaces.Box(low=low_u,
+                                       high=high_u,
+                                       shape=(self.nu,),
+                                       dtype=np.float64)
 
         # create weights for final position and input errors - more or less
         # similar to the NLP scaling, but with a different purpose
-        self.Wx = np.ones((10,))  # np.array(
+        self.Wx = np.ones((self.nx,))  # np.array(
         # [1e-1, 1e-1, 1e-1, 1e-1, 1e-1, 1e-1, 1, 1, 1e-1, 1e-1])
-        self.Wu = np.ones((3,))  # np.array([1, 1, 1e-1])
+        self.Wu = np.ones((self.nu,))  # np.array([1, 1, 1e-1])
 
     @property
     def A(self) -> np.ndarray:
@@ -322,9 +322,11 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
         # compute cost
         error = self.position_error(self.x)
         usage = self.control_usage(u)
-        violation = 1e2 * (
-            np.maximum(0, self.config.x_bounds[:, 0] - self.x) +
-            np.maximum(0, self.x - self.config.x_bounds[:, 1])
+        violation = (
+            1e2 * np.maximum(0, self.config.x_bounds[:, 0] - self.x) +
+            1e2 * np.maximum(0, self.x - self.config.x_bounds[:, 1]) + 
+            3e2 * np.maximum(0, self.config.u_bounds[:, 0] - u) +
+            3e2 * np.maximum(0, u - self.config.u_bounds[:, 1])
         ).sum()
         cost = float(error + usage + violation)
 
