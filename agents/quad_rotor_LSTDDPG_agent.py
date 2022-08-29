@@ -166,7 +166,7 @@ class QuadRotorLSTDDPGAgent(QuadRotorBaseLearningAgent):
         # compute Psi
         q = np.linalg.solve(dRdy, np.tile(self._dydu0, (K, 1, 1)))
         dpidtheta = -dRdtheta @ q
-        Psi = np.squeeze(dpidtheta @ E.reshape(K, -1, 1))
+        Psi = (dpidtheta @ E.reshape(K, -1, 1)).squeeze()
 
         # compute this episode's weights v via LSTD
         v = lstsq(Phi - Phi_next, L,
