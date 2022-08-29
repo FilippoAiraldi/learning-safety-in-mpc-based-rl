@@ -10,7 +10,8 @@ from typing import Any
 def train(
     agent_n: int,
     sessions: int,
-    episodes: int,
+    train_episodes: int,
+    eval_episodes: int,
     max_ep_steps: int,
     run_name: str,
     seed: int
@@ -25,8 +26,10 @@ def train(
     sessions : int
         Number of training sessions. At the end of each session, an RL update
         is carried out.
-    episodes : int
+    train_episodes : int
         Episodes per training sessions.
+    eval_episodes : int
+        Evaluation episodes at the end of each session.
     max_ep_steps : int
         Maximum number of time steps simulated per each episode.
     run_name : str
@@ -41,6 +44,7 @@ def train(
     '''
     logger = util.create_logger(run_name, to_file=True)
     env = envs.QuadRotorEnv.get_wrapped(max_episode_steps=max_ep_steps)
+    eval_env = envs.QuadRotorEnv.get_wrapped(max_episode_steps=max_ep_steps)
     # agent: agents.QuadRotorLSTDDPGAgent = agents.wrappers.RecordLearningData(
     #     agents.QuadRotorLSTDDPGAgent(env=env, agentname=f'DPG_{agent_n}',
     #                                  agent_config={
@@ -51,8 +55,8 @@ def train(
     agent: agents.TestLSTDDPGAgent = agents.wrappers.RecordLearningData(
         agents.TestLSTDDPGAgent(env=env, agentname=f'DPG_{agent_n}',
                                 agent_config={
-                                    'replay_maxlen': episodes,
-                                    'replay_sample_size': episodes,
+                                    'replay_maxlen': train_episodes,
+                                    'replay_sample_size': train_episodes,
                                 }, seed=seed * (agent_n + 1)))
     #
     # agent = agents.QuadRotorPIAgent(env=env, agentname=f'PI_{agent_n}')
@@ -60,7 +64,7 @@ def train(
     # simulate m episodes for each session
     for s in range(sessions):
         # run each episode
-        for e in range(episodes):
+        for e in range(train_episodes):
             # reset env and agent
             state = env.reset(seed=seed * (s * 10 + e))
             agent.reset()
@@ -101,14 +105,25 @@ def train(
         agent.update()
         agent.perturbation_strength *= 0.97
 
-        # log session outcomes
-        J_mean = np.mean([env.cum_rewards[i] for i in range(-episodes, 0)])
-        logger.debug(f'{agent_n}|{s}|{e}: J_mean={J_mean:.3f} '
+        # at the end of each session, evaluate the policy
+        for e in range(eval_episodes):
+            state = eval_env.reset(seed=seed * (s * 10 + e))
+            agent.reset()
+            done = False
+            while not done:
+                action = agent.predict(state, deterministic=True)[0]
+                new_state, _, done, _ = eval_env.step(action)
+                state = new_state
+
+        # log evaluation outcomes
+        J_mean = np.mean([eval_env.cum_rewards[i]
+                         for i in range(-eval_episodes, 0)])
+        logger.debug(f'{agent_n}|{s}|{e}: J_mean={J_mean:,.3f} '
                      f'||dJ||={agent.update_gradient_norm[-1]:.3e}; '
                      + agent.weights.values2str())
 
     # return data to be saved
-    return {'env': env, 'agent': agent}
+    return {'env': env, 'eval_env': eval_env, 'agent': agent}
 
 
 if __name__ == '__main__':
@@ -118,9 +133,11 @@ if __name__ == '__main__':
                         help='Number of parallel agent to train.')
     parser.add_argument('--sessions', type=int, default=200,
                         help='Number of training sessions.')
-    parser.add_argument('--episodes', type=int, default=10,
+    parser.add_argument('--train_episodes', type=int, default=50,
                         help='Number of training episodes per session.')
-    parser.add_argument('--max_ep_steps', type=int, default=100,
+    parser.add_argument('--eval_episodes', type=int, default=5,
+                        help='Number of evaluation episodes per session.')
+    parser.add_argument('--max_ep_steps', type=int, default=50,
                         help='Maximum number of steps per episode.')
     parser.add_argument('--seed', type=int, default=42, help='RNG seed.')
     args = parser.parse_args()
@@ -130,7 +147,10 @@ if __name__ == '__main__':
     run_name = util.get_run_name()
 
     # launch training
-    const_args = (args.sessions, args.episodes, args.max_ep_steps, run_name)
+    const_args = (args.sessions,
+                  args.train_episodes,
+                  args.eval_episodes,
+                  args.max_ep_steps, run_name)
     if args.agents == 1:
         data = [train(0, *const_args, args.seed)]
     else:
