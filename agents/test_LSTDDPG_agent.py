@@ -8,7 +8,7 @@ from envs import QuadRotorEnv, QuadRotorEnvConfig
 from mpc import Solution
 from scipy.linalg import lstsq
 from typing import Union
-from util import monomial_powers, cs_prod, cs_sigmoid
+from util import monomial_powers, cs_prod
 
 
 @dataclass(frozen=True)
@@ -20,7 +20,7 @@ class TestLSTDDPGAgentConfig:
 
     # RL parameters
     lr: float = 1e-9
-    max_perc_update: float = 1 / 4
+    max_perc_update: float = np.inf
     clip_grad_norm: float = None
 
     @property
@@ -209,9 +209,12 @@ class TestLSTDDPGAgent(QuadRotorBaseLearningAgent):
         # compute bounds on parameter update
         theta = self.weights.values()
         bounds = self.weights.bounds()
-        max_delta = np.maximum(np.abs(cfg.max_perc_update * theta), 0.1)
-        lb = np.maximum(bounds[:, 0], theta - max_delta)
-        ub = np.minimum(bounds[:, 1], theta + max_delta)
+        lb, ub = bounds[:, 0], bounds[:, 1]
+        if np.isfinite(cfg.max_perc_update):
+            max_delta = np.maximum(np.abs(cfg.max_perc_update * theta), 0.1)
+            lb = np.maximum(lb, theta - max_delta)
+            ub = np.minimum(ub, theta + max_delta)
+        
 
         # run QP solver
         sol = self._solver(lbx=lb, ubx=ub, x0=theta - c,
@@ -267,7 +270,7 @@ class TestLSTDDPGAgent(QuadRotorBaseLearningAgent):
                 [-np.inf, np.inf], A, A),
             RLParameter(
                 'b',
-                np.array([0, 0, g]),
+                np.hstack((self.np_random.normal(size=na - 1) * 1e-3, g)),
                 [-np.inf, np.inf], b, b)
         )
         self._A, self._b = A, b
