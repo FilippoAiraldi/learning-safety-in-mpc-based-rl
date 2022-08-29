@@ -22,6 +22,12 @@ def cs_prod(x: Union[cs.SX, cs.DM], axis: int = 0) -> Union[cs.SX, cs.DM]:
     return cs.exp(sum_(cs.log(x))) if axis == 0 else cs.exp(sum_(cs.log(x)))
 
 
+def cs_sigmoid(x: Union[cs.SX, cs.DM, cs.MX]) -> Union[cs.SX, cs.DM, cs.MX]:
+    '''Computes sigmoid.'''
+    e = cs.exp(x)
+    return e / (e + 1)
+
+
 def nchoosek(
     n: Union[int, Iterable[Any]], k: int) -> Union[int, Iterable[tuple[Any]]]:
     '''Returns the binomial coefficient, i.e.,  the number of combinations of n

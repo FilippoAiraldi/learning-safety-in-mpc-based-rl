@@ -10,5 +10,6 @@ from util.util import (
     monomial_powers,
     get_run_name,
     create_logger,
-    tqdm_joblib
+    tqdm_joblib,
+    cs_sigmoid
 )
