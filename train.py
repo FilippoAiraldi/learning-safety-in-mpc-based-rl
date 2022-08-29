@@ -41,12 +41,20 @@ def train(
     '''
     logger = util.create_logger(run_name, to_file=False)
     env = envs.QuadRotorEnv.get_wrapped(max_episode_steps=max_ep_steps)
-    agent: agents.QuadRotorLSTDDPGAgent = agents.wrappers.RecordLearningData(
-        agents.QuadRotorLSTDDPGAgent(env=env, agentname=f'DPG_{agent_n}',
-                                     agent_config={
-                                         'replay_maxlen': episodes,
-                                         'replay_sample_size': episodes,
-                                     }, seed=seed * (agent_n + 1)))
+    # agent: agents.QuadRotorLSTDDPGAgent = agents.wrappers.RecordLearningData(
+    #     agents.QuadRotorLSTDDPGAgent(env=env, agentname=f'DPG_{agent_n}',
+    #                                  agent_config={
+    #                                      'replay_maxlen': episodes,
+    #                                      'replay_sample_size': episodes,
+    #                                  }, seed=seed * (agent_n + 1)))
+    #
+    agent: agents.TestLSTDDPGAgent = agents.wrappers.RecordLearningData(
+        agents.TestLSTDDPGAgent(env=env, agentname=f'DPG_{agent_n}',
+                                agent_config={
+                                    'replay_maxlen': episodes,
+                                    'replay_sample_size': episodes,
+                                }, seed=seed * (agent_n + 1)))
+    #
     # agent = agents.QuadRotorPIAgent(env=env, agentname=f'PI_{agent_n}')
 
     # simulate m episodes for each session
@@ -69,7 +77,7 @@ def train(
                 new_state, r, done, _ = env.step(action)
 
                 # save transition
-                if sol.success:
+                if True:
                     agent.save_transition(
                         state, action, action_opt, r, new_state, sol)
                 else:
