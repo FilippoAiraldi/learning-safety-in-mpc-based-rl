@@ -250,9 +250,9 @@ class QuadRotorBaseAgent(ABC):
             ('w_Ts', (1e-3, np.inf)),
         ]
         self.weights = RLParameterCollection(
-            RLParameter(name, init_pars.get(name, np.nan), bnd,
+            *(RLParameter(name, init_pars.get(name, np.mean(bnd)), bnd,
                         self.V.pars[name], self.Q.pars[name])
-            for name, bnd in names_and_bnds
+            for name, bnd in names_and_bnds)
         )
 
     def __str__(self) -> str:

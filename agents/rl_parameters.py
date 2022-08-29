@@ -42,11 +42,11 @@ class RLParameterCollection(Sequence[RLParameter]):
     '''Collection of learnable RL parameters, which can be accessed by string
     as a dictionary or by index as a list.'''
 
-    def __init__(self, iterable: Iterable[RLParameter] = None) -> None:
+    def __init__(self, *parameters: RLParameter) -> None:
         '''Instantiate the collection from another iterable, if provided.'''
         self._list: list[RLParameter] = []
         self._dict: dict[str, RLParameter] = {}
-        for parameter in iterable:
+        for parameter in parameters:
             self._list.append(parameter)
             self._dict[parameter.name] = parameter
 
@@ -132,7 +132,7 @@ class RLParameterCollection(Sequence[RLParameter]):
 
         def par2str(p: RLParameter) -> str:
             if p.value.size == 1:
-                return  f'{p.name}={p.value.item():.{prc}f}'
+                return f'{p.name}={p.value.item():.{prc}f}'
             if summarize_arrays:
                 mean = p.value.mean().item()
                 min_ = p.value.min().item()
@@ -140,7 +140,7 @@ class RLParameterCollection(Sequence[RLParameter]):
                 return \
                     f'{p.name}={mean:.{prc}f} [{min_:.{prc}f}, {max_:.{prc}f}]'
             return np.array2string(p.value, **kwargs)
-            
+
         return '; '.join(par2str(p) for p in self._list)
 
     def items(self) -> Iterable[tuple[str, RLParameter]]:
