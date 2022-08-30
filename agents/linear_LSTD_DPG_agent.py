@@ -4,9 +4,8 @@ from agents.quad_rotor_base_learning_agent import QuadRotorBaseLearningAgent
 from agents.replay_memory import ReplayMemory
 from agents.rl_parameters import RLParameter, RLParameterCollection
 from dataclasses import dataclass
-from envs import QuadRotorEnv, QuadRotorEnvConfig
+from envs import QuadRotorEnv
 from logging import Logger
-from scipy.linalg import lstsq
 from typing import Union, Tuple
 from util import monomial_powers, cs_prod
 
@@ -19,6 +18,7 @@ class LinearLSTDDPGAgentConfig:
     replay_include_last: float = 5  # include in the sample the last 5 episodes
 
     # RL parameters
+    gamma: float = 1.0
     lr: float = 1e-9
     clip_grad_norm: float = None
 
@@ -159,8 +159,10 @@ class LinearLSTDDPGAgent(QuadRotorBaseLearningAgent):
         Psi = (dpidtheta @ E.reshape(K, -1, 1)).squeeze()
 
         # compute this episode's weights v via LSTD
-        v = lstsq(Phi - Phi_next, L,
-                  lapack_driver='gelsy')[0]
+        v = np.linalg.solve(
+            Phi.T @ (Phi - self.config.gamma * Phi_next),
+            Phi.T @ L)
+        # v = lstsq(Phi - gamma * Phi_next, L, lapack_driver='gelsy')[0]
 
         # save this episode to memory and clear buffer
         self.replay_memory.append((Phi, Phi_next, Psi, L, dpidtheta, v))
@@ -180,8 +182,9 @@ class LinearLSTDDPGAgent(QuadRotorBaseLearningAgent):
         w = 0
         for Phi, Phi_next, Psi, L, _, _ in sample:
             A = Psi.T @ Psi
-            b = Psi.T @ (L + (Phi_next - Phi) @ v)
-            w += lstsq(A, b, lapack_driver='gelsy')[0]
+            b = Psi.T @ (L + (self.config.gamma * Phi_next - Phi) @ v)
+            w += np.linalg.solve(A, b)
+            # w += lstsq(A, b, lapack_driver='gelsy')[0]
         w /= m
 
         # compute episode's update
@@ -272,31 +275,32 @@ class LinearLSTDDPGAgent(QuadRotorBaseLearningAgent):
         # compute baseline function approximating the value function with
         # monomials as basis
         x: cs.SX = cs.SX.sym('x', self.env.nx, 1)
-        y: cs.SX = cs.vertcat(
-            1,
-            x,
-            *(cs_prod(x**p) for p in monomial_powers(x.size1(), 2)))
+        mean = np.array([-200, 200, 100, -100, 50, 50, -1, -1, -10, -5])
+        std = np.array([300, 200, 100, 75, 50, 25, 5, 5, 25, 30])
+        x_norm = (x - mean) / std
+
+        y: cs.SX = cs.vertcat(*(cs_prod(x_norm**p) for i in range(1, 4)
+                                for p in monomial_powers(self.env.nx, i)))
         self._Phi = cs.Function('Phi', [x], [y], ['s'], ['Phi(s)'])
 
         # re-create weights for the policy
         na, nx = self.env.nu, self._Phi.size1_out(0)
-        g = QuadRotorEnvConfig.__dataclass_fields__['g'].default
+        u_bnd = self.env.config.u_bounds
         A, b = cs.SX.sym('A', na * nx, 1), cs.SX.sym('b', na, 1)
         self.weights = RLParameterCollection(
             RLParameter(
                 'A',
-                self.np_random.normal(size=na * nx) * 1e-6,
+                self.np_random.normal(size=na * nx) * 1e-1,
                 [-np.inf, np.inf], A, A),
             RLParameter(
                 'b',
-                np.hstack((self.np_random.normal(size=na - 1) * 1e-6, g)),
+                self.np_random.normal(size=na) * 1e-1,
                 [-np.inf, np.inf], b, b)
         )
         self._A, self._b = A, b
 
         # compute derivative of the policy w.r.t. its weights
         pi = A.reshape((na, nx)) @ y + b
-        u_bnd = self.env.config.u_bounds
         # a, b, act = 0, 1, cs_sigmoid
         lb, ub, act = -1, 1, cs.tanh
         pi = (act(pi) - lb) / (ub - lb) * np.diff(u_bnd) + u_bnd[:, 0]
