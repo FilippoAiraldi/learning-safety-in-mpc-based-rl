@@ -64,9 +64,6 @@ class LinearLSTDDPGAgent(QuadRotorBaseLearningAgent):
         agent_config : dict, QuadRotorDPGAgentConfig
             A set of parameters for the quadrotor DPG agent. If not given, the
             default ones are used.
-        mpc_config : dict, QuadRotorMPCConfig
-            A set of parameters for the agent's MPC. If not given, the default
-            ones are used.
         seed : int, optional
             Seed for the random number generator.
         '''

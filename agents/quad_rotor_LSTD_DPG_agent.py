@@ -140,8 +140,7 @@ class QuadRotorLSTDDPGAgent(QuadRotorBaseLearningAgent):
             return
 
         # stack everything in arrays and compute derivatives
-        S, L, S_next = [], [], []
-        E = []  # exploration
+        S, L, S_next, E = [], [], [], []
         dRdy, dRdtheta = [], []
         for s, a, a_opt, r, s_next, sol in self._episode_buffer:
             S.append(s)
@@ -280,10 +279,6 @@ class QuadRotorLSTDDPGAgent(QuadRotorBaseLearningAgent):
             costs = self.eval(eval_env, n_eval_episodes, seed=seed + cnt)
             cnt += n_eval_episodes
 
-            import util
-            util.plot.plot_trajectory_in_time(env, 0)
-            util.plot.plot_trajectory_in_time(eval_env, 0)
-
             # log evaluation outcomes
             if logger is not None:
                 logger.debug(
@@ -305,10 +300,11 @@ class QuadRotorLSTDDPGAgent(QuadRotorBaseLearningAgent):
         # compute baseline function approximating the value function with
         # monomials as basis
         x: cs.SX = cs.SX.sym('x', self.env.nx, 1)
-        y: cs.SX = cs.vertcat(
-            1,
-            x,
-            *(cs_prod(x**p) for p in monomial_powers(x.size1(), 2)))
+        # mean = np.array([-200, 200, 100, -100, 50, 50, -1, -1, -10, -5])
+        # std = np.array([300, 200, 100, 75, 50, 25, 5, 5, 25, 30])
+        # x_norm = (x - mean) / std
+        y: cs.SX = cs.vertcat(*(cs_prod(x**p) for i in range(1, 4)
+                                for p in monomial_powers(self.env.nx, i)))
         self._Phi = cs.Function('Phi', [x], [y], ['s'], ['Phi(s)'])
 
     def _init_qp_solver(self) -> None:
