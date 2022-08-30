@@ -2,7 +2,6 @@ import agents
 import argparse
 import envs
 import joblib as jl
-import numpy as np
 import util
 from typing import Any
 
@@ -64,7 +63,7 @@ def train(
     # agent = agents.QuadRotorPIAgent(env=env, agentname=f'PI_{agent_n}')
     #
     agent = agents.wrappers.RecordLearningData(
-        agents.TestLSTDDPGAgent(
+        agents.LinearLSTDDPGAgent(
             env=env,
             agentname=f'Lin_LSTDDPG_{agent_n}',
             agent_config={

@@ -13,7 +13,7 @@ from util import monomial_powers, cs_prod
 
 
 @dataclass(frozen=True)
-class TestLSTDDPGAgentConfig:
+class LinearLSTDDPGAgentConfig:
     # experience replay parameters
     replay_maxlen: float = 20  # 20 episodes
     replay_sample_size: float = 10  # sample from 10 out of 20 episodes
@@ -33,10 +33,10 @@ class TestLSTDDPGAgentConfig:
         }
 
 
-class TestLSTDDPGAgent(QuadRotorBaseLearningAgent):
+class LinearLSTDDPGAgent(QuadRotorBaseLearningAgent):
     '''
     Least-Squares Temporal Difference-based Deterministic Policy Gradient RL 
-    agent for the quad rotor environment. The agent adapts its MPC 
+    agent for the quad rotor environment. The agent adapts its linear policy 
     parameters/weights by policy gradient methods, averaging over batches of 
     episodes via Least-Squares, with the goal of improving performance/reducing
     cost of each episode.
@@ -49,7 +49,7 @@ class TestLSTDDPGAgent(QuadRotorBaseLearningAgent):
         self,
         env: QuadRotorEnv,
         agentname: str = None,
-        agent_config: Union[dict, TestLSTDDPGAgentConfig] = None,
+        agent_config: Union[dict, LinearLSTDDPGAgentConfig] = None,
         seed: int = None
     ) -> None:
         '''
@@ -72,10 +72,10 @@ class TestLSTDDPGAgent(QuadRotorBaseLearningAgent):
             Seed for the random number generator.
         '''
         if agent_config is None:
-            agent_config = TestLSTDDPGAgentConfig()
+            agent_config = LinearLSTDDPGAgentConfig()
         elif isinstance(agent_config, dict):
-            keys = TestLSTDDPGAgentConfig.__dataclass_fields__.keys()
-            agent_config = TestLSTDDPGAgentConfig(
+            keys = LinearLSTDDPGAgentConfig.__dataclass_fields__.keys()
+            agent_config = LinearLSTDDPGAgentConfig(
                 **{k: agent_config[k] for k in keys if k in agent_config})
         self.config = agent_config
         super().__init__(env, agentname=agentname,
@@ -85,6 +85,7 @@ class TestLSTDDPGAgent(QuadRotorBaseLearningAgent):
 
         # during learning, DPG must always perturb the action in order to learn
         self.perturbation_chance = 1.0
+        self.perturbation_strength = 5e-2
 
         # initialize the replay memory. Per each episode the memory saves an
         # array of Phi(s), Psi(s,a), L(s,a), dpidtheta(s) and weights v. Also
@@ -132,17 +133,19 @@ class TestLSTDDPGAgent(QuadRotorBaseLearningAgent):
         E = np.stack(E, axis=0)
 
         # normalize state and reward
-        mean, std = S.mean(), S.std()
-        S_norm = (S - mean) / (std + 1e-10)
-        S_next_norm = (S_next - mean) / (std + 1e-10)
-        # L = (L - L.mean()) / (L.std() + 1e-10)
+        # mean, std = S.mean(), S.std()
+        # S_norm = (S - mean) / (std + 1e-10)
+        # S_next_norm = (S_next - mean) / (std + 1e-10)
+        L = (L - L.mean()) / (L.std() + 1e-10)
 
         # compute Phi (value function approximation basis functions)
-        Phi = self._Phi(S_norm.T).full().T
-        Phi_next = self._Phi(S_next_norm.T).full().T
+        Phi = self._Phi(S.T).full().T
+        Phi_next = self._Phi(S_next.T).full().T
 
         # compute Psi
-        # #
+        #
+        # import os
+        # os.environ['KMP_DUPLICATE_LIB_OK']='True'
         # import torch
         # u_bnd = torch.from_numpy(self.env.config.u_bounds)
         # Phi_t = torch.from_numpy(self._Phi(S.T).full().T)
@@ -301,10 +304,13 @@ class TestLSTDDPGAgent(QuadRotorBaseLearningAgent):
         # compute baseline function approximating the value function with
         # monomials as basis
         x: cs.SX = cs.SX.sym('x', self.env.nx, 1)
+        mean = 0
+        std = np.array([1e0, 1e0, 1e0, 1e-1, 1e-1, 1e-1, 1e1, 1e1, 1e0, 1e0])
+        x_norm = (x - mean) / std
         y: cs.SX = cs.vertcat(
             1,
-            x,
-            *(cs_prod(x**p) for p in monomial_powers(x.size1(), 2)))
+            x_norm,
+            *(cs_prod(x_norm**p) for p in monomial_powers(x.size1(), 2)))
         self._Phi = cs.Function('Phi', [x], [y], ['s'], ['Phi(s)'])
 
         # re-create weights for the policy
@@ -314,11 +320,11 @@ class TestLSTDDPGAgent(QuadRotorBaseLearningAgent):
         self.weights = RLParameterCollection(
             RLParameter(
                 'A',
-                self.np_random.normal(size=na * nx) * 1e-3,
+                self.np_random.normal(size=na * nx) * 1e-6,
                 [-np.inf, np.inf], A, A),
             RLParameter(
                 'b',
-                np.hstack((self.np_random.normal(size=na - 1) * 1e-3, g)),
+                np.hstack((self.np_random.normal(size=na - 1) * 1e-6, g)),
                 [-np.inf, np.inf], b, b)
         )
         self._A, self._b = A, b
