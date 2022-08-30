@@ -39,7 +39,7 @@ class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
         return self._Q
 
     @abstractmethod
-    def save_transition(self, *args) -> None:
+    def save_transition(self, *args, **kwargs) -> None:
         '''
         Schedules the current time-step data to be processed and saved into the
         experience replay memory.

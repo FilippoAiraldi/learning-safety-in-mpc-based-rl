@@ -1,10 +1,11 @@
-import numpy as np
 import casadi as cs
+import numpy as np
 from agents.quad_rotor_base_learning_agent import QuadRotorBaseLearningAgent
 from agents.replay_memory import ReplayMemory
 from agents.rl_parameters import RLParameter, RLParameterCollection
 from dataclasses import dataclass
 from envs import QuadRotorEnv, QuadRotorEnvConfig
+from logging import Logger
 from mpc import Solution
 from scipy.linalg import lstsq
 from typing import Union
@@ -214,7 +215,6 @@ class TestLSTDDPGAgent(QuadRotorBaseLearningAgent):
             max_delta = np.maximum(np.abs(cfg.max_perc_update * theta), 0.1)
             lb = np.maximum(lb, theta - max_delta)
             ub = np.minimum(ub, theta + max_delta)
-        
 
         # run QP solver
         sol = self._solver(lbx=lb, ubx=ub, x0=theta - c,
@@ -233,6 +233,7 @@ class TestLSTDDPGAgent(QuadRotorBaseLearningAgent):
         a = self._pi(
             state, self.weights['A'].value, self.weights['b'].value
         ).full().squeeze()
+        assert np.isfinite(a).all()
 
         if deterministic or self.np_random.random() > self.perturbation_chance:
             return a, None, None
@@ -244,7 +245,7 @@ class TestLSTDDPGAgent(QuadRotorBaseLearningAgent):
             size=a.shape)
 
         # directly perturb the action
-        a_noisy = np.clip(a + rng, u_bnd[:, 0], u_bnd[:, 1])
+        a_noisy = a + rng
 
         return a_noisy, None, None
 
@@ -306,8 +307,8 @@ class TestLSTDDPGAgent(QuadRotorBaseLearningAgent):
             *(cs_prod(x**p) for p in monomial_powers(x.size1(), 2)))
         self._Phi = cs.Function('Phi', [x], [y], ['s'], ['Phi(s)'])
 
-        # remove MPCs and re-create weights for the policy
-        na, nx = QuadRotorEnv.nu, self._Phi.size1_out(0)
+        # re-create weights for the policy
+        na, nx = self.env.nu, self._Phi.size1_out(0)
         g = QuadRotorEnvConfig.__dataclass_fields__['g'].default
         A, b = cs.SX.sym('A', na * nx, 1), cs.SX.sym('b', na, 1)
         self.weights = RLParameterCollection(
