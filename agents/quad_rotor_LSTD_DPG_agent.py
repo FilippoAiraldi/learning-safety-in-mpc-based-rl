@@ -4,6 +4,7 @@ from agents.quad_rotor_base_learning_agent import QuadRotorBaseLearningAgent
 from agents.replay_memory import ReplayMemory
 from dataclasses import dataclass
 from envs import QuadRotorEnv
+from logging import Logger
 from mpc import Solution, QuadRotorMPCConfig
 from scipy.linalg import lstsq
 from typing import Union
@@ -15,7 +16,7 @@ class QuadRotorLSTDDPGAgentConfig:
     # initial RL pars
     # model
     # NOTE: initial values were made closer to real in an attempt to check if
-    # learning happens. Remember to reset them to more difficult values at some 
+    # learning happens. Remember to reset them to more difficult values at some
     # point
     init_g: float = 9.81
     init_thrust_coeff: float = 1.2
@@ -54,9 +55,9 @@ class QuadRotorLSTDDPGAgentConfig:
 
 class QuadRotorLSTDDPGAgent(QuadRotorBaseLearningAgent):
     '''
-    Least-Squares Temporal Difference-based Deterministic Policy Gradient RL 
-    agent for the quad rotor environment. The agent adapts its MPC 
-    parameters/weights by policy gradient methods, averaging over batches of 
+    Least-Squares Temporal Difference-based Deterministic Policy Gradient RL
+    agent for the quad rotor environment. The agent adapts its MPC
+    parameters/weights by policy gradient methods, averaging over batches of
     episodes via Least-Squares, with the goal of improving performance/reducing
     cost of each episode.
 

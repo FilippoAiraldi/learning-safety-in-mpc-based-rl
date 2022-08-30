@@ -1,15 +1,12 @@
 import numpy as np
-import warnings
 from abc import ABC
 from agents import RLParameter, RLParameterCollection
 from envs import QuadRotorEnv
-from envs.wrappers import RecordData
 from gym import Env
 from gym.utils.seeding import np_random
 from itertools import count
 from mpc import QuadRotorMPC, QuadRotorMPCConfig, Solution
 from typing import Union
-from util import is_env_wrapped
 
 
 class QuadRotorBaseAgent(ABC):
@@ -264,10 +261,10 @@ class QuadRotorBaseAgent(ABC):
         env: Env,
         n_eval_episodes: int,
         deterministic: bool = True,
-        seed: int = None,
-        warn: bool = True
+        seed: int = None
     ) -> np.ndarray:
-        '''Evaluates the given environment.
+        '''
+        Evaluates the given environment.
 
         Parameters
         ----------
@@ -279,21 +276,12 @@ class QuadRotorBaseAgent(ABC):
             Whether to use deterministic or stochastic actions.
         seed : int, optional
             RNG seed.
-        warn : bool
-            If True, warns the user if the env is not wrapped in a RecordData
-            wrapper.
 
         Returns
         -------
         returns : np.ndarray
-            An array of the accumulated rewards for each episode
+            An array of the accumulated rewards/costs for each episode
         '''
-        if warn and not is_env_wrapped(env, RecordData):
-            warnings.warn(
-                'Evaluation env is not wrapped with a RecordData wrapper.',
-                UserWarning,
-            )
-
         returns = np.zeros(n_eval_episodes)
         for e in range(n_eval_episodes):
             state = env.reset(seed=None if seed is None else (seed + e))
