@@ -42,82 +42,47 @@ def train(
     dict[str, Any]
         Data resulting from the training.
     '''
-    ep_cnt = 0
+    # create logger
+    logger = util.create_logger(run_name, to_file=False)
+
+    # create envs
     env = envs.QuadRotorEnv.get_wrapped(max_episode_steps=max_ep_steps)
     eval_env = envs.QuadRotorEnv.get_wrapped(max_episode_steps=max_ep_steps)
-    # agent: agents.QuadRotorLSTDDPGAgent = agents.wrappers.RecordLearningData(
-    #     agents.QuadRotorLSTDDPGAgent(env=env, agentname=f'DPG_{agent_n}',
-    #                                  agent_config={
-    #                                      'replay_maxlen': episodes,
-    #                                      'replay_sample_size': episodes,
-    #                                  }, seed=seed * (agent_n + 1)))
+
+    # create agent and launch training
     #
-    agent: agents.TestLSTDDPGAgent = agents.wrappers.RecordLearningData(
-        agents.TestLSTDDPGAgent(env=env, agentname=f'DPG_{agent_n}',
-                                agent_config={
-                                    'replay_maxlen': train_episodes,
-                                    'replay_sample_size': train_episodes,
-                                }, seed=seed * (agent_n + 1)))
+    # agent = agents.wrappers.RecordLearningData(
+    #     agents.QuadRotorLSTDDPGAgent(
+    #         env=env,
+    #         agentname=f'DPG_{agent_n}',
+    #         agent_config={
+    #             'replay_maxlen': train_episodes,
+    #             'replay_sample_size': train_episodes,
+    #         },
+    #         seed=seed * (agent_n + 1) * 1000))
     #
     # agent = agents.QuadRotorPIAgent(env=env, agentname=f'PI_{agent_n}')
+    #
+    agent = agents.wrappers.RecordLearningData(
+        agents.TestLSTDDPGAgent(
+            env=env,
+            agentname=f'Lin_LSTDDPG_{agent_n}',
+            agent_config={
+                'replay_maxlen': train_episodes,
+                'replay_sample_size': train_episodes,
+            },
+            seed=seed * (agent_n + 1) * 1000
+        ))
 
-    # simulate m episodes for each session
-    for s in range(sessions):
-        # run each episode
-        for e in range(train_episodes):
-            # reset env and agent
-            state = env.reset(seed=seed + ep_cnt)
-            agent.reset()
+    agent.learn(
+        n_train_sessions=sessions,
+        n_train_episodes=train_episodes,
+        eval_env=eval_env,
+        n_eval_episodes=eval_episodes,
+        seed=seed,
+        logger=logger
+    )
 
-            # simulate this episode
-            for t in range(max_ep_steps):
-                action_opt, _, sol = agent.predict(state, deterministic=True)
-                action, _, _ = agent.predict(state, deterministic=False)
-                #
-                # action, _, sol = agent.predict(
-                #     state, deterministic=False, perturb_gradient=False)
-                # action_opt = sol.vals['u_unscaled'][:, 0]
-                #
-                new_state, r, done, _ = env.step(action)
-
-                # save transition
-                if True:
-                    agent.save_transition(
-                        state, action, action_opt, r, new_state, sol)
-                else:
-                    logger.warning(
-                        f'{agent_n}|{s}|{e}|{t}: MPC failed: {sol.status}.')
-                    # The solver can still reach maximum iteration and not
-                    # converge to a good solution. If that happens, break the
-                    # episode and label the parameters unsafe.
-                    raise ValueError('AHHHHHHH')
-
-                # check if episode is done
-                if done:
-                    break
-                state = new_state
-
-            # when the episode is done, consolidate its experience into memory
-            agent.consolidate_episode_experience()
-            ep_cnt += 1
-
-        # when all m episodes are done, perform RL update and reduce
-        # exploration strength
-        agent.update()
-        agent.perturbation_strength *= 0.97
-
-        # at the end of each session, evaluate the policy
-        agent.eval(eval_env, eval_episodes, seed=seed + ep_cnt)
-        ep_cnt += eval_episodes
-
-        # log evaluation outcomes
-        J_mean = np.mean([eval_env.cum_rewards[i]
-                         for i in range(-eval_episodes, 0)])
-        logger.debug(f'{agent_n}|{s}|{e}: J_mean={J_mean:,.3f} '
-                     f'||dJ||={agent.update_gradient_norm[-1]:.3e}; '
-                     + agent.weights.values2str())
-
-    # return data to be saved
     return {'env': env, 'eval_env': eval_env, 'agent': agent}
 
 

@@ -43,6 +43,10 @@ class RecordLearningData(Generic[AgentType]):
             w.append(self._agent.weights[n].value)
         return grad
 
+    def learn(self, *args, **kwargs) -> Any:
+        # trick to pass the self's wrapped instance to the method
+        return type(self._agent).learn(self, *args, **kwargs)
+
     def __getattr__(self, name) -> Any:
         '''Reroutes attributes to the wrapped agent instance.'''
         return getattr(self._agent, name)

@@ -248,6 +248,53 @@ class TestLSTDDPGAgent(QuadRotorBaseLearningAgent):
 
         return a_noisy, None, None
 
+    def learn(
+        self,
+        n_train_sessions: int,
+        n_train_episodes: int,
+        eval_env: QuadRotorEnv,
+        n_eval_episodes: int,
+        perturbation_decay: float = 0.97,
+        seed: int = None,
+        logger: Logger = None
+    ) -> None:
+        # simulate m episodes for each session
+        env, cnt = self.env, 0
+        for s in range(n_train_sessions):
+            for e in range(n_train_episodes):
+                state = env.reset(seed=None if seed is None else (seed + cnt))
+                done = False
+                while not done:
+                    action_opt = self.predict(state, deterministic=True)[0]
+                    action = self.predict(state, deterministic=False)[0]
+                    # action = env.np_random.uniform(
+                    #     low=env.config.u_bounds[:, 0],
+                    #     high=env.config.u_bounds[:, 1])
+                    new_state, r, done, _ = env.step(action)
+                    self.save_transition(
+                        state, action, action_opt, r, new_state, None)
+                    state = new_state
+
+                # when the episode is done, consolidate its experience into memory
+                self.consolidate_episode_experience()
+                cnt += 1
+
+            # when all m episodes are done, perform RL update and reduce
+            # exploration strength
+            update_grad = self.update()
+            self.perturbation_strength *= perturbation_decay
+
+            # at the end of each session, evaluate the policy
+            returns = self.eval(eval_env, n_eval_episodes, seed=seed + cnt)
+            cnt += n_eval_episodes
+
+            # log evaluation outcomes
+            if logger is not None:
+                logger.debug(
+                    f'{self.name}|{s}|{e}: J_mean={returns.mean():,.3f} '
+                    f'||dJ||={np.linalg.norm(update_grad):.3e}; ' +
+                    self.weights.values2str())
+
     def _init_symbols(self) -> None:
         '''Computes symbolical derivatives needed for DPG updates.'''
         # compute baseline function approximating the value function with
