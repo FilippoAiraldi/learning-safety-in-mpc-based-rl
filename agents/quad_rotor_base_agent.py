@@ -255,18 +255,18 @@ class QuadRotorBaseAgent(ABC):
         ]
         self.weights = RLParameterCollection(
             *(RLParameter(name, init_pars.get(name, np.mean(bnd)), bnd,
-                        self.V.pars[name], self.Q.pars[name])
-            for name, bnd in names_and_bnds)
+                          self.V.pars[name], self.Q.pars[name])
+              for name, bnd in names_and_bnds)
         )
 
     def eval(
-        self, 
-        env: Env, 
+        self,
+        env: Env,
         n_eval_episodes: int,
-        deterministic: bool = True, 
-        seed: int = None, 
+        deterministic: bool = True,
+        seed: int = None,
         warn: bool = True
-    ) -> Env:
+    ) -> np.ndarray:
         '''Evaluates the given environment.
 
         Parameters
@@ -285,8 +285,8 @@ class QuadRotorBaseAgent(ABC):
 
         Returns
         -------
-        env : gym.Env
-            The same environment used in the evaluation.
+        returns : np.ndarray
+            An array of the accumulated rewards for each episode
         '''
         if warn and not is_env_wrapped(env, RecordData):
             warnings.warn(
@@ -294,15 +294,17 @@ class QuadRotorBaseAgent(ABC):
                 UserWarning,
             )
 
+        returns = np.zeros(n_eval_episodes)
         for e in range(n_eval_episodes):
             state = env.reset(seed=None if seed is None else (seed + e))
             self.reset()
             done = False
             while not done:
                 action = self.predict(state, deterministic=deterministic)[0]
-                new_state, _, done, _ = env.step(action)
+                new_state, r, done, _ = env.step(action)
+                returns[e] += r
                 state = new_state
-        return env
+        return returns
 
     def __str__(self) -> str:
         '''Returns the agent name.'''
