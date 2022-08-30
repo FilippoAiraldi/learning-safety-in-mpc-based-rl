@@ -43,7 +43,7 @@ def train(
         Data resulting from the training.
     '''
     # create logger
-    logger = util.create_logger(run_name, to_file=False)
+    logger = util.create_logger(run_name, to_file=True)
 
     # create envs
     env = envs.QuadRotorEnv.get_wrapped(max_episode_steps=max_ep_steps)
@@ -93,9 +93,9 @@ if __name__ == '__main__':
                         help='Number of parallel agent to train.')
     parser.add_argument('--sessions', type=int, default=200,
                         help='Number of training sessions.')
-    parser.add_argument('--train_episodes', type=int, default=50,
+    parser.add_argument('--train_episodes', type=int, default=100,
                         help='Number of training episodes per session.')
-    parser.add_argument('--eval_episodes', type=int, default=5,
+    parser.add_argument('--eval_episodes', type=int, default=10,
                         help='Number of evaluation episodes per session.')
     parser.add_argument('--max_ep_steps', type=int, default=50,
                         help='Maximum number of steps per episode.')

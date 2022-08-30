@@ -83,7 +83,7 @@ class LinearLSTDDPGAgent(QuadRotorBaseLearningAgent):
 
         # during learning, DPG must always perturb the action in order to learn
         self.perturbation_chance = 1.0
-        self.perturbation_strength = 0.05
+        self.perturbation_strength = 0.5
 
         # initialize the replay memory. Per each episode the memory saves an
         # array of Phi(s), Psi(s,a), L(s,a), dpidtheta(s) and weights v. Also
@@ -108,7 +108,7 @@ class LinearLSTDDPGAgent(QuadRotorBaseLearningAgent):
         item = (state, action_taken, optimal_action, cost, new_state)
         self._episode_buffer.append(item)
 
-    # compute Psi
+    # compute Psi with PyTorch
     # import os
     # os.environ['KMP_DUPLICATE_LIB_OK']='True'
     # import torch
@@ -135,14 +135,13 @@ class LinearLSTDDPGAgent(QuadRotorBaseLearningAgent):
             return
 
         # stack everything in arrays and compute derivatives
-        S, L, S_next = [], [], []
-        E = []  # exploration
+        S, L, S_next, E = [], [], [], []
+        K = len(self._episode_buffer)
         for s, a, a_opt, r, s_next in self._episode_buffer:
             S.append(s)
             L.append(r)
             S_next.append(s_next)
             E.append(a - a_opt)
-        K = len(S)
         S = np.stack(S, axis=0)
         L = np.stack(L, axis=0).reshape(K, 1)
         S_next = np.stack(S_next, axis=0)
@@ -151,6 +150,8 @@ class LinearLSTDDPGAgent(QuadRotorBaseLearningAgent):
         # compute Phi (value function approximation basis functions)
         Phi = self._Phi(S.T).full().T
         Phi_next = self._Phi(S_next.T).full().T
+
+        # compute Psi
         A, b = self.weights['A'].value, self.weights['b'].value
         dpidtheta = np.transpose(
             self._dpidtheta(S.T, A, b).full().reshape(b.shape[0], K, -1),
@@ -225,7 +226,7 @@ class LinearLSTDDPGAgent(QuadRotorBaseLearningAgent):
         n_train_episodes: int,
         eval_env: QuadRotorEnv,
         n_eval_episodes: int,
-        perturbation_decay: float = 0.97,
+        perturbation_decay: float = 0.8,
         seed: int = None,
         logger: Logger = None
     ) -> None:
@@ -246,7 +247,7 @@ class LinearLSTDDPGAgent(QuadRotorBaseLearningAgent):
                         state, action, action_opt, r, new_state)
                     state = new_state
 
-                # when the episode is done, consolidate its experience into memory
+                # when episode is done, consolidate its experience into memory
                 self.consolidate_episode_experience()
                 cnt += 1
 

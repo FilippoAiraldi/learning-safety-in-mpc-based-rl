@@ -48,7 +48,7 @@ def monomial_powers(d: int, k: int) -> np.ndarray:
         np.row_stack(list(nchoosek(np.arange(1, k + d), d - 1))),
         np.full((m, 1), k + d, dtype=int)
     ))
-    return np.diff(dividers, axis=1) - 1
+    return np.flipud(np.diff(dividers, axis=1) - 1)
 
 
 def quad_form(
