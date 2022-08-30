@@ -6,6 +6,7 @@ from agents.rl_parameters import RLParameter, RLParameterCollection
 from dataclasses import dataclass
 from envs import QuadRotorEnv
 from logging import Logger
+from scipy.linalg import lstsq
 from typing import Union, Tuple
 from util import monomial_powers, cs_prod
 
@@ -159,10 +160,13 @@ class LinearLSTDDPGAgent(QuadRotorBaseLearningAgent):
         Psi = (dpidtheta @ E.reshape(K, -1, 1)).squeeze()
 
         # compute this episode's weights v via LSTD
-        v = np.linalg.solve(
-            Phi.T @ (Phi - self.config.gamma * Phi_next),
-            Phi.T @ L)
-        # v = lstsq(Phi - gamma * Phi_next, L, lapack_driver='gelsy')[0]
+        try:
+            v = np.linalg.solve(
+                Phi.T @ (Phi - self.config.gamma * Phi_next),
+                Phi.T @ L)
+        except Exception:
+            v = lstsq(Phi.T @ (Phi - self.config.gamma * Phi_next),
+                      Phi.T @ L, lapack_driver='gelsy')[0]
 
         # save this episode to memory and clear buffer
         self.replay_memory.append((Phi, Phi_next, Psi, L, dpidtheta, v))
@@ -183,8 +187,10 @@ class LinearLSTDDPGAgent(QuadRotorBaseLearningAgent):
         for Phi, Phi_next, Psi, L, _, _ in sample:
             A = Psi.T @ Psi
             b = Psi.T @ (L + (self.config.gamma * Phi_next - Phi) @ v)
-            w += np.linalg.solve(A, b)
-            # w += lstsq(A, b, lapack_driver='gelsy')[0]
+            try:
+                w += np.linalg.solve(A, b)
+            except Exception:
+                w += lstsq(A, b, lapack_driver='gelsy')[0]
         w /= m
 
         # compute episode's update
