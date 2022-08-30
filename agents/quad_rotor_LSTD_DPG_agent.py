@@ -106,6 +106,7 @@ class QuadRotorLSTDDPGAgent(QuadRotorBaseLearningAgent):
 
         # during learning, DPG must always perturb the action in order to learn
         self.perturbation_chance = 1.0
+        self.perturbation_strength = 1e-1
 
         # initialize the replay memory. Per each episode the memory saves an
         # array of Phi(s), Psi(s,a), L(s,a), dpidtheta(s) and weights v. Also
@@ -224,6 +225,71 @@ class QuadRotorLSTDDPGAgent(QuadRotorBaseLearningAgent):
         # update weights
         self.weights.update_values(theta_new)
         return dJdtheta
+
+    def learn(
+        self,
+        n_train_sessions: int,
+        n_train_episodes: int,
+        eval_env: QuadRotorEnv,
+        n_eval_episodes: int,
+        perturbation_decay: float = 0.9,
+        seed: int = None,
+        logger: Logger = None
+    ) -> None:
+        # simulate m episodes for each session
+        env, cnt = self.env, 0
+        for s in range(n_train_sessions):
+            for e in range(n_train_episodes):
+                state = env.reset(seed=None if seed is None else (seed + cnt))
+                self.reset()
+                done, t = False, 0
+                while not done:
+                    action = self.predict(state, deterministic=False)[0]
+                    action_opt, _, sol = self.predict(
+                        state, deterministic=True)
+                    # action, _, sol = self.predict(
+                    #     state, deterministic=False, perturb_gradient=False)
+                    # action_opt = sol.vals['u'][:, 0]
+                    new_state, r, done, _ = env.step(action)
+
+                    # save only successful transitions
+                    if sol.success:
+                        self.save_transition(
+                            state, action, action_opt, r, new_state, sol)
+                    else:
+                        logger.warning(f'{self.name}|{s}|{e}|{t}: MPC failed'
+                                       f' - {sol.status}.')
+                        # The solver can still reach maximum iteration and not
+                        # converge to a good solution. If that happens, in the
+                        # safe variant break the episode and label the
+                        # parameters unsafe.
+                        raise NotImplementedError()
+                    state = new_state
+                    t += 1
+
+                # when the episode is done, consolidate its experience into memory
+                self.consolidate_episode_experience()
+                cnt += 1
+
+            # when all m episodes are done, perform RL update and reduce
+            # exploration strength
+            update_grad = self.update()
+            self.perturbation_strength *= perturbation_decay
+
+            # at the end of each session, evaluate the policy
+            costs = self.eval(eval_env, n_eval_episodes, seed=seed + cnt)
+            cnt += n_eval_episodes
+
+            import util
+            util.plot.plot_trajectory_in_time(env, 0)
+            util.plot.plot_trajectory_in_time(eval_env, 0)
+
+            # log evaluation outcomes
+            if logger is not None:
+                logger.debug(
+                    f'{self.name}|{s}|{e}: J_mean={costs.mean():,.3f} '
+                    f'||dJ||={np.linalg.norm(update_grad):.3e}; ' +
+                    self.weights.values2str())
 
     def _init_symbols(self) -> None:
         '''Computes symbolical derivatives needed for DPG updates.'''
