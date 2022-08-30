@@ -3,6 +3,7 @@ import argparse
 import envs
 import joblib as jl
 import util
+from copy import deepcopy
 from typing import Any
 
 
@@ -46,7 +47,7 @@ def train(
 
     # create envs
     env = envs.QuadRotorEnv.get_wrapped(max_episode_steps=max_ep_steps)
-    eval_env = envs.QuadRotorEnv.get_wrapped(max_episode_steps=max_ep_steps)
+    eval_env = deepcopy(env)
 
     # create agent and launch training
     #

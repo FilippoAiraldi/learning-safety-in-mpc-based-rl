@@ -27,7 +27,8 @@ class Solution:
     @property
     def success(self) -> bool:
         '''Gets whether the MPC was run successfully.'''
-        return self.status in ('Solve_Succeeded', 'Solved_To_Acceptable_Level')
+        return self.stats['success']
+        # return self.status in ('Solve_Succeeded', 'Solved_To_Acceptable_Level')
 
     def value(self, x: cs.SX) -> _np.ndarray:
         '''Gets the value of the expression.'''
