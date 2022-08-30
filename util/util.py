@@ -1,6 +1,7 @@
 import casadi as cs
 import cloudpickle
 import contextlib
+import gym
 import joblib
 import logging
 import matplotlib as mpl
@@ -11,7 +12,7 @@ from datetime import datetime
 from itertools import combinations
 from scipy.special import comb
 from tqdm import tqdm
-from typing import Any, Iterable, Union
+from typing import Any, Iterable, Union, Type
 
 
 def cs_prod(x: Union[cs.SX, cs.DM], axis: int = 0) -> Union[cs.SX, cs.DM]:
@@ -198,3 +199,12 @@ def tqdm_joblib(*args, **kwargs):
     finally:
         joblib.parallel.BatchCompletionCallBack = old_batch_callback
         tqdm_object.close()
+
+
+def is_env_wrapped(env: gym.Env, wrapper_type: Type[gym.Wrapper]) -> bool:
+    '''Checks if the environment is wrapped with the specified type.'''
+    while isinstance(env, gym.Wrapper):
+        if isinstance(env, wrapper_type):
+            return True
+        env = env.env
+    return False

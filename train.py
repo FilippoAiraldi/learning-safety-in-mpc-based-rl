@@ -42,7 +42,7 @@ def train(
     dict[str, Any]
         Data resulting from the training.
     '''
-    logger = util.create_logger(run_name, to_file=True)
+    ep_cnt = 0
     env = envs.QuadRotorEnv.get_wrapped(max_episode_steps=max_ep_steps)
     eval_env = envs.QuadRotorEnv.get_wrapped(max_episode_steps=max_ep_steps)
     # agent: agents.QuadRotorLSTDDPGAgent = agents.wrappers.RecordLearningData(
@@ -66,7 +66,7 @@ def train(
         # run each episode
         for e in range(train_episodes):
             # reset env and agent
-            state = env.reset(seed=seed * (s * 10 + e))
+            state = env.reset(seed=seed + ep_cnt)
             agent.reset()
 
             # simulate this episode
@@ -99,6 +99,7 @@ def train(
 
             # when the episode is done, consolidate its experience into memory
             agent.consolidate_episode_experience()
+            ep_cnt += 1
 
         # when all m episodes are done, perform RL update and reduce
         # exploration strength
@@ -106,14 +107,8 @@ def train(
         agent.perturbation_strength *= 0.97
 
         # at the end of each session, evaluate the policy
-        for e in range(eval_episodes):
-            state = eval_env.reset(seed=seed * (s * 10 + e))
-            agent.reset()
-            done = False
-            while not done:
-                action = agent.predict(state, deterministic=True)[0]
-                new_state, _, done, _ = eval_env.step(action)
-                state = new_state
+        agent.eval(eval_env, eval_episodes, seed=seed + ep_cnt)
+        ep_cnt += eval_episodes
 
         # log evaluation outcomes
         J_mean = np.mean([eval_env.cum_rewards[i]

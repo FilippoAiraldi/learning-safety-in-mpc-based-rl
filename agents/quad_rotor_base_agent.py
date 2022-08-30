@@ -1,11 +1,15 @@
 import numpy as np
+import warnings
 from abc import ABC
 from agents import RLParameter, RLParameterCollection
 from envs import QuadRotorEnv
+from envs.wrappers import RecordData
+from gym import Env
 from gym.utils.seeding import np_random
 from itertools import count
 from mpc import QuadRotorMPC, QuadRotorMPCConfig, Solution
 from typing import Union
+from util import is_env_wrapped
 
 
 class QuadRotorBaseAgent(ABC):
@@ -254,6 +258,51 @@ class QuadRotorBaseAgent(ABC):
                         self.V.pars[name], self.Q.pars[name])
             for name, bnd in names_and_bnds)
         )
+
+    def eval(
+        self, 
+        env: Env, 
+        n_eval_episodes: int,
+        deterministic: bool = True, 
+        seed: int = None, 
+        warn: bool = True
+    ) -> Env:
+        '''Evaluates the given environment.
+
+        Parameters
+        ----------
+        env : gym.Env
+            The environment to evaluate.
+        n_eval_episodes : int
+            Number of episodes over which to evaluate.
+        deterministic : bool, optional
+            Whether to use deterministic or stochastic actions.
+        seed : int, optional
+            RNG seed.
+        warn : bool
+            If True, warns the user if the env is not wrapped in a RecordData
+            wrapper.
+
+        Returns
+        -------
+        env : gym.Env
+            The same environment used in the evaluation.
+        '''
+        if warn and not is_env_wrapped(env, RecordData):
+            warnings.warn(
+                'Evaluation env is not wrapped with a RecordData wrapper.',
+                UserWarning,
+            )
+
+        for e in range(n_eval_episodes):
+            state = env.reset(seed=None if seed is None else (seed + e))
+            self.reset()
+            done = False
+            while not done:
+                action = self.predict(state, deterministic=deterministic)[0]
+                new_state, _, done, _ = env.step(action)
+                state = new_state
+        return env
 
     def __str__(self) -> str:
         '''Returns the agent name.'''
