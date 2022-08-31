@@ -6,10 +6,10 @@ from agents.replay_memory import ReplayMemory
 from agents.rl_parameters import RLParameter, RLParameterCollection
 from dataclasses import dataclass
 from envs import QuadRotorEnv
-from gym.wrappers import NormalizeReward
+from gym.wrappers import NormalizeObservation, NormalizeReward
 from logging import Logger
 from scipy.linalg import lstsq
-from typing import Union, Tuple
+from typing import Union
 from util import monomial_powers, cs_prod, is_env_wrapped
 
 
@@ -93,6 +93,10 @@ class LinearLSTDDPGAgent(QuadRotorBaseLearningAgent):
                 UserWarning)
         else:
             env.gamma = self.config.gamma
+        if not is_env_wrapped(env, NormalizeObservation):
+            warnings.warn(
+                'Environment is not wrapped in "NormalizeObservation".',
+                UserWarning)
 
         # initialize the replay memory. Per each episode the memory saves an
         # array of Phi(s), Psi(s,a), L(s,a), dpidtheta(s) and weights v. Also
@@ -222,7 +226,7 @@ class LinearLSTDDPGAgent(QuadRotorBaseLearningAgent):
 
     def predict(
         self, state: np.ndarray = None, deterministic: bool = False
-    ) -> Tuple[np.ndarray, None, None]:
+    ) -> tuple[np.ndarray, None, None]:
         a = self._pi(
             state, self.weights['A'].value, self.weights['b'].value
         ).full().squeeze()
@@ -274,7 +278,14 @@ class LinearLSTDDPGAgent(QuadRotorBaseLearningAgent):
             self.perturbation_strength *= perturbation_decay
 
             # at the end of each session, evaluate the policy
-            returns = self.eval(eval_env, n_eval_episodes, seed=seed + cnt)
+            mean_std = ((env.obs_rms.mean, np.sqrt(env.obs_rms.var))
+                        if is_env_wrapped(env, NormalizeObservation)
+                        else (0, 1))
+            returns = self.eval(
+                eval_env,
+                n_eval_episodes,
+                observation_mean_std=mean_std,
+                seed=seed + cnt)
             cnt += n_eval_episodes
 
             # log evaluation outcomes

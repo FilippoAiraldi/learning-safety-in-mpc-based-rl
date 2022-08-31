@@ -261,7 +261,8 @@ class QuadRotorBaseAgent(ABC):
         env: Env,
         n_eval_episodes: int,
         deterministic: bool = True,
-        seed: int = None
+        observation_mean_std: tuple[np.ndarray, np.ndarray] = (0, 1),
+        seed: int = None,
     ) -> np.ndarray:
         '''
         Evaluates the given environment.
@@ -274,6 +275,9 @@ class QuadRotorBaseAgent(ABC):
             Number of episodes over which to evaluate.
         deterministic : bool, optional
             Whether to use deterministic or stochastic actions.
+        observation_mean_std : tuple[array_like, array_like], optional
+            Mean and std for normalization of the observations before calling 
+            the agent.
         seed : int, optional
             RNG seed.
 
@@ -283,15 +287,21 @@ class QuadRotorBaseAgent(ABC):
             An array of the accumulated rewards/costs for each episode
         '''
         returns = np.zeros(n_eval_episodes)
+        mean, std = observation_mean_std
+
         for e in range(n_eval_episodes):
             state = env.reset(seed=None if seed is None else (seed + e))
             self.reset()
             done = False
+
             while not done:
+                state = (state - mean) / (std + 1e-8)
                 action = self.predict(state, deterministic=deterministic)[0]
+                
                 new_state, r, done, _ = env.step(action)
                 returns[e] += r
                 state = new_state
+
         return returns
 
     def __str__(self) -> str:
