@@ -118,6 +118,15 @@ class LinearLSTDDPGAgent(QuadRotorBaseLearningAgent):
         cost: np.ndarray,
         new_state: np.ndarray,
     ) -> None:
+        # - states/observations are already normalized by NormalizeObservation
+        # - rewards/costs are already normalized by NormalizeReward
+        # - actions must be translated from range [u_min, u_max] to [-1, +1]
+
+        u_bnd = self.env.config.u_bounds
+        u_range = np.diff(u_bnd).flatten()
+        action_taken = (action_taken - u_bnd[:, 0]) / u_range * 2 - 1
+        optimal_action = (optimal_action - u_bnd[:, 0]) / u_range * 2 - 1
+
         item = (state, action_taken, optimal_action, cost, new_state)
         self._episode_buffer.append(item)
 
@@ -229,17 +238,18 @@ class LinearLSTDDPGAgent(QuadRotorBaseLearningAgent):
     ) -> tuple[np.ndarray, None, None]:
         a = self._pi(
             state, self.weights['A'].value, self.weights['b'].value
-        ).full().squeeze()
+        ).full().squeeze()  # between -1 and +1
         assert np.isfinite(a).all()
 
-        if deterministic or self.np_random.random() > self.perturbation_chance:
-            return a, None, None
+        if not deterministic and \
+            self.np_random.random() <= self.perturbation_chance:
+            rng = self.np_random.normal(scale=self.perturbation_strength,
+                                        size=a.shape)
+            a = np.clip(a + rng, -1, +1)
 
+        # to proper range
         u_bnd = self.env.config.u_bounds
-        rng = self.np_random.normal(
-            scale=self.perturbation_strength * np.diff(u_bnd).flatten(),
-            size=a.shape)
-        return a + rng, None, None
+        return (a + 1) / 2 * np.diff(u_bnd).flat + u_bnd[:, 0], None, None
 
     def learn(
         self,
@@ -310,7 +320,6 @@ class LinearLSTDDPGAgent(QuadRotorBaseLearningAgent):
 
         # re-create weights for the policy
         na, nx = self.env.nu, self._Phi.size1_out(0)
-        u_bnd = self.env.config.u_bounds
         A, b = cs.SX.sym('A', na * nx, 1), cs.SX.sym('b', na, 1)
         self.weights = RLParameterCollection(
             RLParameter(
@@ -325,10 +334,7 @@ class LinearLSTDDPGAgent(QuadRotorBaseLearningAgent):
         self._A, self._b = A, b
 
         # compute derivative of the policy w.r.t. its weights
-        pi = A.reshape((na, nx)) @ y + b
-        # a, b, act = 0, 1, cs_sigmoid
-        lb, ub, act = -1, 1, cs.tanh
-        pi = (act(pi) - lb) / (ub - lb) * np.diff(u_bnd) + u_bnd[:, 0]
+        pi = cs.tanh(A.reshape((na, nx)) @ y + b)  # in range [-1, +1]
 
         self._pi = cs.Function(
             'pi', [x, A, b], [pi], ['s', 'A', 'b'], ['pi(s)'])
