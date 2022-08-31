@@ -1,6 +1,6 @@
 import gym
 from abc import ABC
-from gym.wrappers import TimeLimit, OrderEnforcing
+from gym.wrappers import TimeLimit, OrderEnforcing, NormalizeReward
 from envs.wrappers import RecordData, ClipActionIfClose
 from typing import TypeVar, Type
 
@@ -16,14 +16,16 @@ class BaseEnv(gym.Env[ObsType, ActType], ABC):
         cls: Type[SuperEnvType],
         max_episode_steps: int = 50,
         deque_size: int = None,
+        normalize_return: bool = False,
         *env_args, **env_kwargs
     ) -> SuperEnvType:
         '''
         Returns the environment properly encapsulated in some useful wrappers.
         The wrappers are (from in to outward)
             - OrderEnforcing
-            - ClipActionIfClose
+            - ClipActionIfClose (optional)
             - RecordData
+            - NormalizeReward (optional)
             - TimeLimit
 
         Parameters
@@ -31,7 +33,9 @@ class BaseEnv(gym.Env[ObsType, ActType], ABC):
         max_episode_steps : int, optional
             Maximum number of steps per episode (see TimeLimit).
         deque_size : int, optional
-            Maximum number of espiodic data saved (see RecordData).
+            Maximum number of episodic data saved (see RecordData).
+        normalize_return : bool, optional
+            Whether to apply return normalization (see NormalizeReward)
 
         Returns
         -------
@@ -45,6 +49,8 @@ class BaseEnv(gym.Env[ObsType, ActType], ABC):
         # be done after RecordData
         env = cls(*env_args, **env_kwargs)
         env = TimeLimit(env, max_episode_steps=max_episode_steps)
+        if normalize_return:
+            env = NormalizeReward(env)
         env = RecordData(env, deque_size=deque_size)
         if env.action_space.bounded_below.any() or \
                 env.action_space.bounded_above.any():

@@ -46,8 +46,9 @@ def train(
     logger = util.create_logger(run_name, to_file=True)
 
     # create envs
-    env = envs.QuadRotorEnv.get_wrapped(max_episode_steps=max_ep_steps)
-    eval_env = deepcopy(env)
+    env = envs.QuadRotorEnv.get_wrapped(max_episode_steps=max_ep_steps,
+                                        normalize_return=True)
+    eval_env = envs.QuadRotorEnv.get_wrapped(max_episode_steps=max_ep_steps)
 
     # create agent and launch training
     #

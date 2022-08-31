@@ -1,14 +1,16 @@
 import casadi as cs
 import numpy as np
+import warnings
 from agents.quad_rotor_base_learning_agent import QuadRotorBaseLearningAgent
 from agents.replay_memory import ReplayMemory
 from agents.rl_parameters import RLParameter, RLParameterCollection
 from dataclasses import dataclass
 from envs import QuadRotorEnv
+from gym.wrappers import NormalizeReward
 from logging import Logger
 from scipy.linalg import lstsq
 from typing import Union, Tuple
-from util import monomial_powers, cs_prod
+from util import monomial_powers, cs_prod, is_env_wrapped
 
 
 @dataclass(frozen=True)
@@ -82,6 +84,15 @@ class LinearLSTDDPGAgent(QuadRotorBaseLearningAgent):
         # during learning, DPG must always perturb the action in order to learn
         self.perturbation_chance = 1.0
         self.perturbation_strength = 0.5
+
+        # check if rewards are normalized. If not, issue a warning; otherwise,
+        # make sure the same discount factor is used in both.
+        if not is_env_wrapped(env, NormalizeReward):
+            warnings.warn(
+                'Environment is not wrapped in "NormalizeReward".',
+                UserWarning)
+        else:
+            env.gamma = self.config.gamma
 
         # initialize the replay memory. Per each episode the memory saves an
         # array of Phi(s), Psi(s,a), L(s,a), dpidtheta(s) and weights v. Also
