@@ -282,7 +282,7 @@ class QuadRotorLSTDDPGAgent(QuadRotorBaseLearningAgent):
             # log evaluation outcomes
             if logger is not None:
                 logger.debug(
-                    f'{self.name}|{s}|{e}: J_mean={costs.mean():,.3f} '
+                    f'{self.name}|{s}: J_mean={costs.mean():,.3f} '
                     f'||dJ||={np.linalg.norm(update_grad):.3e}; ' +
                     self.weights.values2str())
 

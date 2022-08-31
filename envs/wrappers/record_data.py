@@ -54,14 +54,14 @@ class RecordData(gym.Wrapper):
 
     def reset(self, *args, **kwargs) -> np.ndarray:
         '''Resets the environment and resets the current data accumulators.'''
-        observation = super().reset(*args, **kwargs)
+        observation = self.env.reset(*args, **kwargs)
         self._clear_ep_data()
         self.ep_observations.append(observation)
         return observation
 
     def step(self, action):
         '''Steps through the environment, accumulating the episode data.'''
-        observation, reward, done, info = super().step(action)
+        observation, reward, done, info = self.env.step(action)
 
         # accumulate data
         self.ep_observations.append(observation)

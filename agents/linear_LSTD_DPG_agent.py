@@ -239,7 +239,7 @@ class LinearLSTDDPGAgent(QuadRotorBaseLearningAgent):
         # simulate m episodes for each session
         env, cnt = self.env, 0
         for s in range(n_train_sessions):
-            for e in range(n_train_episodes):
+            for _ in range(n_train_episodes):
                 state = env.reset(seed=None if seed is None else (seed + cnt))
                 done = False
                 while not done:
@@ -269,7 +269,7 @@ class LinearLSTDDPGAgent(QuadRotorBaseLearningAgent):
             # log evaluation outcomes
             if logger is not None:
                 logger.debug(
-                    f'{self.name}|{s}|{e}: J_mean={returns.mean():,.3f} '
+                    f'{self.name}|{s}: J_mean={returns.mean():,.3f} '
                     f'||dJ||={np.linalg.norm(update_grad):.3e}; ' +
                     self.weights.values2str())
 
