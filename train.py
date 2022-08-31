@@ -67,18 +67,29 @@ def train(
     #         },
     #         seed=seed * (agent_n + 1) * 1000))
     #
+    agent = agents.wrappers.RecordLearningData(
+        agents.QuadRotorCOPDACQAgent(
+            env=env,
+            agentname=f'DPG_{agent_n}',
+            agent_config={
+                'replay_maxlen': max_ep_steps * train_episodes * 10,
+                'replay_sample_size': max_ep_steps * train_episodes,
+                'replay_include_last': max_ep_steps
+            },
+            seed=seed * (agent_n + 1) * 1000))
+    #
     # agent = agents.QuadRotorPIAgent(env=env, agentname=f'PI_{agent_n}')
     #
-    agent = agents.wrappers.RecordLearningData(
-        agents.LinearLSTDDPGAgent(
-            env=env,
-            agentname=f'Lin_LSTDDPG_{agent_n}',
-            agent_config={
-                'replay_maxlen': train_episodes,
-                'replay_sample_size': train_episodes,
-            },
-            seed=seed * (agent_n + 1) * 1000
-        ))
+    # agent = agents.wrappers.RecordLearningData(
+    #     agents.LinearLSTDDPGAgent(
+    #         env=env,
+    #         agentname=f'Lin_LSTDDPG_{agent_n}',
+    #         agent_config={
+    #             'replay_maxlen': train_episodes,
+    #             'replay_sample_size': train_episodes,
+    #         },
+    #         seed=seed * (agent_n + 1) * 1000
+    #     ))
 
     agent.learn(
         n_train_sessions=sessions,
@@ -97,11 +108,11 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--agents', type=int, default=1,
                         help='Number of parallel agent to train.')
-    parser.add_argument('--sessions', type=int, default=200,
+    parser.add_argument('--sessions', type=int, default=20,
                         help='Number of training sessions.')
-    parser.add_argument('--train_episodes', type=int, default=100,
+    parser.add_argument('--train_episodes', type=int, default=10,
                         help='Number of training episodes per session.')
-    parser.add_argument('--eval_episodes', type=int, default=10,
+    parser.add_argument('--eval_episodes', type=int, default=3,
                         help='Number of evaluation episodes per session.')
     parser.add_argument('--max_ep_steps', type=int, default=50,
                         help='Maximum number of steps per episode.')
