@@ -3,7 +3,6 @@ import argparse
 import envs
 import joblib as jl
 import util
-from copy import deepcopy
 from typing import Any
 
 
@@ -43,13 +42,13 @@ def train(
         Data resulting from the training.
     '''
     # create logger
-    logger = util.create_logger(run_name, to_file=True)
+    logger = util.create_logger(run_name, to_file=False)
 
     # create envs
     env = envs.QuadRotorEnv.get_wrapped(
         max_episode_steps=max_ep_steps,
-        normalize_observation=True,
-        normalize_reward=True)
+        normalize_observation=False,
+        normalize_reward=False)
     eval_env = envs.QuadRotorEnv.get_wrapped(
         max_episode_steps=max_ep_steps,
         normalize_observation=False,
@@ -73,8 +72,8 @@ def train(
             agentname=f'DPG_{agent_n}',
             agent_config={
                 'replay_maxlen': max_ep_steps * train_episodes * 10,
-                'replay_sample_size': max_ep_steps * train_episodes,
-                'replay_include_last': max_ep_steps
+                'replay_sample_size': max_ep_steps * train_episodes * 2,
+                'replay_include_last': max_ep_steps * train_episodes
             },
             seed=seed * (agent_n + 1) * 1000))
     #

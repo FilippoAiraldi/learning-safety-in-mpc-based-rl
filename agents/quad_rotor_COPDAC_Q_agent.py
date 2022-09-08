@@ -43,7 +43,7 @@ class QuadRotorCOPDACQAgentConfig:
     lr_theta: float = 1e-3
     lr_w: float = 5e-1
     lr_v: float = 5e-1
-    max_perc_update: float = np.inf
+    max_perc_update: float = 0.5
     clip_grad_norm: float = None
 
     @property
@@ -275,8 +275,8 @@ class QuadRotorCOPDACQAgent(QuadRotorBaseLearningAgent):
             # log evaluation outcomes
             if logger is not None:
                 logger.debug(
-                    f'{self.name}|{s}: J={costs.mean():,.3f} '
-                    f'||dJ||={np.linalg.norm(update_grad):.3e}; ' +
+                    f'{self.name}|{s}: J={costs.mean():,.3f};    '
+                    f'||dJ||={np.linalg.norm(update_grad):.3e};    ' +
                     self.weights.values2str())
 
     def _init_symbols(self) -> None:
