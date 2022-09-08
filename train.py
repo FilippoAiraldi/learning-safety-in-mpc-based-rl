@@ -54,42 +54,50 @@ def train(
         normalize_observation=False,
         normalize_reward=False)
 
-    # create agent and launch training
-    #
-    # agent = agents.wrappers.RecordLearningData(
-    #     agents.QuadRotorLSTDDPGAgent(
-    #         env=env,
-    #         agentname=f'DPG_{agent_n}',
-    #         agent_config={
-    #             'replay_maxlen': train_episodes,
-    #             'replay_sample_size': train_episodes,
-    #         },
-    #         seed=seed * (agent_n + 1) * 1000))
-    #
-    agent = agents.wrappers.RecordLearningData(
-        agents.QuadRotorCOPDACQAgent(
-            env=env,
-            agentname=f'DPG_{agent_n}',
-            agent_config={
-                'replay_maxlen': max_ep_steps * train_episodes * 10,
-                'replay_sample_size': max_ep_steps * train_episodes * 2,
-                'replay_include_last': max_ep_steps * train_episodes
-            },
-            seed=seed * (agent_n + 1) * 1000))
-    #
-    # agent = agents.QuadRotorPIAgent(env=env, agentname=f'PI_{agent_n}')
-    #
-    # agent = agents.wrappers.RecordLearningData(
-    #     agents.LinearLSTDDPGAgent(
-    #         env=env,
-    #         agentname=f'Lin_LSTDDPG_{agent_n}',
-    #         agent_config={
-    #             'replay_maxlen': train_episodes,
-    #             'replay_sample_size': train_episodes,
-    #         },
-    #         seed=seed * (agent_n + 1) * 1000
-    #     ))
+    # create agent 
+    # agent = agents.QuadRotorLSTDDPGAgent(
+    #     env=env,
+    #     agentname=f'LSTDDPG_{agent_n}',
+    #     agent_config={
+    #         'replay_maxlen': train_episodes,
+    #         'replay_sample_size': train_episodes,
+    #     },
+    #     seed=seed * (agent_n + 1) * 1000)
+    
+    # agent = agents.QuadRotorCOPDACQAgent(
+    #     env=env,
+    #     agentname=f'COPDACQ_{agent_n}',
+    #     agent_config={
+    #         'replay_maxlen': max_ep_steps * train_episodes * 10,
+    #         'replay_sample_size': max_ep_steps * train_episodes * 2,
+    #         'replay_include_last': max_ep_steps * train_episodes
+    #     },
+    #     seed=seed * (agent_n + 1) * 1000)
+        
+    agent = agents.QuadRotorLSTDQAgent(
+        env=env,
+        agentname=f'LSTDQ_{agent_n}',
+        agent_config={
+            'replay_maxlen': max_ep_steps * train_episodes * 10,
+            'replay_sample_size': max_ep_steps * train_episodes * 3,
+            'replay_include_last': max_ep_steps * train_episodes
+        },
+        seed=seed * (agent_n + 1) * 1000)
 
+    # agent = agents.QuadRotorPIAgent(env=env, agentname=f'PI_{agent_n}')
+
+    # agent = agents.LinearLSTDDPGAgent(
+    #     env=env,
+    #     agentname=f'LSTDDPG_{agent_n}',
+    #     agent_config={
+    #         'replay_maxlen': train_episodes,
+    #         'replay_sample_size': train_episodes,
+    #     },
+    #     seed=seed * (agent_n + 1) * 1000)
+
+    agent = agents.wrappers.RecordLearningData(agent)
+
+    # launch training
     agent.learn(
         n_train_sessions=sessions,
         n_train_episodes=train_episodes,

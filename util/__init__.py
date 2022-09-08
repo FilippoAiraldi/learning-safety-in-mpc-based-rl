@@ -12,5 +12,6 @@ from util.util import (
     create_logger,
     tqdm_joblib,
     cs_sigmoid,
-    is_env_wrapped
+    is_env_wrapped,
+    cholesky_added_multiple_identities
 )
