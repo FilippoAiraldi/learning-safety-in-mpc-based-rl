@@ -255,6 +255,10 @@ class GenericMPC:
             A solution object containing all the information.
         '''
         assert self.solver is not None, 'Solver uninitialized.'
+        assert len(self.pars.keys() - pars.keys()) == 0, \
+            'Trying to solve the MPC with unspecified parameters: ' + \
+                ', '.join(self.pars.keys() - pars.keys()) + '.'
+            
 
         # convert to nlp format and solve
         p = subsevalf(self.p, self.pars, pars)

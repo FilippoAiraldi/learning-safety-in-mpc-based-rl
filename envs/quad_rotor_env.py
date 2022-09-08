@@ -30,7 +30,7 @@ class QuadRotorEnvConfig:
 
     # simulation
     x0: np.ndarray = field(default_factory=lambda: np.array(
-        [0, 0, 3.5, 0, 0, 0, np.deg2rad(10), np.deg2rad(-10), 0, 0]))
+        [0, 0, 3.5, 0, 0, 0, 0, 0, 0, 0]))
     xf: np.ndarray = field(default_factory=lambda: np.array(
         [3, 3, 0.2, 0, 0, 0, 0, 0, 0, 0]))
 
