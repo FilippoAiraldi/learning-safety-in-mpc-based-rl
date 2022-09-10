@@ -35,12 +35,12 @@ class QuadRotorLSTDQAgentConfig:
     init_w_Ts: np.ndarray = 1e2
 
     # experience replay parameters
-    replay_maxlen: float = 20  # 20 episodes
-    replay_sample_size: float = 10  # sample from 10 out of 20 episodes
-    replay_include_last: float = 5  # include in the sample the last 5 episodes
+    replay_maxlen: float = 2000
+    replay_sample_size: float = 500
+    replay_include_last: float = 100
 
     # RL parameters
-    lr: float = 1e-1
+    lr: float = 1e-2
     max_perc_update: float = np.inf
     clip_grad_norm: float = None
 
@@ -105,7 +105,7 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
                          mpc_config=mpc_config, seed=seed)
 
         # during learning, DPG must always perturb the action in order to learn
-        self.perturbation_chance = 1 / 3
+        self.perturbation_chance = 0.5
         self.perturbation_strength = 1e-1
 
         # initialize the replay memory. Per each episode the memory saves an
@@ -184,11 +184,10 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
         self,
         n_train_sessions: int,
         n_train_episodes: int,
-        eval_env: QuadRotorEnv,
-        n_eval_episodes: int,
         perturbation_decay: float = 0.9,
         seed: int = None,
-        logger: Logger = None
+        logger: Logger = None,
+        **kwargs
     ) -> None:
         # simulate m episodes for each session
         env, cnt = self.env, 0
@@ -221,6 +220,10 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
                         raise NotImplementedError()
                     t += 1
 
+                if logger is not None:
+                    logger.debug(
+                        f'{self.name}|{s}|{e}: J={env.cum_rewards[-1]:,.3f}')
+
                 # does nothing
                 self.consolidate_episode_experience()
                 cnt += 1
@@ -229,16 +232,14 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
             # exploration strength
             update_grad = self.update()
             self.perturbation_strength *= perturbation_decay
-            # self.perturbation_chance *= perturbation_decay
-
-            # at the end of each session, evaluate the policy
-            costs = self.eval(eval_env, n_eval_episodes, seed=seed + cnt)
-            cnt += n_eval_episodes
+            self.perturbation_chance *= perturbation_decay
 
             # log evaluation outcomes
+            J_mean = np.mean(
+                [env.cum_rewards[i] for i in range(-n_train_episodes, 0)])
             if logger is not None:
                 logger.debug(
-                    f'{self.name}|{s}: J_mean={costs.mean():,.3f} '
+                    f'{self.name}|{s}: J_mean={J_mean:.3f}; '
                     f'||dJ||={np.linalg.norm(update_grad):.3e}; ' +
                     self.weights.values2str())
 

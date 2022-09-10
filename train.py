@@ -42,7 +42,7 @@ def train(
         Data resulting from the training.
     '''
     # create logger
-    logger = util.create_logger(run_name, to_file=False)
+    logger = util.create_logger(run_name, to_file=True)
 
     # create envs
     env = envs.QuadRotorEnv.get_wrapped(
@@ -54,7 +54,7 @@ def train(
         normalize_observation=False,
         normalize_reward=False)
 
-    # create agent 
+    # create agent
     # agent = agents.QuadRotorLSTDDPGAgent(
     #     env=env,
     #     agentname=f'LSTDDPG_{agent_n}',
@@ -63,7 +63,7 @@ def train(
     #         'replay_sample_size': train_episodes,
     #     },
     #     seed=seed * (agent_n + 1) * 1000)
-    
+
     # agent = agents.QuadRotorCOPDACQAgent(
     #     env=env,
     #     agentname=f'COPDACQ_{agent_n}',
@@ -73,13 +73,13 @@ def train(
     #         'replay_include_last': max_ep_steps * train_episodes
     #     },
     #     seed=seed * (agent_n + 1) * 1000)
-        
+
     agent = agents.QuadRotorLSTDQAgent(
         env=env,
         agentname=f'LSTDQ_{agent_n}',
         agent_config={
             'replay_maxlen': max_ep_steps * train_episodes * 10,
-            'replay_sample_size': max_ep_steps * train_episodes * 3,
+            'replay_sample_size': 0.5,
             'replay_include_last': max_ep_steps * train_episodes
         },
         seed=seed * (agent_n + 1) * 1000)
