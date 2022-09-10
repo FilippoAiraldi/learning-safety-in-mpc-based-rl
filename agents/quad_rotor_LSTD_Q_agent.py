@@ -40,7 +40,8 @@ class QuadRotorLSTDQAgentConfig:
     replay_include_last: float = 100
 
     # RL parameters
-    lr: float = 1e-2
+    gamma: float = 1.0
+    lr: float = 1e-1
     max_perc_update: float = np.inf
     clip_grad_norm: float = None
 
@@ -122,12 +123,12 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
 
     def save_transition(
         self,
-        cost: np.ndarray,
+        cost: float,
         solQ: Solution,
         solV: Solution
     ) -> None:
         # compute td error
-        target = cost + solV.f
+        target = cost + self.config.gamma * solV.f
         td_err = target - solQ.f
 
         # compute numerical gradients w.r.t. params
@@ -240,7 +241,7 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
             if logger is not None:
                 logger.debug(
                     f'{self.name}|{s}: J_mean={J_mean:.3f}; '
-                    f'||dJ||={np.linalg.norm(update_grad):.3e}; ' +
+                    f'||p||={np.linalg.norm(update_grad):.3e}; ' +
                     self.weights.values2str())
 
     def _init_symbols(self) -> None:
