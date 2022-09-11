@@ -4,6 +4,7 @@ from agents.quad_rotor_base_learning_agent import QuadRotorBaseLearningAgent
 from agents.replay_memory import ReplayMemory
 from dataclasses import dataclass
 from envs import QuadRotorEnv
+from itertools import chain
 from logging import Logger
 from mpc import Solution, QuadRotorMPCConfig
 from scipy.linalg import cho_solve
@@ -99,22 +100,26 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
             keys = QuadRotorLSTDQAgentConfig.__dataclass_fields__.keys()
             agent_config = QuadRotorLSTDQAgentConfig(
                 **{k: agent_config[k] for k in keys if k in agent_config})
+
         self.config = agent_config
-        super().__init__(env, agentname=agentname,
-                         init_pars=self.config.init_pars,
-                         fixed_pars={'perturbation': np.nan},
-                         mpc_config=mpc_config, seed=seed)
+        super().__init__(
+            env,
+            agentname=agentname,
+            init_pars=self.config.init_pars,
+            fixed_pars={'perturbation': np.nan},
+            mpc_config=mpc_config,
+            seed=seed
+        )
 
         # during learning, DPG must always perturb the action in order to learn
         self.perturbation_chance = 0.5
         self.perturbation_strength = 1e-1
 
-        # initialize the replay memory. Per each episode the memory saves an
-        # array of Phi(s), Psi(s,a), L(s,a), dpidtheta(s) and weights v. Also
-        # initialize the episode buffer which temporarily stores values before
-        # batch-processing them into the replay memory
-        self.replay_memory = ReplayMemory[tuple[np.ndarray, ...]](
+        # initialize the replay memory. Per each episode the memory saves the
+        # gradient and Hessian of Q at each instant
+        self.replay_memory = ReplayMemory[list[tuple[np.ndarray, ...]]](
             maxlen=agent_config.replay_maxlen, seed=seed)
+        self._episode_buffer: list[tuple[np.ndarray, ...]] = []
 
         # initialize symbols for derivatives to be used later. Also initialize
         # the QP solver used to compute updates
@@ -140,10 +145,13 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
         H = dQ @ dQ.T - td_err * d2Q
 
         # save to replay memory
-        self.replay_memory.append((g, H))
+        self._episode_buffer.append((g, H))
 
     def consolidate_episode_experience(self) -> None:
-        pass
+        if len(self._episode_buffer) == 0:
+            return
+        self.replay_memory.append(self._episode_buffer.copy())
+        self._episode_buffer.clear()
 
     def update(self) -> np.ndarray:
         # sample the memory
@@ -152,7 +160,7 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
             cfg.replay_sample_size, cfg.replay_include_last)
 
         # sum over the batch of samples and compute update direction p
-        g, H = [sum(o) for o in zip(*sample)]
+        g, H = [sum(o) for o in zip(*chain.from_iterable(sample))]
         R = cholesky_added_multiple_identities(H)
         p = cho_solve((R, True), g).flatten()
 
@@ -225,7 +233,7 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
                     logger.debug(
                         f'{self.name}|{s}|{e}: J={env.cum_rewards[-1]:,.3f}')
 
-                # does nothing
+                # when episode is done, consolidate its experience into memory
                 self.consolidate_episode_experience()
                 cnt += 1
 

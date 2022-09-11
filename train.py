@@ -119,7 +119,7 @@ if __name__ == '__main__':
                         help='Number of training sessions.')
     parser.add_argument('--train_episodes', type=int, default=10,
                         help='Number of training episodes per session.')
-    parser.add_argument('--eval_episodes', type=int, default=3,
+    parser.add_argument('--eval_episodes', type=int, default=0,
                         help='Number of evaluation episodes per session.')
     parser.add_argument('--max_ep_steps', type=int, default=50,
                         help='Maximum number of steps per episode.')
@@ -151,8 +151,8 @@ if __name__ == '__main__':
         args.sessions,
         args.train_episodes,
         args.eval_episodes,
-        args.max_ep_steps, 
-        agent_config, 
+        args.max_ep_steps,
+        agent_config,
         run_name
     )
     if args.agents == 1:
