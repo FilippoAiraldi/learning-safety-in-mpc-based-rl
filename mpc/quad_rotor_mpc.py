@@ -12,8 +12,8 @@ class QuadRotorMPCConfig:
     '''
     Quadrotor MPC configuration, such as horizons and CasADi/IPOPT options.
     '''
-    # horizons
-    N: int = 20
+    # horizon
+    N: int = 15
 
     # solver options
     solver_opts: dict = field(default_factory=lambda: {

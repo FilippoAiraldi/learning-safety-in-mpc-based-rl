@@ -2,6 +2,7 @@ import agents
 import argparse
 import envs
 import joblib as jl
+import numpy as np
 import util
 from typing import Any
 
@@ -12,6 +13,7 @@ def train(
     train_episodes: int,
     eval_episodes: int,
     max_ep_steps: int,
+    agent_config: dict[str, Any],
     run_name: str,
     seed: int
 ) -> dict[str, Any]:
@@ -31,6 +33,8 @@ def train(
         Evaluation episodes at the end of each session.
     max_ep_steps : int
         Maximum number of time steps simulated per each episode.
+    agent_config : dict[str, any]
+        Agent's configuration.
     run_name : str
         The name of this run.
     seed : int
@@ -55,6 +59,8 @@ def train(
         normalize_reward=False)
 
     # create agent
+    # agent = agents.QuadRotorPIAgent(env=env, agentname=f'PI_{agent_n}')
+
     # agent = agents.QuadRotorLSTDDPGAgent(
     #     env=env,
     #     agentname=f'LSTDDPG_{agent_n}',
@@ -74,18 +80,6 @@ def train(
     #     },
     #     seed=seed * (agent_n + 1) * 1000)
 
-    agent = agents.QuadRotorLSTDQAgent(
-        env=env,
-        agentname=f'LSTDQ_{agent_n}',
-        agent_config={
-            'replay_maxlen': max_ep_steps * train_episodes * 10,
-            'replay_sample_size': 0.5,
-            'replay_include_last': max_ep_steps * train_episodes
-        },
-        seed=seed * (agent_n + 1) * 1000)
-
-    # agent = agents.QuadRotorPIAgent(env=env, agentname=f'PI_{agent_n}')
-
     # agent = agents.LinearLSTDDPGAgent(
     #     env=env,
     #     agentname=f'LSTDDPG_{agent_n}',
@@ -94,6 +88,12 @@ def train(
     #         'replay_sample_size': train_episodes,
     #     },
     #     seed=seed * (agent_n + 1) * 1000)
+
+    agent = agents.QuadRotorLSTDQAgent(
+        env=env,
+        agentname=f'LSTDQ_{agent_n}',
+        agent_config=agent_config,
+        seed=seed * (agent_n + 1) * 1000)
 
     agent = agents.wrappers.RecordLearningData(agent)
 
@@ -123,6 +123,14 @@ if __name__ == '__main__':
                         help='Number of evaluation episodes per session.')
     parser.add_argument('--max_ep_steps', type=int, default=50,
                         help='Maximum number of steps per episode.')
+    parser.add_argument('--gamma', type=float, default=1.0,
+                        help='Discount factor.')
+    parser.add_argument('--lr', type=float, default=1e-1,
+                        help='Learning rate.')
+    parser.add_argument('--max_perc_update', type=float, default=np.inf,
+                        help='Maximum percentage update of agent weigths.')
+    parser.add_argument('--replay_mem_sample_size', type=float, default=0.5,
+                        help='Replay memory sample size (%).')
     parser.add_argument('--seed', type=int, default=42, help='RNG seed.')
     args = parser.parse_args()
 
@@ -131,10 +139,22 @@ if __name__ == '__main__':
     run_name = util.get_run_name()
 
     # launch training
-    const_args = (args.sessions,
-                  args.train_episodes,
-                  args.eval_episodes,
-                  args.max_ep_steps, run_name)
+    agent_config = {
+        'gamma': args.gamma,
+        'lr': args.lr,
+        'max_perc_update': args.max_perc_update,
+        'replay_maxlen': args.train_episodes * 5,  # fixed
+        'replay_sample_size': args.replay_mem_sample_size,  # [0.1, 1.0]
+        'replay_include_last': args.train_episodes,  # fixed
+    }
+    const_args = (
+        args.sessions,
+        args.train_episodes,
+        args.eval_episodes,
+        args.max_ep_steps, 
+        agent_config, 
+        run_name
+    )
     if args.agents == 1:
         data = [train(0, *const_args, args.seed)]
     else:
