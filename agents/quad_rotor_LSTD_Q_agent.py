@@ -106,8 +106,8 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
         )
 
         # during learning, DPG must always perturb the action in order to learn
-        self.perturbation_chance = 1.0
-        self.perturbation_strength = 2.5e-1
+        self.perturbation_chance = 0.7
+        self.perturbation_strength = 5e-1
 
         # initialize the replay memory. Per each episode the memory saves the
         # gradient and Hessian of Q at each instant
