@@ -16,13 +16,14 @@ def learn(
 ) -> float:
     # simulate m episodes for each session
     cnt = 0
-    for _ in range(n_train_sessions):
-        for _ in range(n_train_episodes):
+    rewards_ema = 1500
+    for s in range(n_train_sessions):
+        for e in range(n_train_episodes):
             state = env.reset(seed=None if seed is None else (seed + cnt))
             agent.reset()
             action = agent.predict(state, deterministic=False)[0]
             done, t = False, 0
-            tot_reward = 0
+            current_rewards = 0
             while not done:
                 # compute Q(s, a)
                 agent.fixed_pars.update({'u0': action})
@@ -30,7 +31,7 @@ def learn(
 
                 # step the system
                 state, r, done, _ = env.step(action)
-                tot_reward += r
+                current_rewards += r
 
                 # compute V(s+)
                 action, _, solV = agent.predict(state, deterministic=False)
@@ -47,8 +48,9 @@ def learn(
                 t += 1
 
             # Handle pruning based on the intermediate value.
-            print(f'DONE {cnt}: J={tot_reward:.3f}')
-            trial.report(tot_reward, cnt)
+            rewards_ema = 0.125 * current_rewards + (1 - 0.125) * rewards_ema
+            print(f'{s}|{e} J={current_rewards:.3f} ema={rewards_ema:3,f}')
+            trial.report(rewards_ema, cnt)
             if trial.should_prune():
                 raise optuna.TrialPruned()
 
@@ -61,7 +63,7 @@ def learn(
         agent.update()
         agent.perturbation_strength *= perturbation_decay
         agent.perturbation_chance *= perturbation_decay
-    return tot_reward
+    return rewards_ema
 
 
 def objective(trial: optuna.Trial):
@@ -104,12 +106,12 @@ def objective(trial: optuna.Trial):
 
     # train agent
     return learn(trial=trial,
-          env=env,
-          agent=agent,
-          n_train_sessions=sessions,
-          n_train_episodes=train_episodes,
-          perturbation_decay=perturbation_decay,
-          seed=seed)
+                 env=env,
+                 agent=agent,
+                 n_train_sessions=sessions,
+                 n_train_episodes=train_episodes,
+                 perturbation_decay=perturbation_decay,
+                 seed=seed)
 
 
 if __name__ == '__main__':
