@@ -14,6 +14,7 @@ def train(
     eval_episodes: int,
     max_ep_steps: int,
     agent_config: dict[str, Any],
+    perturbation_decay: float,
     run_name: str,
     seed: int
 ) -> dict[str, Any]:
@@ -35,6 +36,8 @@ def train(
         Maximum number of time steps simulated per each episode.
     agent_config : dict[str, any]
         Agent's configuration.
+    perturbation_decay : float
+        Decay of exploration perturbations at the end of each session.
     run_name : str
         The name of this run.
     seed : int
@@ -104,6 +107,7 @@ def train(
         # eval_env=eval_env,
         # n_eval_episodes=eval_episodes,
         seed=seed,
+        perturbation_decay=perturbation_decay,
         logger=logger
     )
 
@@ -117,7 +121,7 @@ if __name__ == '__main__':
                         help='Number of parallel agent to train.')
     parser.add_argument('--sessions', type=int, default=20,
                         help='Number of training sessions.')
-    parser.add_argument('--train_episodes', type=int, default=10,
+    parser.add_argument('--train_episodes', type=int, default=5,
                         help='Number of training episodes per session.')
     parser.add_argument('--eval_episodes', type=int, default=0,
                         help='Number of evaluation episodes per session.')
@@ -127,10 +131,12 @@ if __name__ == '__main__':
                         help='Discount factor.')
     parser.add_argument('--lr', type=float, default=1e-1,
                         help='Learning rate.')
-    parser.add_argument('--max_perc_update', type=float, default=np.inf,
+    parser.add_argument('--max_perc_update', type=float, default=1 / 5,
                         help='Maximum percentage update of agent weigths.')
     parser.add_argument('--replay_mem_sample_size', type=float, default=0.5,
                         help='Replay memory sample size (%).')
+    parser.add_argument('--perturbation_decay', type=float, default=0.9,
+                        help='Exploration perturbance decay.')
     parser.add_argument('--seed', type=int, default=42, help='RNG seed.')
     args = parser.parse_args()
 
@@ -143,8 +149,8 @@ if __name__ == '__main__':
         'gamma': args.gamma,
         'lr': args.lr,
         'max_perc_update': args.max_perc_update,
-        'replay_maxlen': args.train_episodes * 5,  # fixed
-        'replay_sample_size': args.replay_mem_sample_size,  # [0.1, 1.0]
+        'replay_maxlen': args.train_episodes * 10,  # fixed
+        'replay_sample_size': args.replay_mem_sample_size,  # [0.2, 1.0]
         'replay_include_last': args.train_episodes,  # fixed
     }
     const_args = (
@@ -153,6 +159,7 @@ if __name__ == '__main__':
         args.eval_episodes,
         args.max_ep_steps,
         agent_config,
+        args.perturbation_decay,
         run_name
     )
     if args.agents == 1:

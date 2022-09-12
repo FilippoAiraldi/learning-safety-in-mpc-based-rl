@@ -71,7 +71,7 @@ class QuadRotorBaseAgent(ABC):
         self._V = QuadRotorMPC(env, config=mpc_config, type='V')
 
         # initialize learnable weights/parameters
-        self.init_mpc_parameters(init_pars=init_pars)
+        self._init_mpc_parameters(init_pars=init_pars)
 
     @property
     def V(self) -> QuadRotorMPC:
@@ -210,52 +210,6 @@ class QuadRotorBaseAgent(ABC):
         x_next = sol.vals['x'][:, 0]
         return u_opt, x_next, sol
 
-    def init_mpc_parameters(
-            self, init_pars: dict[str, np.ndarray] = None) -> None:
-        '''
-        Initializes the learnable parameters of the MPC.
-
-        Parameters
-        ----------
-        init_pars : dict[str, array_like]
-            A dict containing, for each learnable parameter in the MPC scheme,
-            its initial value.
-        '''
-        # learnable parameters are:
-        #   - model pars: 'thrust_coeff', 'pitch_d', 'pitch_dd', 'pitch_gain',
-        #                 'roll_d', 'roll_dd', 'roll_gain'
-        #   - cost pars: 'w_L', 'w_V', 'w_s', 'w_s_f'
-        # NOTE: all these parameters must be column vectors. Cannot deal with
-        # multidimensional matrices!
-        if init_pars is None:
-            init_pars = {}
-
-        # create initial values (nan if not provided), bounds and references to
-        # symbols
-        names_and_bnds = [
-            # model
-            ('g', (1, 40)),
-            ('thrust_coeff', (0.1, 4)),
-            ('pitch_d', (1, 40)),
-            ('pitch_dd', (1, 40)),
-            ('pitch_gain', (1, 40)),
-            ('roll_d', (1, 40)),
-            ('roll_dd', (1, 40)),
-            ('roll_gain', (1, 40)),
-            # cost
-            ('w_Lx', (1e-3, np.inf)),
-            ('w_Lu', (1e-3, np.inf)),
-            ('w_Ls', (1e-3, np.inf)),
-            ('w_Tx', (1e-3, np.inf)),
-            ('w_Tu', (1e-3, np.inf)),
-            ('w_Ts', (1e-3, np.inf)),
-        ]
-        self.weights = RLParameterCollection(
-            *(RLParameter(name, init_pars.get(name, np.mean(bnd)), bnd,
-                          self.V.pars[name], self.Q.pars[name])
-              for name, bnd in names_and_bnds)
-        )
-
     def eval(
         self,
         env: Env,
@@ -297,12 +251,55 @@ class QuadRotorBaseAgent(ABC):
             while not done:
                 state = (state - mean) / (std + 1e-8)
                 action = self.predict(state, deterministic=deterministic)[0]
-                
+
                 new_state, r, done, _ = env.step(action)
                 returns[e] += r
                 state = new_state
 
         return returns
+
+    def _init_mpc_parameters(
+            self, init_pars: dict[str, np.ndarray] = None) -> None:
+        '''
+        Initializes the learnable parameters of the MPC.
+
+        Parameters
+        ----------
+        init_pars : dict[str, array_like]
+            A dict containing, for each learnable parameter in the MPC scheme,
+            its initial value.
+        '''
+        # learnable parameters are:
+        #   - model pars: 'thrust_coeff', 'pitch_d', 'pitch_dd', 'pitch_gain',
+        #                 'roll_d', 'roll_dd', 'roll_gain'
+        #   - cost pars: 'w_L', 'w_V', 'w_s', 'w_s_f'
+        # NOTE: all these parameters must be column vectors. Cannot deal with
+        # multidimensional matrices!
+        if init_pars is None:
+            init_pars = {}
+
+        # create initial values (nan if not provided), bounds and references to
+        # symbols
+        names_and_bnds = [
+            # model
+            ('g', (1, 40)),
+            ('thrust_coeff', (0.1, 4)),
+            ('pitch_d', (1, 40)),
+            ('pitch_dd', (1, 40)),
+            ('pitch_gain', (1, 40)),
+            ('roll_d', (1, 40)),
+            ('roll_dd', (1, 40)),
+            ('roll_gain', (1, 40)),
+            # cost
+            ('w_x', (1e-3, np.inf)),
+            ('w_u', (1e-3, np.inf)),
+            ('w_s', (1e-3, np.inf))
+        ]
+        self.weights = RLParameterCollection(
+            *(RLParameter(name, init_pars.get(name, np.mean(bnd)), bnd,
+                          self.V.pars[name], self.Q.pars[name])
+              for name, bnd in names_and_bnds)
+        )
 
     def __str__(self) -> str:
         '''Returns the agent name.'''
