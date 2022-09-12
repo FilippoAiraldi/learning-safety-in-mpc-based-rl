@@ -13,7 +13,7 @@ def learn(
     n_train_episodes: int,
     perturbation_decay: float = 0.75,
     seed: int = None,
-) -> None:
+) -> float:
     # simulate m episodes for each session
     cnt = 0
     for _ in range(n_train_sessions):
@@ -61,6 +61,7 @@ def learn(
         agent.update()
         agent.perturbation_strength *= perturbation_decay
         agent.perturbation_chance *= perturbation_decay
+    return tot_reward
 
 
 def objective(trial: optuna.Trial):
@@ -102,7 +103,7 @@ def objective(trial: optuna.Trial):
         seed=seed * 27)
 
     # train agent
-    learn(trial=trial,
+    return learn(trial=trial,
           env=env,
           agent=agent,
           n_train_sessions=sessions,
