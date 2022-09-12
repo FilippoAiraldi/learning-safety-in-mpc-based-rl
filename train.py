@@ -117,7 +117,7 @@ def train(
 if __name__ == '__main__':
     # parse arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument('--agents', type=int, default=1,
+    parser.add_argument('--agents', type=int, default=50,
                         help='Number of parallel agent to train.')
     parser.add_argument('--sessions', type=int, default=20,
                         help='Number of training sessions.')
@@ -127,15 +127,15 @@ if __name__ == '__main__':
                         help='Number of evaluation episodes per session.')
     parser.add_argument('--max_ep_steps', type=int, default=50,
                         help='Maximum number of steps per episode.')
-    parser.add_argument('--gamma', type=float, default=1.0,
+    parser.add_argument('--gamma', type=float, default=0.979,
                         help='Discount factor.')
-    parser.add_argument('--lr', type=float, default=1e-1,
+    parser.add_argument('--lr', type=float, default=0.3821,
                         help='Learning rate.')
-    parser.add_argument('--max_perc_update', type=float, default=1 / 5,
+    parser.add_argument('--max_perc_update', type=float, default=0.2,
                         help='Maximum percentage update of agent weigths.')
-    parser.add_argument('--replay_mem_sample_size', type=float, default=0.5,
+    parser.add_argument('--replay_mem_sample_size', type=float, default=0.7,
                         help='Replay memory sample size (%).')
-    parser.add_argument('--perturbation_decay', type=float, default=0.9,
+    parser.add_argument('--perturbation_decay', type=float, default=0.885,
                         help='Exploration perturbance decay.')
     parser.add_argument('--seed', type=int, default=42, help='RNG seed.')
     args = parser.parse_args()
