@@ -47,6 +47,7 @@ def learn(
                 t += 1
 
             # Handle pruning based on the intermediate value.
+            print(f'DONE {cnt}: J={tot_reward:.3f}')
             trial.report(tot_reward, cnt)
             if trial.should_prune():
                 raise optuna.TrialPruned()
@@ -64,8 +65,8 @@ def learn(
 
 def objective(trial: optuna.Trial):
     # fixed parameters
-    sessions = 20
-    train_episodes = 10
+    sessions = 10
+    train_episodes = 5
     max_ep_steps = 50
     seed = np.random.randint(0, int(1e6))
 
@@ -113,14 +114,13 @@ def objective(trial: optuna.Trial):
 if __name__ == '__main__':
     study = optuna.create_study(
         study_name='lstdq-tuning',
-        storage='sqlite:///tuning/lstdq.db',
         pruner=optuna.pruners.SuccessiveHalvingPruner(),
         direction='minimize')
 
     study.optimize(
         objective,
         n_trials=20,
-        n_jobs=-1,
+        n_jobs=1,
         catch=(NotImplementedError,))
 
     util.save_results('tuning/lstdq.pkl', study=study)
