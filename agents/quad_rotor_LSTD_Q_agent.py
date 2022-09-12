@@ -57,14 +57,12 @@ class QuadRotorLSTDQAgentConfig:
 
 class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
     '''
-    Least-Squares Temporal Difference-based Deterministic Policy Gradient RL
-    agent for the quad rotor environment. The agent adapts its MPC
-    parameters/weights by policy gradient methods, averaging over batches of
-    episodes via Least-Squares, with the goal of improving performance/reducing
-    cost of each episode.
+    Least-Squares Temporal Difference-based Q-learning RL agent for the quad 
+    rotor environment. The agent adapts its MPC parameters/weights by value 
+    methods, averaging over batches of episodes via Least-Squares, with the 
+    goal of improving performance/reducing cost of each episode.
 
-    The policy gradient-based RL update exploits a replay memory to spread out
-    the gradient noise.
+    The RL update exploits a replay memory to spread out noise.
     '''
 
     def __init__(
@@ -76,18 +74,17 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
         seed: int = None
     ) -> None:
         '''
-        Initializes a Deterministic-Policy-Gradient agent for the quad rotor
-        env.
+        Initializes a LSTDQ agent for the quad rotor env.
 
         Parameters
         ----------
         env : QuadRotorEnv
-            Environment for which to create the DPG agent.
+            Environment for which to create the Q-learning agent.
         agentname : str, optional
-            Name of the DPG agent.
+            Name of the Q-learning agent.
         agent_config : dict, QuadRotorQLearningAgentConfig
-            A set of parameters for the quadrotor DPG agent. If not given, the
-            default ones are used.
+            A set of parameters for the quadrotor Q-learning agent. If not 
+            given, the default ones are used.
         mpc_config : dict, QuadRotorMPCConfig
             A set of parameters for the agent's MPC. If not given, the default
             ones are used.
