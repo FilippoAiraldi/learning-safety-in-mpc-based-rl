@@ -192,8 +192,7 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
         n_train_episodes: int,
         perturbation_decay: float = 0.75,
         seed: int = None,
-        logger: Logger = None,
-        **kwargs
+        logger: Logger = None
     ) -> None:
         # simulate m episodes for each session
         env, cnt = self.env, 0

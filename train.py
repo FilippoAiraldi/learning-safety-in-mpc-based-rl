@@ -46,7 +46,7 @@ def train(
         Data resulting from the training.
     '''
     # create logger
-    logger = util.create_logger(run_name, to_file=True)
+    logger = util.create_logger(run_name, to_file=False)
 
     # create envs
     env = envs.QuadRotorEnv.get_wrapped(
@@ -101,8 +101,8 @@ def train(
     agent.learn(
         n_train_sessions=sessions,
         n_train_episodes=train_episodes,
-        eval_env=eval_env,
-        n_eval_episodes=eval_episodes,
+        # eval_env=eval_env,
+        # n_eval_episodes=eval_episodes,
         seed=seed,
         logger=logger
     )
