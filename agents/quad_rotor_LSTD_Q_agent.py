@@ -241,7 +241,7 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
                 [env.cum_rewards[i] for i in range(-n_train_episodes, 0)])
             if logger is not None:
                 logger.debug(
-                    f'{self.name}|{s}: J_mean={J_mean:.3f}; '
+                    f'{self.name}|{s}: J_mean={J_mean:,.3f}; '
                     f'||p||={np.linalg.norm(update_grad):.3e}; ' +
                     self.weights.values2str())
 
