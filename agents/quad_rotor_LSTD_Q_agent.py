@@ -20,12 +20,12 @@ class QuadRotorLSTDQAgentConfig:
     # learning happens. Remember to reset them to more difficult values at some
     # point
     init_g: float = 9.81
-    init_thrust_coeff: float = 1.2
+    init_thrust_coeff: float = 2.0
     init_pitch_d: float = 12
-    init_pitch_dd: float = 9
+    init_pitch_dd: float = 7
     init_pitch_gain: float = 11
-    init_roll_d: float = 8
-    init_roll_dd: float = 7
+    init_roll_d: float = 10.5
+    init_roll_dd: float = 8
     init_roll_gain: float = 9
     # cost
     init_w_Lx: np.ndarray = 1e1
@@ -112,8 +112,8 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
         )
 
         # during learning, DPG must always perturb the action in order to learn
-        self.perturbation_chance = 0.5
-        self.perturbation_strength = 1e-1
+        self.perturbation_chance = 1.0
+        self.perturbation_strength = 2.5e-1
 
         # initialize the replay memory. Per each episode the memory saves the
         # gradient and Hessian of Q at each instant
@@ -193,7 +193,7 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
         self,
         n_train_sessions: int,
         n_train_episodes: int,
-        perturbation_decay: float = 0.9,
+        perturbation_decay: float = 0.75,
         seed: int = None,
         logger: Logger = None,
         **kwargs
