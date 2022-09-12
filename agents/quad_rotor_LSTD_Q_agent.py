@@ -28,12 +28,9 @@ class QuadRotorLSTDQAgentConfig:
     init_roll_dd: float = 8
     init_roll_gain: float = 9
     # cost
-    init_w_Lx: np.ndarray = 1e1
-    init_w_Lu: np.ndarray = 1e0
-    init_w_Ls: np.ndarray = 1e2
-    init_w_Tx: np.ndarray = 1e1
-    init_w_Tu: np.ndarray = 1e0
-    init_w_Ts: np.ndarray = 1e2
+    init_w_x: np.ndarray = 1e1
+    init_w_u: np.ndarray = 1e0
+    init_w_s: np.ndarray = 1e2
 
     # experience replay parameters
     replay_maxlen: float = 2000
@@ -192,8 +189,7 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
         n_train_episodes: int,
         perturbation_decay: float = 0.75,
         seed: int = None,
-        logger: Logger = None,
-        **kwargs
+        logger: Logger = None
     ) -> None:
         # simulate m episodes for each session
         env, cnt = self.env, 0
