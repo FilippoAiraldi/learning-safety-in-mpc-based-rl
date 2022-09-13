@@ -15,7 +15,7 @@ if __name__ == '__main__':
                         help='The pickle data to be visualized')
     args = parser.parse_args()
     if args.filename is None:
-        args.filename = 'results/5_episodes_per_session.pkl'
+        args.filename = 'results/10ep.pkl'
 
     # load data
     data = util.load_results(args.filename)
