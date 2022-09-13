@@ -16,6 +16,7 @@ class BaseEnv(gym.Env[ObsType, ActType], ABC):
     def get_wrapped(
         cls: Type[SuperEnvType],
         max_episode_steps: int = 50,
+        record_data: bool = True,
         deque_size: int = None,
         normalize_observation: bool = False,
         normalize_reward: bool = False,
@@ -35,8 +36,13 @@ class BaseEnv(gym.Env[ObsType, ActType], ABC):
         ---------
         max_episode_steps : int, optional
             Maximum number of steps per episode (see TimeLimit).
+        record_data : bool, optional
+            Whether to wrap the env for data recording (See RecordData).
         deque_size : int, optional
             Maximum number of episodic data saved (see RecordData).
+        normalize_observation : bool, optional
+            Whether to apply observation normalization (see 
+            NormalizeObservation).
         normalize_reward : bool, optional
             Whether to apply return normalization (see NormalizeReward).
 
@@ -56,7 +62,8 @@ class BaseEnv(gym.Env[ObsType, ActType], ABC):
             env = NormalizeObservation(env)
         if normalize_reward:
             env = NormalizeReward(env)
-        env = RecordData(env, deque_size=deque_size)
+        if record_data:
+            env = RecordData(env, deque_size=deque_size)
         if env.action_space.bounded_below.any() or \
                 env.action_space.bounded_above.any():
             env = ClipActionIfClose(env)
