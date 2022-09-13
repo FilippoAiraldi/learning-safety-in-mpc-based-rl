@@ -1,11 +1,29 @@
-import numpy as np
-import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
-from matplotlib.collections import LineCollection
-from mpl_toolkits.mplot3d.art3d import Line3DCollection, Poly3DCollection
-from matplotlib.ticker import PercentFormatter
-from itertools import product
+import matplotlib.pyplot as plt
+import numpy as np
+from agents.wrappers import RecordLearningData
 from envs.wrappers import RecordData
+from itertools import cycle, product
+from matplotlib.collections import LineCollection
+from matplotlib.ticker import PercentFormatter
+from mpl_toolkits.mplot3d.art3d import Line3DCollection, Poly3DCollection
+from util.util import MATLAB_COLORS
+
+
+def _set_axes3d_equal(ax):
+    x_limits = ax.get_xlim3d()
+    y_limits = ax.get_ylim3d()
+    z_limits = ax.get_zlim3d()
+    x_range = abs(np.diff(x_limits))
+    x_middle = np.mean(x_limits)
+    y_range = abs(np.diff(y_limits))
+    y_middle = np.mean(y_limits)
+    z_range = abs(np.diff(z_limits))
+    z_middle = np.mean(z_limits)
+    plot_radius = 0.5 * max(x_range, y_range, z_range)
+    ax.set_xlim3d([x_middle - plot_radius, x_middle + plot_radius])
+    ax.set_ylim3d([y_middle - plot_radius, y_middle + plot_radius])
+    ax.set_zlim3d([z_middle - plot_radius, z_middle + plot_radius])
 
 
 def plot_trajectory_3d(env: RecordData, traj_num: int) -> None:
@@ -151,17 +169,102 @@ def plot_trajectory_in_time(env: RecordData, traj_num: int) -> None:
     plt.show(block=False)
 
 
-def _set_axes3d_equal(ax):
-    x_limits = ax.get_xlim3d()
-    y_limits = ax.get_ylim3d()
-    z_limits = ax.get_zlim3d()
-    x_range = abs(np.diff(x_limits))
-    x_middle = np.mean(x_limits)
-    y_range = abs(np.diff(y_limits))
-    y_middle = np.mean(y_limits)
-    z_range = abs(np.diff(z_limits))
-    z_middle = np.mean(z_limits)
-    plot_radius = 0.5 * max(x_range, y_range, z_range)
-    ax.set_xlim3d([x_middle - plot_radius, x_middle + plot_radius])
-    ax.set_ylim3d([y_middle - plot_radius, y_middle + plot_radius])
-    ax.set_zlim3d([z_middle - plot_radius, z_middle + plot_radius])
+def plot_performance_and_unsafe_episodes(envs: list[RecordData]) -> None:
+    '''
+    Plots the performance in each environment and the average performance, 
+    as well as the number of unsafe episodes.
+    '''
+    Nenv, Nep = len(envs), len(envs[0].cum_rewards)
+    episodes = np.arange(Nep)
+
+    # compute rewards and mean reward
+    rewards: np.ndarray = np.stack([env.cum_rewards for env in envs])
+    mean_reward: np.ndarray = rewards.mean(axis=0)
+
+    # compute number of unsafe episodes
+    unsafes = np.empty((Nenv, Nep))
+    for i, env in enumerate(envs):
+        x_bnd, u_bnd = env.config.x_bounds, env.config.u_bounds
+        for j, (obs, acts) in enumerate(zip(env.observations, env.actions)):
+            # # count unsafe
+            # item = not (
+            #     ((obs >= x_bnd[:, 0]) & (obs <= x_bnd[:, 1])).all() and
+            #     ((acts >= u_bnd[:, 0]) & (acts <= u_bnd[:, 1])).all()
+            # )
+
+            # constraint violation
+            # item = max(
+            #     np.maximum(0, x_bnd[:, 0] - obs).max(),
+            #     np.maximum(0, obs - x_bnd[:, 1]).max(),
+            #     np.maximum(0, u_bnd[:, 0] - acts).max(),
+            #     np.maximum(0, acts - u_bnd[:, 1]).max()
+            # )
+            item = (
+                np.maximum(0, x_bnd[:, 0] - obs).sum() +
+                np.maximum(0, obs - x_bnd[:, 1]).sum() +
+                np.maximum(0, u_bnd[:, 0] - acts).sum() +
+                np.maximum(0, acts - u_bnd[:, 1]).sum()
+            )
+
+            # assign to data
+            unsafes[i, j] = item
+    mean_unsafe: np.ndarray = unsafes.mean(axis=0)
+
+    # create figure and grid
+    fig = plt.figure(constrained_layout=True)
+    G = gridspec.GridSpec(1, 2, figure=fig)
+
+    # plot performance
+    ax = fig.add_subplot(G[0, 0])
+    clr = MATLAB_COLORS[0]
+    ax.plot(episodes, rewards.T, linestyle='-', linewidth=0.1, color=clr)
+    ax.plot(episodes, mean_reward, linestyle='-', linewidth=1.5, color=clr)
+    ax.set_xlabel('Episode')
+    ax.set_ylabel('Cumulative Reward')
+
+    # plot number of unsafe episodes
+    ax = fig.add_subplot(G[0, 1], sharex=ax)
+    clr = MATLAB_COLORS[1]
+    ax.plot(episodes, unsafes.T, linestyle='-', linewidth=0.1, color=clr)
+    ax.plot(episodes, mean_unsafe, linestyle='-', linewidth=1.5, color=clr)
+    ax.set_xlabel('Episode')
+    ax.set_ylabel('Constraint violation')
+
+    plt.show(block=False)
+
+
+def plot_learned_weights(agents: list[RecordLearningData]) -> None:
+    Nagents, Nupdates = len(agents), len(agents[0].update_gradient_norm)
+    weightnames = agents[0].weights_history.keys()
+    Nweights = len(weightnames)
+    updates = np.arange(Nupdates + 1)
+
+    # create figure and grid
+    ncols = int(np.floor(np.sqrt(Nweights)))
+    nrows = ncols if ncols**2 >= Nweights else (ncols + 1)
+    fig = plt.figure(constrained_layout=True)
+    G = gridspec.GridSpec(nrows, ncols, figure=fig)
+
+    # plot each weight's history
+    ax, colors = None, cycle(MATLAB_COLORS)
+    for i, (name, clr) in enumerate(zip(weightnames, colors)):
+        # create axis
+        ax = fig.add_subplot(G[np.unravel_index(i, (G.nrows, G.ncols))],
+                             sharex=ax)
+
+        # get history and average it
+        weights: np.ndarray = np.squeeze(np.stack(
+            [agent.weights_history[name] for agent in agents]))
+        lbl = f'Parameter \'{name}\''
+        if weights.ndim > 2:
+            weights = weights.mean(axis=-1)
+            lbl += ' (mean)'
+        mean_weight: np.ndarray = weights.mean(axis=0)
+
+        # plot
+        ax.plot(updates, weights.T, linestyle='-', linewidth=0.1, color=clr)
+        ax.plot(updates, mean_weight, linestyle='-', linewidth=1.5, color=clr)
+        ax.set_xlabel('Update')
+        ax.set_ylabel(lbl)
+
+    plt.show(block=False)

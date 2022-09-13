@@ -1,4 +1,3 @@
-from util import plot
 from util.util import (
     quad_form,
     spy,
@@ -15,3 +14,4 @@ from util.util import (
     is_env_wrapped,
     cholesky_added_multiple_identities
 )
+from util import plot
