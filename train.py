@@ -171,6 +171,7 @@ if __name__ == '__main__':
                     i, *const_args, args.seed + i) for i in range(args.agents))
 
     # save results and launch plotting (is blocking)
-    fn = util.save_results(filename=run_name, data=data)
+    fn = util.save_results(
+        filename=run_name, args=args, agent_config=agent_config, data=data)
     # import os
     # os.system(f'python visualization.py -fn {fn}')
