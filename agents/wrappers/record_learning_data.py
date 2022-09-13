@@ -20,7 +20,7 @@ class RecordLearningData(Generic[AgentType]):
         self.agent = agent
 
         # initialize storages
-        self.weights_hitory: dict[str, list[np.ndarray]] = {
+        self.weights_history: dict[str, list[np.ndarray]] = {
             n: [p.value] for n, p in agent.weights.as_dict.items()
         }
         self.update_gradient: list[np.ndarray] = []
@@ -35,7 +35,7 @@ class RecordLearningData(Generic[AgentType]):
         self.update_gradient_norm.append(g.item() if np.isscalar(g) else g)
 
         # save new weights
-        for n, w in self.weights_hitory.items():
+        for n, w in self.weights_history.items():
             w.append(self.agent.weights[n].value)
         return grad
 
