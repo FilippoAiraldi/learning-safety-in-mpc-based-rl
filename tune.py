@@ -11,7 +11,7 @@ def learn(
     agent: agents.QuadRotorLSTDQAgent,
     n_train_sessions: int,
     n_train_episodes: int,
-    perturbation_decay: float = 0.75,
+    perturbation_decay: float,
     seed: int = None,
 ) -> float:
     # simulate m episodes for each session
@@ -94,7 +94,7 @@ def objective(trial: optuna.Trial):
         'gamma': gamma,
         'lr': lr,
         'max_perc_update': max_perc_update,
-        'replay_maxlen': train_episodes * 20,  # fixed
+        'replay_maxlen': train_episodes * 10,  # fixed
         'replay_sample_size': replay_mem_sample_size,  # [0.1, 1.0]
         'replay_include_last': train_episodes,  # fixed
     }
@@ -122,7 +122,7 @@ if __name__ == '__main__':
 
     study.optimize(
         objective,
-        n_trials=20,
+        n_trials=30,
         n_jobs=-1,
         catch=(NotImplementedError,))
 
