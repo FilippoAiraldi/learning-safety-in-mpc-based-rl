@@ -1,6 +1,7 @@
 import casadi as cs
 import cloudpickle
 import contextlib
+import gym
 import joblib
 import logging
 import matplotlib as mpl
@@ -11,7 +12,7 @@ from datetime import datetime
 from itertools import combinations
 from scipy.special import comb
 from tqdm import tqdm
-from typing import Any, Iterable, Union
+from typing import Any, Iterable, Union, Type
 
 
 def cs_prod(x: Union[cs.SX, cs.DM], axis: int = 0) -> Union[cs.SX, cs.DM]:
@@ -22,8 +23,14 @@ def cs_prod(x: Union[cs.SX, cs.DM], axis: int = 0) -> Union[cs.SX, cs.DM]:
     return cs.exp(sum_(cs.log(x))) if axis == 0 else cs.exp(sum_(cs.log(x)))
 
 
-def nchoosek(
-    n: Union[int, Iterable[Any]], k: int) -> Union[int, Iterable[tuple[Any]]]:
+def cs_sigmoid(x: Union[cs.SX, cs.DM, cs.MX]) -> Union[cs.SX, cs.DM, cs.MX]:
+    '''Computes sigmoid.'''
+    e = cs.exp(x)
+    return e / (e + 1)
+
+
+def nchoosek(n: Union[int, Iterable[Any]],
+             k: int) -> Union[int, Iterable[tuple[Any]]]:
     '''Returns the binomial coefficient, i.e.,  the number of combinations of n
     items taken k at a time. If n is an iterable, then it returns an iterable 
     containing all possible combinations of the elements of n taken k at a 
@@ -41,11 +48,11 @@ def monomial_powers(d: int, k: int) -> np.ndarray:
         np.row_stack(list(nchoosek(np.arange(1, k + d), d - 1))),
         np.full((m, 1), k + d, dtype=int)
     ))
-    return np.diff(dividers, axis=1) - 1
+    return np.flipud(np.diff(dividers, axis=1) - 1)
 
 
 def quad_form(
-    A: Union[cs.SX, cs.DM], x: Union[cs.SX, cs.DM]) -> Union[cs.SX, cs.DM]:
+        A: Union[cs.SX, cs.DM], x: Union[cs.SX, cs.DM]) -> Union[cs.SX, cs.DM]:
     '''Calculates quadratic form x^T A x.'''
     if A.is_vector():
         A = cs.diag(A)
@@ -192,3 +199,29 @@ def tqdm_joblib(*args, **kwargs):
     finally:
         joblib.parallel.BatchCompletionCallBack = old_batch_callback
         tqdm_object.close()
+
+
+def is_env_wrapped(env: gym.Env, wrapper_type: Type[gym.Wrapper]) -> bool:
+    '''Checks if the environment is wrapped with the specified type.'''
+    while isinstance(env, gym.Wrapper):
+        if isinstance(env, wrapper_type):
+            return True
+        env = env.env
+    return False
+
+
+def cholesky_added_multiple_identities(
+    A: np.ndarray, beta: float = 1e-3, maxiter: int = 1000
+) -> np.ndarray:
+    '''Lower Cholesky factorization with added multiple of the identity matrix.
+    (Algorithm 3.3 from Nocedal&Wright)'''
+    a_min = np.diag(A).min()
+    tau = 0 if a_min > 0 else -a_min + beta
+
+    I = np.eye(A.shape[0])
+    for _ in range(maxiter):
+        try:
+            return np.linalg.cholesky(A + tau * I)
+        except np.linalg.LinAlgError:
+            tau = max(1.1 * tau, beta)
+    raise ValueError('Maximum iterations reached.')

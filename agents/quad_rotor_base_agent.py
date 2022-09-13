@@ -2,6 +2,7 @@ import numpy as np
 from abc import ABC
 from agents import RLParameter, RLParameterCollection
 from envs import QuadRotorEnv
+from gym import Env
 from gym.utils.seeding import np_random
 from itertools import count
 from mpc import QuadRotorMPC, QuadRotorMPCConfig, Solution
@@ -70,7 +71,7 @@ class QuadRotorBaseAgent(ABC):
         self._V = QuadRotorMPC(env, config=mpc_config, type='V')
 
         # initialize learnable weights/parameters
-        self.init_mpc_parameters(init_pars=init_pars)
+        self._init_mpc_parameters(init_pars=init_pars)
 
     @property
     def V(self) -> QuadRotorMPC:
@@ -209,7 +210,55 @@ class QuadRotorBaseAgent(ABC):
         x_next = sol.vals['x'][:, 0]
         return u_opt, x_next, sol
 
-    def init_mpc_parameters(
+    def eval(
+        self,
+        env: Env,
+        n_eval_episodes: int,
+        deterministic: bool = True,
+        observation_mean_std: tuple[np.ndarray, np.ndarray] = (0, 1),
+        seed: int = None,
+    ) -> np.ndarray:
+        '''
+        Evaluates the given environment.
+
+        Parameters
+        ----------
+        env : gym.Env
+            The environment to evaluate.
+        n_eval_episodes : int
+            Number of episodes over which to evaluate.
+        deterministic : bool, optional
+            Whether to use deterministic or stochastic actions.
+        observation_mean_std : tuple[array_like, array_like], optional
+            Mean and std for normalization of the observations before calling 
+            the agent.
+        seed : int, optional
+            RNG seed.
+
+        Returns
+        -------
+        returns : np.ndarray
+            An array of the accumulated rewards/costs for each episode
+        '''
+        returns = np.zeros(n_eval_episodes)
+        mean, std = observation_mean_std
+
+        for e in range(n_eval_episodes):
+            state = env.reset(seed=None if seed is None else (seed + e))
+            self.reset()
+            done = False
+
+            while not done:
+                state = (state - mean) / (std + 1e-8)
+                action = self.predict(state, deterministic=deterministic)[0]
+
+                new_state, r, done, _ = env.step(action)
+                returns[e] += r
+                state = new_state
+
+        return returns
+
+    def _init_mpc_parameters(
             self, init_pars: dict[str, np.ndarray] = None) -> None:
         '''
         Initializes the learnable parameters of the MPC.
@@ -242,17 +291,14 @@ class QuadRotorBaseAgent(ABC):
             ('roll_dd', (1, 40)),
             ('roll_gain', (1, 40)),
             # cost
-            ('w_Lx', (1e-3, np.inf)),
-            ('w_Lu', (1e-3, np.inf)),
-            ('w_Ls', (1e-3, np.inf)),
-            ('w_Tx', (1e-3, np.inf)),
-            ('w_Tu', (1e-3, np.inf)),
-            ('w_Ts', (1e-3, np.inf)),
+            ('w_x', (1e-3, np.inf)),
+            ('w_u', (1e-3, np.inf)),
+            ('w_s', (1e-3, np.inf))
         ]
         self.weights = RLParameterCollection(
             *(RLParameter(name, init_pars.get(name, np.mean(bnd)), bnd,
-                        self.V.pars[name], self.Q.pars[name])
-            for name, bnd in names_and_bnds)
+                          self.V.pars[name], self.Q.pars[name])
+              for name, bnd in names_and_bnds)
         )
 
     def __str__(self) -> str:

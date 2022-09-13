@@ -29,9 +29,8 @@ class DifferentiableMPC(Generic[MPCType]):
         Gets the indices of lbx and ubx which are not redundant, i.e., 
         different from +/-inf.
         '''
-        return (np.where(self._mpc.lbx != -np.inf)[0], 
+        return (np.where(self._mpc.lbx != -np.inf)[0],
                 np.where(self._mpc.ubx != np.inf)[0])
-        
 
     @property
     def lagrangian(self) -> cs.SX:
@@ -89,11 +88,11 @@ class DifferentiableMPC(Generic[MPCType]):
 
     def __getattr__(self, name) -> Any:
         '''Reroutes attributes to the wrapped MPC instance.'''
-        return getattr(self.mpc, name)
+        return getattr(self._mpc, name)
 
     def __str__(self) -> str:
         '''Returns the wrapper name and the unwrapped MPC string.'''
-        return f'<{type(self).__name__}: {self.mpc}>'
+        return f'<{type(self).__name__}: {self._mpc}>'
 
     def __repr__(self) -> str:
         '''Returns the string representation of the wrapper.'''

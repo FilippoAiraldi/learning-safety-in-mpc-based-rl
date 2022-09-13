@@ -14,7 +14,7 @@ class QuadRotorEnvConfig:
     are included, as well as the numerical tolerance.
     '''
     # model parameters
-    T: float = 0.2
+    T: float = 0.1
     g: float = 9.81
     thrust_coeff: float = 1.4
     pitch_d: float = 10
@@ -26,11 +26,11 @@ class QuadRotorEnvConfig:
 
     # disturbance parameters
     winds: dict[float, float] = field(
-        default_factory=lambda: {1.5: 0.4, 2.5: 0.25, 3: -0.3})
+        default_factory=lambda: {1: 1.45, 2: 1.1, 3: 1.25})
 
     # simulation
     x0: np.ndarray = field(default_factory=lambda: np.array(
-        [0, 0, 3.5, 0, 0, 0, np.deg2rad(10), np.deg2rad(-10), 0, 0]))
+        [0, 0, 3.5, 0, 0, 0, 0, 0, 0, 0]))
     xf: np.ndarray = field(default_factory=lambda: np.array(
         [3, 3, 0.2, 0, 0, 0, 0, 0, 0, 0]))
 
@@ -147,6 +147,7 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
 
         # create dynamics matrices
         self.nw = len(config.winds)
+        wind_mag = np.array(list(config.winds.values()))
         self._A = config.T * np.block([
             [np.zeros((3, 3)), np.eye(3), np.zeros((3, 4))],
             [np.zeros((2, 6)), np.eye(2) * config.g, np.zeros((2, 2))],
@@ -164,8 +165,13 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
             [0, config.roll_gain, 0]
         ])
         self._C = config.T * np.vstack((
-            list(config.winds.values()),
-            np.zeros((9, self.nw))
+            wind_mag,
+            wind_mag,
+            wind_mag,
+            np.zeros((3, self.nw)),
+            wind_mag / 5,
+            wind_mag / 5,
+            np.zeros((2, self.nw))
         ))
         self._e = np.vstack((
             np.zeros((5, 1)), - config.T * config.g, np.zeros((4, 1))))
@@ -311,12 +317,20 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
         u = u.squeeze()  # in case a row or col was passed
         assert self.action_space.contains(u), 'Invalid action.'
 
-        # compute new state: x+ = A*x + B*u + C*phi(s[2])*w + e
+        # compute noise disturbance
+        wind = self._C @ self.phi(self.x[2]) * self.np_random.uniform(
+            low=[0, 0, -1, 0, 0, 0, -1, -1, 0, 0],
+            high=[1, 1, 0, 0, 0, 0, 1, 1, 0, 0]).reshape(self.nx, 1)
+        # wind = self.np_random.normal(
+        #     scale=[0.1, 0.1, 0.1, 0, 0, 0, 0.1, 0.1, 0, 0]).reshape(
+        #     self.nx, 1)
+
+        # compute new state: x+ = A*x + B*u + e + C*phi(s[2])*w
         self.x = (
             self._A @ self.x.reshape((-1, 1)) +
             self._B @ u.reshape((-1, 1)) +
-            self._C @ self.phi(self.x[2]) * self.np_random.random() +
-            self._e
+            self._e +
+            wind
         ).flatten()
 
         # compute cost

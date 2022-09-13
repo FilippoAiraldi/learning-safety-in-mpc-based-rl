@@ -2,6 +2,7 @@ import numpy as np
 from abc import ABC, abstractmethod
 from agents.quad_rotor_base_agent import QuadRotorBaseAgent
 from envs.quad_rotor_env import QuadRotorEnv
+from logging import Logger
 from mpc.quad_rotor_mpc import QuadRotorMPC, QuadRotorMPCConfig
 from mpc.wrappers import DifferentiableMPC
 from typing import Union
@@ -38,7 +39,7 @@ class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
         return self._Q
 
     @abstractmethod
-    def save_transition(self, *args) -> None:
+    def save_transition(self, *args, **kwargs) -> None:
         '''
         Schedules the current time-step data to be processed and saved into the
         experience replay memory.
@@ -62,5 +63,39 @@ class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
         -------
         gradient : array_like
             Gradient of the update.
+        '''
+        pass
+
+    @abstractmethod
+    def learn(
+        self,
+        n_train_sessions: int,
+        n_train_episodes: int,
+        eval_env: QuadRotorEnv,
+        n_eval_episodes: int,
+        perturbation_decay: float = 0.97,
+        seed: int = None,
+        logger: Logger = None
+    ) -> None:
+        '''
+        Trains the agent on its environment.
+
+        Parameters
+        ----------
+        n_train_sessions : int
+            Number of training sessions/epochs.
+        n_train_episodes : int
+            Number of training episodes per session.
+        eval_env : QuadRotorEnv
+            Environment used during evaluation.
+        n_eval_episodes : int
+            Number of evaluation episodes at the end of each session.
+        perturbation_decay : float, optional
+            Decay factor of the perturbation strength during exploration, after
+            each session. By default, 0.97.
+        seed : int, optional
+            RNG seed.
+        logger : Logger, optional
+            For logging purposes.
         '''
         pass

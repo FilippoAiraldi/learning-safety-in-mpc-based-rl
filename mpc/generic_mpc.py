@@ -27,7 +27,8 @@ class Solution:
     @property
     def success(self) -> bool:
         '''Gets whether the MPC was run successfully.'''
-        return self.status in ('Solve_Succeeded', 'Solved_To_Acceptable_Level')
+        return self.stats['success']
+        # return self.status in ('Solve_Succeeded', 'Solved_To_Acceptable_Level')
 
     def value(self, x: cs.SX) -> _np.ndarray:
         '''Gets the value of the expression.'''
@@ -254,6 +255,10 @@ class GenericMPC:
             A solution object containing all the information.
         '''
         assert self.solver is not None, 'Solver uninitialized.'
+        assert len(self.pars.keys() - pars.keys()) == 0, \
+            'Trying to solve the MPC with unspecified parameters: ' + \
+                ', '.join(self.pars.keys() - pars.keys()) + '.'
+            
 
         # convert to nlp format and solve
         p = subsevalf(self.p, self.pars, pars)

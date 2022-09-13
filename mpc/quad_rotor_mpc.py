@@ -12,8 +12,8 @@ class QuadRotorMPCConfig:
     '''
     Quadrotor MPC configuration, such as horizons and CasADi/IPOPT options.
     '''
-    # horizons
-    N: int = 20
+    # horizon
+    N: int = 15
 
     # solver options
     solver_opts: dict = field(default_factory=lambda: {
@@ -126,21 +126,18 @@ class QuadRotorMPC(GenericMPC):
         # 2) stage cost
         xf = self.add_par('xf', nx, 1)
         uf = cs.vertcat(0, 0, self.pars['g'])
-        w_Lx = self.add_par('w_Lx', nx, 1)    # weights for stage state
-        w_Lu = self.add_par('w_Lu', nu, 1)    # weights for stage control
-        w_Ls = self.add_par('w_Ls', ns, 1)    # weights for stage slack
+        w_x = self.add_par('w_x', nx, 1)    # weights for stage/final state
+        w_u = self.add_par('w_u', nu, 1)    # weights for stage/final control
+        w_s = self.add_par('w_s', ns, 1)    # weights for stage/final slack
         J += sum((
-            quad_form(w_Lx, x[:, k] - xf) +
-            quad_form(w_Lu, u[:, k] - uf) +
-            cs.dot(w_Ls, s[:, k])) for k in range(N - 1))
+            quad_form(w_x, x[:, k] - xf) +
+            quad_form(w_u, u[:, k] - uf) +
+            cs.dot(w_s, s[:, k])) for k in range(N - 1))
 
         # 3) terminal cost
-        w_Tx = self.add_par('w_Tx', nx, 1)  # weights for final state
-        w_Tu = self.add_par('w_Tu', nu, 1)  # weights for final control
-        w_Ts = self.add_par('w_Ts', ns, 1)  # weights for final slack
-        J += quad_form(w_Tx, x[:, -1] - xf) + \
-            quad_form(w_Tu, u[:, -1] - uf) + \
-            cs.dot(w_Ts, s[:, -1])
+        J += quad_form(w_x, x[:, -1] - xf) + \
+            quad_form(w_u, u[:, -1] - uf) + \
+            cs.dot(w_s, s[:, -1])
 
         # assign cost
         self.minimize(J)

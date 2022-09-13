@@ -11,7 +11,7 @@ from envs.wrappers import RecordData
 def plot_trajectory_3d(env: RecordData, traj_num: int) -> None:
     '''Plots the i-th trajecetory of the recorded data in 3D.'''
     x0, xf = env.config.x0, env.config.xf
-    data = env.observations[traj_num]
+    data = env.observations[traj_num].T
 
     # prepare stuff for plotting
     labels = {0: 'Pos: x [$m$]', 1: 'Pos: y [$m$]', 2: 'Altitude [$m$]',
@@ -116,7 +116,7 @@ def plot_trajectory_in_time(env: RecordData, traj_num: int) -> None:
         [U[:, :2], ('desired pitch', 'desired roll'), 'Angle [$rad$]', None, u_bnd[:2]],
         [U[:, -1], ('desired z acc.',), 'Acceleration [$m/s^2$]', None, u_bnd[-1]],
         [error, None, 'Termination error', None, env.config.termination_error],
-        [R, None, 'Reward', None, None],
+        [R, (f'J = {R.sum():.1f}',), 'Reward', None, None],
     ]
 
     # create figure and grid
