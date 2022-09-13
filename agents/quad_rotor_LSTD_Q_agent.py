@@ -1,3 +1,4 @@
+import logging
 import numpy as np
 import casadi as cs
 from agents.quad_rotor_base_learning_agent import QuadRotorBaseLearningAgent
@@ -5,7 +6,6 @@ from agents.replay_memory import ReplayMemory
 from dataclasses import dataclass
 from envs import QuadRotorEnv
 from itertools import chain
-from logging import Logger
 from mpc import Solution, QuadRotorMPCConfig
 from scipy.linalg import cho_solve
 from typing import Union
@@ -189,8 +189,10 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
         n_train_episodes: int,
         perturbation_decay: float = 0.75,
         seed: int = None,
-        logger: Logger = None
+        logger: logging.Logger = None
     ) -> None:
+        logger = logger or logging.getLogger('dummy')
+
         # simulate m episodes for each session
         env, cnt = self.env, 0
         for s in range(n_train_sessions):
@@ -222,9 +224,8 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
                         raise NotImplementedError()
                     t += 1
 
-                if logger is not None:
-                    logger.debug(
-                        f'{self.name}|{s}|{e}: J={env.cum_rewards[-1]:,.3f}')
+                logger.debug(
+                    f'{self.name}|{s}|{e}: J={env.cum_rewards[-1]:,.3f}')
 
                 # when episode is done, consolidate its experience into memory
                 self.consolidate_episode_experience()
@@ -239,11 +240,10 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
             # log evaluation outcomes
             J_mean = np.mean(
                 [env.cum_rewards[i] for i in range(-n_train_episodes, 0)])
-            if logger is not None:
-                logger.debug(
-                    f'{self.name}|{s}: J_mean={J_mean:,.3f}; '
-                    f'||p||={np.linalg.norm(update_grad):.3e}; ' +
-                    self.weights.values2str())
+            logger.debug(
+                f'{self.name}|{s}: J_mean={J_mean:,.3f}; '
+                f'||p||={np.linalg.norm(update_grad):.3e}; ' +
+                self.weights.values2str())
 
     def _init_symbols(self) -> None:
         '''Computes symbolical derivatives needed for Q learning.'''
