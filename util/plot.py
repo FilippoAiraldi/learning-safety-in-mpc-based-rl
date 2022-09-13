@@ -5,7 +5,7 @@ from agents.wrappers import RecordLearningData
 from envs.wrappers import RecordData
 from itertools import cycle, product
 from matplotlib.collections import LineCollection
-from matplotlib.ticker import PercentFormatter
+from matplotlib.ticker import MaxNLocator, PercentFormatter
 from mpl_toolkits.mplot3d.art3d import Line3DCollection, Poly3DCollection
 from util.util import MATLAB_COLORS
 
@@ -175,7 +175,7 @@ def plot_performance_and_unsafe_episodes(envs: list[RecordData]) -> None:
     as well as the number of unsafe episodes.
     '''
     Nenv, Nep = len(envs), len(envs[0].cum_rewards)
-    episodes = np.arange(Nep)
+    episodes = np.arange(Nep) + 1
 
     # compute rewards and mean reward
     rewards: np.ndarray = np.stack([env.cum_rewards for env in envs])
@@ -220,7 +220,8 @@ def plot_performance_and_unsafe_episodes(envs: list[RecordData]) -> None:
     ax.plot(episodes, rewards.T, linestyle='-', linewidth=0.1, color=clr)
     ax.plot(episodes, mean_reward, linestyle='-', linewidth=1.5, color=clr)
     ax.set_xlabel('Episode')
-    ax.set_ylabel('Cumulative Reward')
+    ax.set_ylabel('Cumulative reward')
+    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
 
     # plot number of unsafe episodes
     ax = fig.add_subplot(G[0, 1], sharex=ax)
@@ -229,15 +230,16 @@ def plot_performance_and_unsafe_episodes(envs: list[RecordData]) -> None:
     ax.plot(episodes, mean_unsafe, linestyle='-', linewidth=1.5, color=clr)
     ax.set_xlabel('Episode')
     ax.set_ylabel('Constraint violation')
+    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
 
     plt.show(block=False)
 
 
 def plot_learned_weights(agents: list[RecordLearningData]) -> None:
-    Nagents, Nupdates = len(agents), len(agents[0].update_gradient_norm)
+    Nupdates = len(agents[0].update_gradient_norm)
     weightnames = agents[0].weights_history.keys()
     Nweights = len(weightnames)
-    updates = np.arange(Nupdates + 1)
+    updates = np.arange(Nupdates + 1) + 1
 
     # create figure and grid
     ncols = int(np.floor(np.sqrt(Nweights)))
@@ -266,5 +268,6 @@ def plot_learned_weights(agents: list[RecordLearningData]) -> None:
         ax.plot(updates, mean_weight, linestyle='-', linewidth=1.5, color=clr)
         ax.set_xlabel('Update')
         ax.set_ylabel(lbl)
+        ax.xaxis.set_major_locator(MaxNLocator(integer=True))
 
     plt.show(block=False)
