@@ -26,7 +26,7 @@ class QuadRotorEnvConfig:
 
     # disturbance parameters
     winds: dict[float, float] = field(
-        default_factory=lambda: {1: 1.45, 2: 1.1, 3: 1.25})
+        default_factory=lambda: {1: 1.2, 2: 0.9, 3: 1.0})
 
     # simulation
     x0: np.ndarray = field(default_factory=lambda: np.array(
