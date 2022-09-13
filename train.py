@@ -119,9 +119,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--agents', type=int, default=75,
                         help='Number of parallel agent to train.')
-    parser.add_argument('--sessions', type=int, default=15,
+    parser.add_argument('--sessions', type=int, default=20,
                         help='Number of training sessions.')
-    parser.add_argument('--train_episodes', type=int, default=5,
+    parser.add_argument('--train_episodes', type=int, default=10,
                         help='Number of training episodes per session.')
     parser.add_argument('--eval_episodes', type=int, default=0,
                         help='Number of evaluation episodes per session.')

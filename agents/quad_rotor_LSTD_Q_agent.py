@@ -20,9 +20,9 @@ class QuadRotorLSTDQAgentConfig:
     # learning happens. Remember to reset them to more difficult values at some
     # point
     init_g: float = 9.81
-    init_thrust_coeff: float = 1.75
-    init_pitch_d: float = 11
-    init_pitch_dd: float = 8
+    init_thrust_coeff: float = 2.0
+    init_pitch_d: float = 12
+    init_pitch_dd: float = 7
     init_pitch_gain: float = 11
     init_roll_d: float = 10.5
     init_roll_dd: float = 8
