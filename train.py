@@ -49,7 +49,7 @@ def train(
         Data resulting from the training.
     '''
     # create logger
-    logger = util.create_logger(run_name, to_file=False)
+    logger = None # util.create_logger(run_name, to_file=False)
 
     # create envs
     env = envs.QuadRotorEnv.get_wrapped(
@@ -117,7 +117,7 @@ def train(
 if __name__ == '__main__':
     # parse arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument('--agents', type=int, default=100,
+    parser.add_argument('--agents', type=int, default=75,
                         help='Number of parallel agent to train.')
     parser.add_argument('--sessions', type=int, default=15,
                         help='Number of training sessions.')
