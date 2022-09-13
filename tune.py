@@ -49,7 +49,7 @@ def learn(
 
             # Handle pruning based on the intermediate value.
             rewards_ema = 0.125 * current_rewards + (1 - 0.125) * rewards_ema
-            print(f'{s}|{e} J={current_rewards:.3f} ema={rewards_ema:3,f}')
+            print(f'{s}|{e} J={current_rewards:,.3f} ema={rewards_ema:,.3f}')
             trial.report(rewards_ema, cnt)
             if trial.should_prune():
                 raise optuna.TrialPruned()
@@ -68,8 +68,8 @@ def learn(
 
 def objective(trial: optuna.Trial):
     # fixed parameters
-    sessions = 10
-    train_episodes = 5
+    sessions = 20
+    train_episodes = 1
     max_ep_steps = 50
     seed = np.random.randint(0, int(1e6))
 
@@ -79,8 +79,8 @@ def objective(trial: optuna.Trial):
     max_perc_update = trial.suggest_categorical(
         'max_perc_update', [1 / 5, 1 / 2, 1, np.inf])
     replay_mem_sample_size = trial.suggest_float(
-        'mem_sample_size', 0.1, 1.0, step=0.1)
-    perturbation_decay = trial.suggest_float('pert_decay', 0.5, 0.99)
+        'mem_sample_size', 0.2, 0.8, step=0.1)
+    perturbation_decay = trial.suggest_float('pert_decay', 0.5, 0.9, step=0.1)
 
     # create env
     env = envs.QuadRotorEnv.get_wrapped(
@@ -94,7 +94,7 @@ def objective(trial: optuna.Trial):
         'gamma': gamma,
         'lr': lr,
         'max_perc_update': max_perc_update,
-        'replay_maxlen': train_episodes * 5,  # fixed
+        'replay_maxlen': train_episodes * 20,  # fixed
         'replay_sample_size': replay_mem_sample_size,  # [0.1, 1.0]
         'replay_include_last': train_episodes,  # fixed
     }
@@ -123,7 +123,7 @@ if __name__ == '__main__':
     study.optimize(
         objective,
         n_trials=20,
-        n_jobs=1,
+        n_jobs=-1,
         catch=(NotImplementedError,))
 
     util.save_results('tuning/lstdq.pkl', study=study)
