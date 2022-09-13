@@ -100,6 +100,7 @@ def set_np_mpl_defaults() -> None:
     mpl.style.use('seaborn-darkgrid')
     mpl.rcParams['axes.prop_cycle'] = cycler('color', MATLAB_COLORS)
     mpl.rcParams['lines.linewidth'] = 1
+    mpl.rcParams["savefig.dpi"] = 900
     # mpl.rcParams['font.family'] = 'serif'
     # mpl.rcParams['text.usetex'] = True
     # mpl.rcParams['pgf.rcfonts'] = False
