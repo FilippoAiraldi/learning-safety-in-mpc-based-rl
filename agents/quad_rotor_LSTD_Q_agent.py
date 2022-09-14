@@ -316,16 +316,21 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
             Whether to raise an exception when the MPC solver fails.
         '''
         logger = logger or logging.getLogger('dummy')
-        returns, cnt = [], 0
-        for self._epoch_n in range(n_train_epochs):
-            returns.append(self.learn_one_epoch(
-                n_episodes=n_train_episodes,
-                perturbation_decay=perturbation_decay,
-                seed=None if seed is None else seed + cnt,
-                logger=logger,
-                raises=raises
-            ))
-            cnt += n_train_episodes
+        returns = []
+
+        for e in range(n_train_epochs):
+            self._epoch_n = e  # just for logging
+
+            returns.append(
+                self.learn_one_epoch(
+                    n_episodes=n_train_episodes,
+                    perturbation_decay=perturbation_decay,
+                    seed=None if seed is None else seed + n_train_episodes * e,
+                    logger=logger,
+                    raises=raises
+                )
+            )
+
         return np.stack(returns, axis=0)
 
     def _init_symbols(self) -> None:
