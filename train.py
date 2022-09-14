@@ -8,9 +8,8 @@ from typing import Any
 
 def train(
     agent_n: int,
-    sessions: int,
+    epochs: int,
     train_episodes: int,
-    eval_episodes: int,
     max_ep_steps: int,
     agent_config: dict[str, Any],
     perturbation_decay: float,
@@ -24,13 +23,11 @@ def train(
     ----------
     agent_n : int
         Number of the agent.
-    sessions : int
-        Number of training sessions. At the end of each session, an RL update
+    epochs : int
+        Number of training epochs. At the end of each session, an RL update
         is carried out.
     train_episodes : int
-        Episodes per training sessions.
-    eval_episodes : int
-        Evaluation episodes at the end of each session.
+        Episodes per training epochs.
     max_ep_steps : int
         Maximum number of time steps simulated per each episode.
     agent_config : dict[str, any]
@@ -61,36 +58,6 @@ def train(
         normalize_reward=False)
 
     # create agent
-    # agent = agents.QuadRotorPIAgent(env=env, agentname=f'PI_{agent_n}')
-
-    # agent = agents.QuadRotorLSTDDPGAgent(
-    #     env=env,
-    #     agentname=f'LSTDDPG_{agent_n}',
-    #     agent_config={
-    #         'replay_maxlen': train_episodes,
-    #         'replay_sample_size': train_episodes,
-    #     },
-    #     seed=seed * (agent_n + 1) * 1000)
-
-    # agent = agents.QuadRotorCOPDACQAgent(
-    #     env=env,
-    #     agentname=f'COPDACQ_{agent_n}',
-    #     agent_config={
-    #         'replay_maxlen': max_ep_steps * train_episodes * 10,
-    #         'replay_sample_size': max_ep_steps * train_episodes * 2,
-    #         'replay_include_last': max_ep_steps * train_episodes
-    #     },
-    #     seed=seed * (agent_n + 1) * 1000)
-
-    # agent = agents.LinearLSTDDPGAgent(
-    #     env=env,
-    #     agentname=f'LSTDDPG_{agent_n}',
-    #     agent_config={
-    #         'replay_maxlen': train_episodes,
-    #         'replay_sample_size': train_episodes,
-    #     },
-    #     seed=seed * (agent_n + 1) * 1000)
-
     agent = agents.QuadRotorLSTDQAgent(
         env=env,
         agentname=f'LSTDQ_{agent_n}',
@@ -101,10 +68,8 @@ def train(
 
     # launch training
     agent.learn(
-        n_train_sessions=sessions,
+        n_train_epochs=epochs,
         n_train_episodes=train_episodes,
-        # eval_env=eval_env,
-        # n_eval_episodes=eval_episodes,
         seed=seed,
         perturbation_decay=perturbation_decay,
         logger=logger
@@ -116,15 +81,13 @@ def train(
 if __name__ == '__main__':
     # parse arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument('--agents', type=int, default=50,
+    parser.add_argument('--agents', type=int, default=1,
                         help='Number of parallel agent to train.')
     parser.add_argument('--sessions', type=int, default=20,
                         help='Number of training sessions.')
-    parser.add_argument('--train_episodes', type=int, default=5,
+    parser.add_argument('--train_episodes', type=int, default=3,
                         help='Number of training episodes per session.')
-    parser.add_argument('--eval_episodes', type=int, default=0,
-                        help='Number of evaluation episodes per session.')
-    parser.add_argument('--max_ep_steps', type=int, default=50,
+    parser.add_argument('--max_ep_steps', type=int, default=5,
                         help='Maximum number of steps per episode.')
     parser.add_argument('--gamma', type=float, default=0.9792,
                         help='Discount factor.')
@@ -155,7 +118,6 @@ if __name__ == '__main__':
     const_args = (
         args.sessions,
         args.train_episodes,
-        args.eval_episodes,
         args.max_ep_steps,
         agent_config,
         args.perturbation_decay,
