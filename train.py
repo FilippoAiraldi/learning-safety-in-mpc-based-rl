@@ -48,7 +48,7 @@ def train(
         Data resulting from the training.
     '''
     # create logger
-    logger = util.create_logger(run_name, to_file=False)
+    logger = None # util.create_logger(run_name, to_file=False)
 
     # create envs
     env = envs.QuadRotorEnv.get_wrapped(
@@ -116,11 +116,11 @@ def train(
 if __name__ == '__main__':
     # parse arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument('--agents', type=int, default=75,
+    parser.add_argument('--agents', type=int, default=50,
                         help='Number of parallel agent to train.')
     parser.add_argument('--sessions', type=int, default=20,
                         help='Number of training sessions.')
-    parser.add_argument('--train_episodes', type=int, default=10,
+    parser.add_argument('--train_episodes', type=int, default=5,
                         help='Number of training episodes per session.')
     parser.add_argument('--eval_episodes', type=int, default=0,
                         help='Number of evaluation episodes per session.')
@@ -128,7 +128,7 @@ if __name__ == '__main__':
                         help='Maximum number of steps per episode.')
     parser.add_argument('--gamma', type=float, default=0.9792,
                         help='Discount factor.')
-    parser.add_argument('--lr', type=float, default=0.3821,
+    parser.add_argument('--lr', type=float, default=0.05,
                         help='Learning rate.')
     parser.add_argument('--max_perc_update', type=float, default=0.2,
                         help='Maximum percentage update of agent weigths.')
@@ -150,7 +150,7 @@ if __name__ == '__main__':
         'max_perc_update': args.max_perc_update,
         'replay_maxlen': args.train_episodes * 10,  # fixed
         'replay_sample_size': args.replay_mem_sample_size,  # [0.2, 1.0]
-        'replay_include_last': args.train_episodes,  # fixed
+        'replay_include_last': 0,  # fixed
     }
     const_args = (
         args.sessions,
