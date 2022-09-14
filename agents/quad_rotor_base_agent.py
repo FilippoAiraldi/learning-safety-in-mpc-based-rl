@@ -237,7 +237,7 @@ class QuadRotorBaseAgent(ABC):
 
         Returns
         -------
-        returns : np.ndarray
+        returns : array_like
             An array of the accumulated rewards/costs for each episode
         '''
         returns = np.zeros(n_eval_episodes)
