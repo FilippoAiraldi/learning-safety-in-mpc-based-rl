@@ -270,9 +270,8 @@ class QuadRotorBaseAgent(ABC):
             its initial value.
         '''
         # learnable parameters are:
-        #   - model pars: 'thrust_coeff', 'pitch_d', 'pitch_dd', 'pitch_gain',
-        #                 'roll_d', 'roll_dd', 'roll_gain'
-        #   - cost pars: 'w_L', 'w_V', 'w_s', 'w_s_f'
+        #   - model pars: 'g', 'thrust_coeff'
+        #   - cost pars: 'w_x', 'w_u', 'w_s'
         # NOTE: all these parameters must be column vectors. Cannot deal with
         # multidimensional matrices!
         if init_pars is None:
@@ -284,12 +283,6 @@ class QuadRotorBaseAgent(ABC):
             # model
             ('g', (1, 40)),
             ('thrust_coeff', (0.1, 4)),
-            ('pitch_d', (1, 40)),
-            ('pitch_dd', (1, 40)),
-            ('pitch_gain', (1, 40)),
-            ('roll_d', (1, 40)),
-            ('roll_dd', (1, 40)),
-            ('roll_gain', (1, 40)),
             # cost
             ('w_x', (1e-3, np.inf)),
             ('w_u', (1e-3, np.inf)),

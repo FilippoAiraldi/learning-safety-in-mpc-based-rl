@@ -21,12 +21,6 @@ class QuadRotorLSTDQAgentConfig:
     # point
     init_g: float = 9.81
     init_thrust_coeff: float = 2.0
-    init_pitch_d: float = 12
-    init_pitch_dd: float = 7
-    init_pitch_gain: float = 11
-    init_roll_d: float = 10.5
-    init_roll_dd: float = 8
-    init_roll_gain: float = 9
     # cost
     init_w_x: np.ndarray = 1e1
     init_w_u: np.ndarray = 1e0
@@ -100,7 +94,15 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
             env,
             agentname=agentname,
             init_pars=self.config.init_pars,
-            fixed_pars={'perturbation': np.nan},
+            fixed_pars={
+                'pitch_d': 12,
+                'pitch_dd': 7,
+                'pitch_gain': 11,
+                'roll_d': 10.5,
+                'roll_dd': 8,
+                'roll_gain': 9,
+                'perturbation': np.nan
+            },
             mpc_config=mpc_config,
             seed=seed
         )
