@@ -81,13 +81,13 @@ def train(
 if __name__ == '__main__':
     # parse arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument('--agents', type=int, default=1,
+    parser.add_argument('--agents', type=int, default=50,
                         help='Number of parallel agent to train.')
     parser.add_argument('--sessions', type=int, default=20,
                         help='Number of training sessions.')
-    parser.add_argument('--train_episodes', type=int, default=3,
+    parser.add_argument('--train_episodes', type=int, default=5,
                         help='Number of training episodes per session.')
-    parser.add_argument('--max_ep_steps', type=int, default=5,
+    parser.add_argument('--max_ep_steps', type=int, default=50,
                         help='Maximum number of steps per episode.')
     parser.add_argument('--gamma', type=float, default=0.9792,
                         help='Discount factor.')
