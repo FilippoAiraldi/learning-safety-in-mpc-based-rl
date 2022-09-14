@@ -122,12 +122,29 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
         self._init_symbols()
         self._init_qp_solver()
 
+        # initialize others
+        self._epoch_n = None  # keeps track of epoch number just for logging
+
     def save_transition(
         self,
         cost: float,
         solQ: Solution,
         solV: Solution
     ) -> None:
+        '''
+        Schedules the current time-step data to be processed and saved into the
+        experience replay memory.
+
+        Parameters
+        ----------
+        cost : float
+            Stage cost given by the environment at the current time step.
+        solQ : mpc.Solution
+            MPC solution of Q(s,a) where s and a are the current state and 
+            action.
+        solV : mpc.Solution
+            MPC solution of V(s+) where s+ is the net state.
+        '''
         # compute td error
         target = cost + self.config.gamma * solV.f
         td_err = target - solQ.f
@@ -144,12 +161,25 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
         self._episode_buffer.append((g, H))
 
     def consolidate_episode_experience(self) -> None:
+        '''
+        At the end of an episode, computes the remaining operations and 
+        saves results to the replay memory as arrays.
+        '''
         if len(self._episode_buffer) == 0:
             return
         self.replay_memory.append(self._episode_buffer.copy())
         self._episode_buffer.clear()
 
     def update(self) -> np.ndarray:
+        '''
+        Updates the MPC function approximation's weights based on the 
+        information stored in the replay memory.
+
+        Returns
+        -------
+        gradient : array_like
+            Gradient of the update.
+        '''
         # sample the memory
         cfg = self.config
         sample = self.replay_memory.sample(
@@ -185,63 +215,118 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
         self.weights.update_values(theta_new)
         return p
 
-    def learn(
+    def learn_one_epoch(
         self,
-        n_train_sessions: int,
-        n_train_episodes: int,
-        perturbation_decay: float = 0.75,
-        seed: int = None,
-        logger: logging.Logger = None
-    ) -> None:
+        n_episodes: int,
+        seed: Union[int, list[int]] = None,
+        logger: logging.Logger = None,
+        raises: bool = True
+    ) -> np.ndarray:
+        '''
+        Trains the agent on its environment.
+
+        Parameters
+        ----------
+        n_episodes : int
+            Number of training episodes for the current epoch.
+        perturbation_decay : float, optional
+            Decay factor of the exploration perturbation, after each epoch.
+        seed : int or list[int], optional
+            RNG seed.
+        logger : Logger, optional
+            For logging purposes.
+        raises : bool, optional
+            Whether to raise an exception when the MPC solver fails.
+        '''
         logger = logger or logging.getLogger('dummy')
 
-        # simulate m episodes for each session
-        env, cnt = self.env, 0
-        for s in range(n_train_sessions):
-            for e in range(n_train_episodes):
-                state = env.reset(seed=None if seed is None else (seed + cnt))
-                self.reset()
-                action = self.predict(state, deterministic=False)[0]
-                done, t = False, 0
-                while not done:
-                    # compute Q(s, a)
-                    self.fixed_pars.update({'u0': action})
-                    solQ = self.solve_mpc('Q', state)
+        env, name, epoch_n = self.env, self.name, self._epoch_n
+        returns = np.zeros(n_episodes)
+        seeds = self._prepare_seed(seed, n_episodes)
 
-                    # step the system
-                    state, r, done, _ = env.step(action)
+        for e in range(n_episodes):
+            state = env.reset(seed=seeds[e])
+            self.reset()
+            done, t = False, 0
+            action = self.predict(state, deterministic=False)[0]
 
-                    # compute V(s+)
-                    action, _, solV = self.predict(state, deterministic=False)
+            while not done:
+                # compute Q(s, a)
+                self.fixed_pars.update({'u0': action})
+                solQ = self.solve_mpc('Q', state)
 
-                    # save only successful transitions
-                    if solQ.success and solV.success:
-                        self.save_transition(r, solQ, solV)
-                    else:
-                        logger.warning(f'{self.name}|{s}|{e}|{t}: MPC failed.')
+                # step the system
+                state, r, done, _ = env.step(action)
+                returns[e] += r
+
+                # compute V(s+)
+                action, _, solV = self.predict(state, deterministic=False)
+
+                # save only successful transitions
+                if solQ.success and solV.success:
+                    self.save_transition(r, solQ, solV)
+                else:
+                    logger.warning(f'{name}|{epoch_n}|{e}|{t}: MPC failed.')
+                    if raises:
                         raise MPCSolverError('MPC failed.')
-                    t += 1
+                t += 1
 
-                logger.debug(
-                    f'{self.name}|{s}|{e}: J={env.cum_rewards[-1]:,.3f}')
+            # when episode is done, consolidate its experience into memory
+            self.consolidate_episode_experience()
+            logger.debug(f'{name}|{epoch_n}|{e}: J={returns[e]:,.3f}')
 
-                # when episode is done, consolidate its experience into memory
-                self.consolidate_episode_experience()
-                cnt += 1
+        # when all m episodes are done, perform RL update
+        update_grad = self.update()
 
-            # when all m episodes are done, perform RL update and reduce
-            # exploration strength
-            update_grad = self.update()
+        # log training outcomes and return cumulative returns
+        logger.debug(f'{self.name}|{epoch_n}: J_mean={returns.mean():,.3f}; '
+                     f'||p||={np.linalg.norm(update_grad):.3e}; ' +
+                     self.weights.values2str())
+        return returns
+
+    def learn(
+        self,
+        n_train_epochs: int,
+        n_train_episodes: int,
+        perturbation_decay: float = 0.75,
+        seed: Union[int, list[int]] = None,
+        logger: logging.Logger = None,
+        raises: bool = True
+    ) -> np.ndarray:
+        '''
+        Trains the agent on its environment.
+
+        Parameters
+        ----------
+        n_train_epochs : int
+            Number of training sessions/epochs.
+        n_train_episodes : int
+            Number of training episodes per session.
+        perturbation_decay : float, optional
+            Decay factor of the exploration perturbation, after each epoch.
+        seed : int or list[int], optional
+            RNG seed.
+        logger : Logger, optional
+            For logging purposes.
+        raises : bool, optional
+            Whether to raise an exception when the MPC solver fails.
+        '''
+        logger = logger or logging.getLogger('dummy')
+        returns, cnt = [], 0
+        for self._epoch_n in range(n_train_epochs):
+            # let this epoch run
+            returns.append(self.learn_one_epoch(
+                n_episodes=n_train_episodes,
+                seed=None if seed is None else seed + cnt,
+                logger=logger,
+                raises=raises
+            ))
+            cnt += n_train_episodes
+
+            # when the epoch is done, reduce exploration
             self.perturbation_strength *= perturbation_decay
             self.perturbation_chance *= perturbation_decay
-
-            # log evaluation outcomes
-            J_mean = np.mean(
-                [env.cum_rewards[i] for i in range(-n_train_episodes, 0)])
-            logger.debug(
-                f'{self.name}|{s}: J_mean={J_mean:,.3f}; '
-                f'||p||={np.linalg.norm(update_grad):.3e}; ' +
-                self.weights.values2str())
+        return np.stack(returns, axis=0)
 
     def _init_symbols(self) -> None:
         '''Computes symbolical derivatives needed for Q learning.'''
@@ -267,3 +352,11 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
         qp = {'x': theta_new, 'p': cs.vertcat(theta, c), 'f': f}
         opts = {'print_iter': False, 'print_header': False}
         self._solver = cs.qpsol(f'qpsol_{self.name}', 'qrqp', qp, opts)
+
+    def _prepare_seed(self, seed: Union[int, list[int]], n: int) -> list[int]:
+        if seed is None:
+            return [None] * n
+        if isinstance(seed, int):
+            return [seed + i for i in range(n)]
+        assert len(seed) == n, 'Seed sequence with invalid length.'
+        return seed
