@@ -95,7 +95,7 @@ if __name__ == '__main__':
     # fixed parameters of the tuning process
     pars = {
         'n_epochs': 20,
-        'n_agents': 50,  # 50
+        'n_agents': 50,
         'max_ep_steps': 50,
         'seed': 42,
         'n_trials': 20,
@@ -118,7 +118,7 @@ if __name__ == '__main__':
         n_trials=pars['n_trials'],
         n_jobs=pars['n_jobs'],
         catch=(MPCSolverError,),
-        show_progress_bar=True)
+        show_progress_bar=False)
 
     # save results
     util.save_results('tuning/lstdq.pkl', pars=pars, study=study)

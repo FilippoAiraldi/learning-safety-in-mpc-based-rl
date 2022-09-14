@@ -62,7 +62,7 @@ class ReplayMemory(deque[T]):
         # convert percentages to int
         if isinstance(n, float):
             n = int(self.maxlen * n)
-        n = np.clip(n, 0, length)
+        n = np.clip(n, 1, length)
         if isinstance(include_last_n, float):
             include_last_n = int(n * include_last_n)
         include_last_n = np.clip(include_last_n, 0, n)
