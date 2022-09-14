@@ -5,7 +5,7 @@ from agents.replay_memory import ReplayMemory
 from dataclasses import dataclass
 from envs import QuadRotorEnv
 from logging import Logger
-from mpc import Solution, QuadRotorMPCConfig
+from mpc import Solution, MPCSolverError, QuadRotorMPCConfig
 from scipy.linalg import lstsq
 from typing import Union
 from util import monomial_powers, cs_prod
@@ -258,11 +258,7 @@ class QuadRotorLSTDDPGAgent(QuadRotorBaseLearningAgent):
                     else:
                         logger.warning(f'{self.name}|{s}|{e}|{t}: MPC failed'
                                        f' - {sol.status}.')
-                        # The solver can still reach maximum iteration and not
-                        # converge to a good solution. If that happens, in the
-                        # safe variant break the episode and label the
-                        # parameters unsafe.
-                        raise NotImplementedError()
+                        raise MPCSolverError('MPC failed.')
                     state = new_state
                     t += 1
 

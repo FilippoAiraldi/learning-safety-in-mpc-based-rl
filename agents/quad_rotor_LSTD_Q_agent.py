@@ -6,7 +6,7 @@ from agents.replay_memory import ReplayMemory
 from dataclasses import dataclass
 from envs import QuadRotorEnv
 from itertools import chain
-from mpc import Solution, QuadRotorMPCConfig
+from mpc import Solution, MPCSolverError, QuadRotorMPCConfig
 from scipy.linalg import cho_solve
 from typing import Union
 from util import cholesky_added_multiple_identities
@@ -217,11 +217,7 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
                         self.save_transition(r, solQ, solV)
                     else:
                         logger.warning(f'{self.name}|{s}|{e}|{t}: MPC failed.')
-                        # The solver can still reach maximum iteration and not
-                        # converge to a good solution. If that happens, in the
-                        # safe variant break the episode and label the
-                        # parameters unsafe.
-                        raise NotImplementedError()
+                        raise MPCSolverError('MPC failed.')
                     t += 1
 
                 logger.debug(

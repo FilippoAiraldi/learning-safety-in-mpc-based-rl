@@ -35,6 +35,9 @@ class Solution:
         return self.get_value(x)
 
 
+class MPCSolverError(RuntimeError): ...
+
+
 class GenericMPC:
     '''
     The generic MPC class is a controller that solves an optimization problem 

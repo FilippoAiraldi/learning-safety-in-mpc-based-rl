@@ -3,6 +3,7 @@ import envs
 import numpy as np
 import optuna
 import util
+from mpc import MPCSolverError
 
 
 def learn(
@@ -40,11 +41,7 @@ def learn(
                 if solQ.success and solV.success:
                     agent.save_transition(r, solQ, solV)
                 else:
-                    # The solver can still reach maximum iteration and not
-                    # converge to a good solution. If that happens, in the
-                    # safe variant break the episode and label the
-                    # parameters unsafe.
-                    raise NotImplementedError()
+                    raise MPCSolverError('MPC failed.')
                 t += 1
 
             # Handle pruning based on the intermediate value.
@@ -124,7 +121,7 @@ if __name__ == '__main__':
         objective,
         n_trials=30,
         n_jobs=-1,
-        catch=(NotImplementedError,))
+        catch=(MPCSolverError,))
 
     util.save_results('tuning/lstdq.pkl', study=study)
 

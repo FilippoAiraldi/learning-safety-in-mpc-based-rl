@@ -2,7 +2,6 @@ import agents
 import argparse
 import envs
 import joblib as jl
-import numpy as np
 import util
 from typing import Any
 
@@ -49,7 +48,7 @@ def train(
         Data resulting from the training.
     '''
     # create logger
-    logger = None # util.create_logger(run_name, to_file=False)
+    logger = util.create_logger(run_name, to_file=False)
 
     # create envs
     env = envs.QuadRotorEnv.get_wrapped(
@@ -173,5 +172,3 @@ if __name__ == '__main__':
     # save results and launch plotting (is blocking)
     fn = util.save_results(
         filename=run_name, args=args, agent_config=agent_config, data=data)
-    # import os
-    # os.system(f'python visualization.py -fn {fn}')
