@@ -186,7 +186,10 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
             cfg.replay_sample_size, cfg.replay_include_last)
 
         # sum over the batch of samples and compute update direction p
-        g, H = [sum(o) for o in zip(*chain.from_iterable(sample))]
+        try:
+            g, H = [sum(o) for o in zip(*chain.from_iterable(sample))]
+        except:
+            raise ValueError(f'Empty replay sample:\n{cfg}\n{list(sample)}')
         R = cholesky_added_multiple_identities(H)
         p = cho_solve((R, True), g).flatten()
 

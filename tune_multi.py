@@ -117,7 +117,8 @@ if __name__ == '__main__':
         obj_fn,
         n_trials=pars['n_trials'],
         n_jobs=pars['n_jobs'],
-        catch=(MPCSolverError,))
+        catch=(MPCSolverError,),
+        show_progress_bar=True)
 
     # save results
     util.save_results('tuning/lstdq.pkl', pars=pars, study=study)
