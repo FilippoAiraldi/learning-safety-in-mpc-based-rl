@@ -218,6 +218,7 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
     def learn_one_epoch(
         self,
         n_episodes: int,
+        perturbation_decay: float = 0.75,
         seed: Union[int, list[int]] = None,
         logger: logging.Logger = None,
         raises: bool = True
@@ -230,7 +231,7 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
         n_episodes : int
             Number of training episodes for the current epoch.
         perturbation_decay : float, optional
-            Decay factor of the exploration perturbation, after each epoch.
+            Decay factor of the exploration perturbation, after this epoch.
         seed : int or list[int], optional
             RNG seed.
         logger : Logger, optional
@@ -275,8 +276,11 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
             self.consolidate_episode_experience()
             logger.debug(f'{name}|{epoch_n}|{e}: J={returns[e]:,.3f}')
 
-        # when all m episodes are done, perform RL update
+        # when all m episodes are done, perform RL update and reduce
+        # exploration strength and chance
         update_grad = self.update()
+        self.perturbation_strength *= perturbation_decay
+        self.perturbation_chance *= perturbation_decay
 
         # log training outcomes and return cumulative returns
         logger.debug(f'{self.name}|{epoch_n}: J_mean={returns.mean():,.3f}; '
@@ -314,18 +318,14 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
         logger = logger or logging.getLogger('dummy')
         returns, cnt = [], 0
         for self._epoch_n in range(n_train_epochs):
-            # let this epoch run
             returns.append(self.learn_one_epoch(
                 n_episodes=n_train_episodes,
+                perturbation_decay=perturbation_decay,
                 seed=None if seed is None else seed + cnt,
                 logger=logger,
                 raises=raises
             ))
             cnt += n_train_episodes
-
-            # when the epoch is done, reduce exploration
-            self.perturbation_strength *= perturbation_decay
-            self.perturbation_chance *= perturbation_decay
         return np.stack(returns, axis=0)
 
     def _init_symbols(self) -> None:
