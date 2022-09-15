@@ -238,6 +238,11 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
             For logging purposes.
         raises : bool, optional
             Whether to raise an exception when the MPC solver fails.
+
+        Returns
+        -------
+        returns : array_like
+            An array of the returns for each episode of this epoch.
         '''
         logger = logger or logging.getLogger('dummy')
 
@@ -314,6 +319,11 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
             For logging purposes.
         raises : bool, optional
             Whether to raise an exception when the MPC solver fails.
+
+        Returns
+        -------
+        returns : array_like
+            An array of the returns for each episode in each epoch.
         '''
         logger = logger or logging.getLogger('dummy')
         returns = []
