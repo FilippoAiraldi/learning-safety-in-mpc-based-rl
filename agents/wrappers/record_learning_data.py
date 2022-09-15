@@ -39,10 +39,13 @@ class RecordLearningData(Generic[AgentType]):
             w.append(self.agent.weights[n].value)
         return grad
 
+    def learn_one_epoch(self, *args, **kwargs) -> Any:
+        # trick to pass the self's wrapped instance to the method
+        return type(self.agent).learn_one_epoch(self, *args, **kwargs)
+
     def learn(self, *args, **kwargs) -> Any:
-        # # trick to pass the self's wrapped instance to the method
-        # return type(self.agent).learn(self, *args, **kwargs)
-        return self.agent.learn(*args, **kwargs)
+        # trick to pass the self's wrapped instance to the method
+        return type(self.agent).learn(self, *args, **kwargs)
 
     def __getattr__(self, name) -> Any:
         '''Reroutes attributes to the wrapped agent instance.'''
