@@ -60,7 +60,7 @@ def train(
         agent_config=agent_config,
         seed=seed * (agent_n + 1) * 1000)
 
-    agent = agents.wrappers.RecordLearningData(agent)
+    # agent = agents.wrappers.RecordLearningData(agent)
 
     # launch training
     agent.learn(
@@ -71,7 +71,7 @@ def train(
         logger=logger
     )
 
-    return {'env': env, 'agent': agent}
+    return {'env': env, 'agent': None}
 
 
 if __name__ == '__main__':
@@ -87,7 +87,7 @@ if __name__ == '__main__':
                         help='Maximum number of steps per episode.')
     parser.add_argument('--gamma', type=float, default=0.9792,
                         help='Discount factor.')
-    parser.add_argument('--lr', type=float, default=0.05,
+    parser.add_argument('--lr', type=float, default=0.3821,
                         help='Learning rate.')
     parser.add_argument('--max_perc_update', type=float, default=0.2,
                         help='Maximum percentage update of agent weigths.')
@@ -107,9 +107,9 @@ if __name__ == '__main__':
         'gamma': args.gamma,
         'lr': args.lr,
         'max_perc_update': args.max_perc_update,
-        'replay_maxlen': args.train_episodes * 10,  # fixed
-        'replay_sample_size': args.replay_mem_sample_size,  # [0.2, 1.0]
-        'replay_include_last': 0,  # fixed
+        'replay_maxlen': args.train_episodes * 10,
+        'replay_sample_size': args.replay_mem_sample_size,
+        'replay_include_last': args.train_episodes
     }
     const_args = (
         args.sessions,
