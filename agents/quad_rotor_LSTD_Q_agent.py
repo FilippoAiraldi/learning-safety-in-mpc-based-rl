@@ -253,16 +253,16 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
         for e in range(n_episodes):
             state = env.reset(seed=seeds[e])
             self.reset()
-            done, t = False, 0
+            truncated, terminated, t = False, False, 0
             action = self.predict(state, deterministic=False)[0]
 
-            while not done:
+            while not (truncated or terminated):
                 # compute Q(s, a)
                 self.fixed_pars.update({'u0': action})
                 solQ = self.solve_mpc('Q', state)
 
                 # step the system
-                state, r, done, _ = env.step(action)
+                state, r, truncated, terminated, _ = env.step(action)
                 returns[e] += r
 
                 # compute V(s+)

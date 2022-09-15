@@ -60,7 +60,7 @@ def train(
         agent_config=agent_config,
         seed=seed * (agent_n + 1) * 1000)
 
-    # agent = agents.wrappers.RecordLearningData(agent)
+    agent = agents.wrappers.RecordLearningData(agent)
 
     # launch training
     agent.learn(
@@ -71,7 +71,7 @@ def train(
         logger=logger
     )
 
-    return {'env': env, 'agent': None}
+    return {'env': env, 'agent': agent}
 
 
 if __name__ == '__main__':
