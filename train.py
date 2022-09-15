@@ -45,14 +45,10 @@ def train(
         Data resulting from the training.
     '''
     # create logger
-    logger = None # util.create_logger(run_name, to_file=False)
+    logger = None  # util.create_logger(run_name, to_file=False)
 
     # create envs
     env = envs.QuadRotorEnv.get_wrapped(
-        max_episode_steps=max_ep_steps,
-        normalize_observation=False,
-        normalize_reward=False)
-    eval_env = envs.QuadRotorEnv.get_wrapped(
         max_episode_steps=max_ep_steps,
         normalize_observation=False,
         normalize_reward=False)
@@ -75,7 +71,7 @@ def train(
         logger=logger
     )
 
-    return {'env': env, 'eval_env': eval_env, 'agent': agent}
+    return {'env': env, 'agent': agent}
 
 
 if __name__ == '__main__':
