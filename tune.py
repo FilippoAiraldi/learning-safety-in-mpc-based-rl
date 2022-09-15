@@ -202,7 +202,9 @@ if __name__ == '__main__':
         'n_agents': 50,
         'max_ep_steps': 50,
         'seed': 42,
+        #
         'n_trials': 20,
+        'timeout': 6 * 60 * 60,
         'n_jobs': -1
     }
 
@@ -220,6 +222,7 @@ if __name__ == '__main__':
     study.optimize(
         obj_fn,
         n_trials=pars['n_trials'],
+        timeout=pars['timeout'],
         n_jobs=pars['n_jobs'],
         catch=(MPCSolverError,),
         show_progress_bar=False)
