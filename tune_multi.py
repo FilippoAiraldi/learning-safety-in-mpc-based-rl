@@ -151,7 +151,8 @@ def objective(
     }
 
     # setup tracking of intermediate results memmap
-    folder = f'.\\tuning\\joblib_memmap\\trial{trial._trial_id}'
+    folder = os.path.join(
+        '.', 'tuning', 'joblib_memmap', f'trial{trial._trial_id}')
     with contextlib.suppress(FileNotFoundError):
         shutil.rmtree(folder)
     with contextlib.suppress(FileExistsError):
