@@ -23,7 +23,6 @@ if __name__ == '__main__':
     agent_config = data['agent_config']
     data = data['data']
     envs: list[RecordData] = [d['env'] for d in data]
-    # eval_envs: list[RecordData] = [d['eval_env'] for d in data]
     agents: list[RecordLearningData] = [d['agent'] for d in data]
 
     # # shorten results
