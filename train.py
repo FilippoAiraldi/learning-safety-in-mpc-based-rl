@@ -129,7 +129,9 @@ if __name__ == '__main__':
         with util.tqdm_joblib(desc='Training', total=args.agents):
             data = jl.Parallel(n_jobs=-1)(
                 jl.delayed(train)(
-                    i, *const_args, args.seed + i) for i in range(args.agents))
+                    i, *const_args, args.seed + i * args.agents
+                ) for i in range(args.agents)
+            )
 
     # save results and launch plotting (is blocking)
     fn = util.save_results(
