@@ -1,3 +1,4 @@
+import argparse
 # import contextlib
 # import joblib as jl
 import numpy as np
@@ -62,7 +63,7 @@ def objective(
         envs.append(env)
         agents.append(agent)
 
-    # train along each session, and report average performance after each one
+    # train along each epoch, and report average performance after each one
     for n_epoch in range(n_epochs):
         # learn one epoch per agent
         returns = [
@@ -82,7 +83,7 @@ def objective(
         if trial.should_prune():
             raise optuna.TrialPruned()
 
-    # return last session's averaged performance as result of the trial
+    # return last epoch's averaged performance as result of the trial
     return mean_return
 
 
@@ -150,8 +151,8 @@ def objective(
 #         'replay_include_last': train_eps * replay_include_last_factor
 #     }
 
-#     # setup tracking of intermediate results (use memmap to share between 
-#     # subprocesses) 
+#     # setup tracking of intermediate results (use memmap to share between
+#     # subprocesses)
 #     # https://joblib.readthedocs.io/en/latest/auto_examples/parallel_memmap.html
 #     folder = os.path.join('.', 'tuning', 'memmap', f'trial{trial._trial_id}')
 #     with contextlib.suppress(FileNotFoundError):
@@ -189,24 +190,30 @@ def objective(
 #         ) for n_agent in range(n_agents)
 #     )
 
-#     # return last session's averaged performance as result of the trial
+#     # return last epoch's averaged performance as result of the trial
 #     if np.isnan(returns).any():
 #         raise ValueError('Nan detected.')
 #     return returns[:, -1].mean()
 
 
 if __name__ == '__main__':
-    # fixed parameters of the tuning process
-    pars = {
-        'n_epochs': 20,
-        'n_agents': 50,
-        'max_ep_steps': 50,
-        'seed': 42,
-        #
-        'n_trials': 20,
-        'timeout': 6 * 60 * 60,
-        'n_jobs': -1
-    }
+    # parse fixed parameters of the tuning process
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--agents', type=int, default=50,
+                        help='Number of parallel agent to train.')
+    parser.add_argument('--epochs', type=int, default=20,
+                        help='Number of training epochs.')
+    parser.add_argument('--max_ep_steps', type=int, default=50,
+                        help='Maximum number of steps per episode.')
+    parser.add_argument('--seed', type=int, default=42, help='RNG seed.')
+    #
+    parser.add_argument('--trials', type=int, default=20,
+                        help='Number of Optuna trials.')
+    parser.add_argument('--timeout', type=int, default=6 * 60 * 60,
+                        help='Optuna timeout (seconds).')
+    parser.add_argument('--n_jobs', type=int, default=-1,
+                        help='Number of parallel Optuna jobs.')
+    args = parser.parse_args()
 
     # create study and begin optimization
     study = optuna.create_study(
@@ -215,20 +222,20 @@ if __name__ == '__main__':
         direction='minimize')
     obj_fn = lambda trial: objective(
         trial,
-        n_epochs=pars['n_epochs'],
-        n_agents=pars['n_agents'],
-        max_ep_steps=pars['max_ep_steps'],
-        seed=pars['seed'])
+        n_epochs=args.epochs,
+        n_agents=args.agents,
+        max_ep_steps=args.max_ep_steps,
+        seed=args.seed)
     study.optimize(
         obj_fn,
-        n_trials=pars['n_trials'],
-        timeout=pars['timeout'],
-        n_jobs=pars['n_jobs'],
+        n_trials=args.trials,
+        timeout=args.timeout,
+        n_jobs=args.n_jobs,
         catch=(MPCSolverError,),
         show_progress_bar=False)
 
     # save results
-    util.save_results('tuning/lstdq.pkl', pars=pars, study=study)
+    util.save_results('tuning/lstdq.pkl', args=args, study=study)
 
     # display some stats
     pruned_trials = study.get_trials(
