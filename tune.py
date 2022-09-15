@@ -150,7 +150,9 @@ def objective(
         'replay_include_last': train_eps * replay_include_last_factor
     }
 
-    # setup tracking of intermediate results memmap
+    # setup tracking of intermediate results (use memmap to share between 
+    # subprocesses) 
+    # https://joblib.readthedocs.io/en/latest/auto_examples/parallel_memmap.html
     folder = os.path.join('.', 'tuning', 'memmap', f'trial{trial._trial_id}')
     with contextlib.suppress(FileNotFoundError):
         shutil.rmtree(folder)
