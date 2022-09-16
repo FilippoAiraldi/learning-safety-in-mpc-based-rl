@@ -45,7 +45,7 @@ def train(
         Data resulting from the training.
     '''
     # create logger
-    logger = None  # util.create_logger(run_name, to_file=False)
+    logger = None # util.create_logger(run_name, to_file=True)
 
     # create envs
     env = envs.QuadRotorEnv.get_wrapped(

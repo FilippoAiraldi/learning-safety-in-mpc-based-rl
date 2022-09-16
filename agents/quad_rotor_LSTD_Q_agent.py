@@ -221,8 +221,12 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
         perturbation_decay: float = 0.75,
         seed: Union[int, list[int]] = None,
         logger: logging.Logger = None,
-        raises: bool = True
-    ) -> np.ndarray:
+        raises: bool = True,
+        return_info: bool = False
+    ) -> Union[
+        np.ndarray,
+        tuple[np.ndarray, np.ndarray, dict[str, np.ndarray]]
+    ]:
         '''
         Trains the agent on its environment.
 
@@ -238,11 +242,20 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
             For logging purposes.
         raises : bool, optional
             Whether to raise an exception when the MPC solver fails.
+        return_info : bool, optional
+            Whether to return additional information for this epoch update:
+                - update gradient
+                - agent's updated weights
 
         Returns
         -------
         returns : array_like
             An array of the returns for each episode of this epoch.
+        gradient : array_like, optional
+            Gradient of the update. Only returned if 'return_info=True'.   
+        new_weights : dict[str, array_like], optional
+            Agent's new set of weights after the update. Only returned if 
+            'return_info=True'.
         '''
         logger = logger or logging.getLogger('dummy')
 
@@ -291,7 +304,12 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
         logger.debug(f'{self.name}|{epoch_n}: J_mean={returns.mean():,.3f}; '
                      f'||p||={np.linalg.norm(update_grad):.3e}; ' +
                      self.weights.values2str())
-        return returns
+        if not return_info:
+            return returns
+        new_weights = {
+            k: w.value.copy() for k, w in self.weights.as_dict.items()
+        }
+        return returns, update_grad, new_weights
 
     def learn(
         self,
@@ -300,8 +318,12 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
         perturbation_decay: float = 0.75,
         seed: Union[int, list[int]] = None,
         logger: logging.Logger = None,
-        raises: bool = True
-    ) -> np.ndarray:
+        raises: bool = True,
+        return_info: bool = True
+    ) -> Union[
+        np.ndarray,
+        tuple[np.ndarray, list[np.ndarray], list[dict[str, np.ndarray]]]
+    ]:
         '''
         Trains the agent on its environment.
 
@@ -319,29 +341,46 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
             For logging purposes.
         raises : bool, optional
             Whether to raise an exception when the MPC solver fails.
+        return_info : bool, optional
+            Whether to return additional information for each epoch update:
+                - a list of update gradients
+                - a list of agent's updated weights after each update
 
         Returns
         -------
         returns : array_like
             An array of the returns for each episode in each epoch.
+        gradient : list[array_like], optional
+            Gradients of each update. Only returned if 'return_info=True'.   
+        new_weights : list[dict[str, array_like]], optional
+            Agent's new set of weights after each update. Only returned if 
+            'return_info=True'.
         '''
         logger = logger or logging.getLogger('dummy')
         returns = []
+        if return_info:
+            grads, weights = [], []
 
         for e in range(n_train_epochs):
             self._epoch_n = e  # just for logging
 
-            returns.append(
-                self.learn_one_epoch(
-                    n_episodes=n_train_episodes,
-                    perturbation_decay=perturbation_decay,
-                    seed=None if seed is None else seed + n_train_episodes * e,
-                    logger=logger,
-                    raises=raises
-                )
-            )
+            o = self.learn_one_epoch(
+                n_episodes=n_train_episodes,
+                perturbation_decay=perturbation_decay,
+                seed=None if seed is None else seed + n_train_episodes * e,
+                logger=logger,
+                raises=raises,
+                return_info=return_info)
 
-        return np.stack(returns, axis=0)
+            if not return_info:
+                returns.append(o)
+            else:
+                returns.append(o[0])
+                grads.append(o[1])
+                weights.append(o[2])
+
+        returns = np.stack(returns, axis=0)
+        return (returns, grads, weights) if return_info else returns
 
     def _init_symbols(self) -> None:
         '''Computes symbolical derivatives needed for Q learning.'''
