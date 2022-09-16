@@ -5,6 +5,7 @@ from agents.wrappers import RecordLearningData
 from envs.wrappers import RecordData
 from itertools import cycle, product
 from matplotlib.collections import LineCollection
+from matplotlib.figure import Figure
 from matplotlib.ticker import MaxNLocator, PercentFormatter
 from mpl_toolkits.mplot3d.art3d import Line3DCollection, Poly3DCollection
 from util.util import MATLAB_COLORS
@@ -26,7 +27,7 @@ def _set_axes3d_equal(ax):
     ax.set_zlim3d([z_middle - plot_radius, z_middle + plot_radius])
 
 
-def plot_trajectory_3d(env: RecordData, traj_num: int) -> None:
+def plot_trajectory_3d(env: RecordData, traj_num: int) -> Figure:
     '''Plots the i-th trajecetory of the recorded data in 3D.'''
     x0, xf = env.config.x0, env.config.xf
     data = env.observations[traj_num].T
@@ -111,11 +112,10 @@ def plot_trajectory_3d(env: RecordData, traj_num: int) -> None:
     cax = fig.add_subplot(G[:, -1])
     fig.colorbar(trajectory, cax=cax, format=PercentFormatter(),
                  label='% of trajectory')
+    return fig
 
-    plt.show(block=False)
 
-
-def plot_trajectory_in_time(env: RecordData, traj_num: int) -> None:
+def plot_trajectory_in_time(env: RecordData, traj_num: int) -> Figure:
     '''Plots the i-th trajecetory of the recorded data.'''
 
     # prepare for plotting
@@ -166,10 +166,10 @@ def plot_trajectory_in_time(env: RecordData, traj_num: int) -> None:
             ax.set_xlabel('Time [s]')
 
     ax.set_xlim([t[0], t[-1]])
-    plt.show(block=False)
+    return fig
 
 
-def plot_performance_and_unsafe_episodes(envs: list[RecordData]) -> None:
+def plot_performance_and_unsafe_episodes(envs: list[RecordData]) -> Figure:
     '''
     Plots the performance in each environment and the average performance, 
     as well as the number of unsafe episodes.
@@ -231,11 +231,10 @@ def plot_performance_and_unsafe_episodes(envs: list[RecordData]) -> None:
     ax.set_xlabel('Episode')
     ax.set_ylabel('Constraint violation')
     ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+    return fig
 
-    plt.show(block=False)
 
-
-def plot_learned_weights(agents: list[RecordLearningData]) -> None:
+def plot_learned_weights(agents: list[RecordLearningData]) -> Figure:
     Nupdates = len(agents[0].update_gradient)
     weightnames = agents[0].weights_history.keys()
     Nweights = len(weightnames)
@@ -269,5 +268,4 @@ def plot_learned_weights(agents: list[RecordLearningData]) -> None:
         ax.set_xlabel('Update')
         ax.set_ylabel(lbl)
         ax.xaxis.set_major_locator(MaxNLocator(integer=True))
-
-    plt.show(block=False)
+    return fig
