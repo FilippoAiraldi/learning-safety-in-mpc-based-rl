@@ -26,20 +26,20 @@ if __name__ == '__main__':
     agents: list[RecordLearningData] = [d['agent'] for d in data]
 
     # # shorten results
-    # target_sessions = 13
-    # ep_per_session = args.train_episodes
+    # target_epochs = 13
+    # ep_per_epoch = args.train_episodes
     # for datum in data:
     #     for name in ['observations', 'actions', 'rewards', 'cum_rewards',
     #                  'episode_lengths', 'exec_times']:
     #         o = list(getattr(datum['env'], name))
-    #         setattr(datum['env'], name, o[:target_sessions * ep_per_session])
+    #         setattr(datum['env'], name, o[:target_epochs * ep_per_epoch])
     #     datum['agent'].update_gradient = \
-    #         datum['agent'].update_gradient[:target_sessions]
+    #         datum['agent'].update_gradient[:target_epochs]
     #     datum['agent'].update_gradient_norm = \
-    #         datum['agent'].update_gradient_norm[:target_sessions]
+    #         datum['agent'].update_gradient_norm[:target_epochs]
     #     datum['agent'].update_gradient_norm
     #     for k, v in datum['agent'].weights_history.items():
-    #         datum['agent'].weights_history[k] = v[:target_sessions + 1]
+    #         datum['agent'].weights_history[k] = v[:target_epochs + 1]
 
     # plot
     plot.plot_performance_and_unsafe_episodes(envs)

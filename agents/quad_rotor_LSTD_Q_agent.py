@@ -14,28 +14,22 @@ from util import cholesky_added_multiple_identities
 
 @dataclass(frozen=True)
 class QuadRotorLSTDQAgentConfig:
-    # initial RL pars
-    # model
-    # NOTE: initial values were made closer to real in an attempt to check if
-    # learning happens. Remember to reset them to more difficult values at some
-    # point
+    # initial RL weights
     init_g: float = 9.81
     init_thrust_coeff: float = 2.0
-    # cost
     init_w_x: np.ndarray = 1e1
     init_w_u: np.ndarray = 1e0
     init_w_s: np.ndarray = 1e2
 
     # experience replay parameters
-    replay_maxlen: float = 2000
-    replay_sample_size: float = 500
-    replay_include_last: float = 100
+    replay_maxlen: float = 20
+    replay_sample_size: float = 10
+    replay_include_last: float = 5
 
-    # RL parameters
+    # RL algorithm parameters
     gamma: float = 1.0
     lr: float = 1e-1
     max_perc_update: float = np.inf
-    clip_grad_norm: float = None
 
     @property
     def init_pars(self) -> dict[str, Union[float, np.ndarray]]:
@@ -107,7 +101,7 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
             seed=seed
         )
 
-        # during learning, DPG must always perturb the action in order to learn
+        # in order to learn, Q learning must sometime perturb the action
         self.perturbation_chance = 0.7
         self.perturbation_strength = 5e-1
 
@@ -121,9 +115,6 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
         # the QP solver used to compute updates
         self._init_symbols()
         self._init_qp_solver()
-
-        # initialize others
-        self._epoch_n = None  # keeps track of epoch number just for logging
 
     def save_transition(
         self,
@@ -171,15 +162,6 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
         self._episode_buffer.clear()
 
     def update(self) -> np.ndarray:
-        '''
-        Updates the MPC function approximation's weights based on the 
-        information stored in the replay memory.
-
-        Returns
-        -------
-        gradient : array_like
-            Gradient of the update.
-        '''
         # sample the memory
         cfg = self.config
         sample = self.replay_memory.sample(
@@ -189,30 +171,16 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
         g, H = [sum(o) for o in zip(*chain.from_iterable(sample))]
         R = cholesky_added_multiple_identities(H)
         p = cho_solve((R, True), g).flatten()
+        c = cfg.lr * p
 
-        # clip gradient if requested
-        if cfg.clip_grad_norm is None:
-            c = cfg.lr * p
-        else:
-            clip_coef = min(
-                cfg.clip_grad_norm / (np.linalg.norm(p) + 1e-6), 1.0)
-            c = (cfg.lr * clip_coef) * p
-
-        # compute bounds on parameter update
+        # run QP solver and update weights
         theta = self.weights.values()
-        bounds = self.weights.bounds()
-        max_delta = np.maximum(np.abs(cfg.max_perc_update * theta), 0.1)
-        lb = np.maximum(bounds[:, 0], theta - max_delta)
-        ub = np.minimum(bounds[:, 1], theta + max_delta)
-
-        # run QP solver
+        lb, ub = self._get_percentage_bounds(
+            theta, self.weights.bounds(), cfg.max_perc_update)
         sol = self._solver(lbx=lb, ubx=ub, x0=theta - c,
                            p=np.concatenate((theta, c)))
         assert self._solver.stats()['success'], 'RL update failed.'
-        theta_new: np.ndarray = sol['x'].full().flatten()
-
-        # update weights
-        self.weights.update_values(theta_new)
+        self.weights.update_values(sol['x'].full().flatten())
         return p
 
     def learn_one_epoch(
@@ -227,41 +195,11 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
         np.ndarray,
         tuple[np.ndarray, np.ndarray, dict[str, np.ndarray]]
     ]:
-        '''
-        Trains the agent on its environment.
-
-        Parameters
-        ----------
-        n_episodes : int
-            Number of training episodes for the current epoch.
-        perturbation_decay : float, optional
-            Decay factor of the exploration perturbation, after this epoch.
-        seed : int or list[int], optional
-            RNG seed.
-        logger : Logger, optional
-            For logging purposes.
-        raises : bool, optional
-            Whether to raise an exception when the MPC solver fails.
-        return_info : bool, optional
-            Whether to return additional information for this epoch update:
-                - update gradient
-                - agent's updated weights
-
-        Returns
-        -------
-        returns : array_like
-            An array of the returns for each episode of this epoch.
-        gradient : array_like, optional
-            Gradient of the update. Only returned if 'return_info=True'.   
-        new_weights : dict[str, array_like], optional
-            Agent's new set of weights after the update. Only returned if 
-            'return_info=True'.
-        '''
         logger = logger or logging.getLogger('dummy')
 
         env, name, epoch_n = self.env, self.name, self._epoch_n
         returns = np.zeros(n_episodes)
-        seeds = self._prepare_seed(seed, n_episodes)
+        seeds = self._make_seed_list(seed, n_episodes)
 
         for e in range(n_episodes):
             state = env.reset(seed=seeds[e])
@@ -304,83 +242,11 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
         logger.debug(f'{self.name}|{epoch_n}: J_mean={returns.mean():,.3f}; '
                      f'||p||={np.linalg.norm(update_grad):.3e}; ' +
                      self.weights.values2str())
-        if not return_info:
-            return returns
-        new_weights = {
-            k: w.value.copy() for k, w in self.weights.as_dict.items()
-        }
-        return returns, update_grad, new_weights
-
-    def learn(
-        self,
-        n_train_epochs: int,
-        n_train_episodes: int,
-        perturbation_decay: float = 0.75,
-        seed: Union[int, list[int]] = None,
-        logger: logging.Logger = None,
-        raises: bool = True,
-        return_info: bool = True
-    ) -> Union[
-        np.ndarray,
-        tuple[np.ndarray, list[np.ndarray], list[dict[str, np.ndarray]]]
-    ]:
-        '''
-        Trains the agent on its environment.
-
-        Parameters
-        ----------
-        n_train_epochs : int
-            Number of training sessions/epochs.
-        n_train_episodes : int
-            Number of training episodes per session.
-        perturbation_decay : float, optional
-            Decay factor of the exploration perturbation, after each epoch.
-        seed : int or list[int], optional
-            RNG seed.
-        logger : Logger, optional
-            For logging purposes.
-        raises : bool, optional
-            Whether to raise an exception when the MPC solver fails.
-        return_info : bool, optional
-            Whether to return additional information for each epoch update:
-                - a list of update gradients
-                - a list of agent's updated weights after each update
-
-        Returns
-        -------
-        returns : array_like
-            An array of the returns for each episode in each epoch.
-        gradient : list[array_like], optional
-            Gradients of each update. Only returned if 'return_info=True'.   
-        new_weights : list[dict[str, array_like]], optional
-            Agent's new set of weights after each update. Only returned if 
-            'return_info=True'.
-        '''
-        logger = logger or logging.getLogger('dummy')
-        returns = []
-        if return_info:
-            grads, weights = [], []
-
-        for e in range(n_train_epochs):
-            self._epoch_n = e  # just for logging
-
-            o = self.learn_one_epoch(
-                n_episodes=n_train_episodes,
-                perturbation_decay=perturbation_decay,
-                seed=None if seed is None else seed + n_train_episodes * e,
-                logger=logger,
-                raises=raises,
-                return_info=return_info)
-
-            if not return_info:
-                returns.append(o)
-            else:
-                returns.append(o[0])
-                grads.append(o[1])
-                weights.append(o[2])
-
-        returns = np.stack(returns, axis=0)
-        return (returns, grads, weights) if return_info else returns
+        return (
+            (returns, update_grad, self.weights.values(as_dict=True)) 
+            if return_info else 
+            returns
+        )
 
     def _init_symbols(self) -> None:
         '''Computes symbolical derivatives needed for Q learning.'''
@@ -406,11 +272,3 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
         qp = {'x': theta_new, 'p': cs.vertcat(theta, c), 'f': f}
         opts = {'print_iter': False, 'print_header': False}
         self._solver = cs.qpsol(f'qpsol_{self.name}', 'qrqp', qp, opts)
-
-    def _prepare_seed(self, seed: Union[int, list[int]], n: int) -> list[int]:
-        if seed is None:
-            return [None] * n
-        if isinstance(seed, int):
-            return [seed + i for i in range(n)]
-        assert len(seed) == n, 'Seed sequence with invalid length.'
-        return seed
