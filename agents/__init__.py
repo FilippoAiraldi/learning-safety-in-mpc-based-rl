@@ -8,5 +8,6 @@ from agents.quad_rotor_LSTD_Q_agent import (
 from agents.quad_rotor_LSTD_DPG_agent import (
     QuadRotorLSTDDPGAgent, QuadRotorLSTDDPGAgentConfig
 )
+from agents.quad_rotor_GPsafe_LSTD_Q_agent import QuadRotorGPSafeLSTDQAgent
 
 from agents import wrappers

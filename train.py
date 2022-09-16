@@ -53,10 +53,9 @@ def train(
         normalize_observation=False,
         normalize_reward=False)
 
-    # create agent
-    agent = agents.QuadRotorLSTDDPGAgent(
+    agent = agents.QuadRotorGPSafeLSTDQAgent(
         env=env,
-        agentname=f'DPG_{agent_n}',
+        agentname=f'LSTDQ_{agent_n}',
         agent_config=agent_config,
         seed=seed * (agent_n + 1) * 1000)
 
@@ -87,9 +86,9 @@ if __name__ == '__main__':
                         help='Maximum number of steps per episode.')
     parser.add_argument('--gamma', type=float, default=0.9792,
                         help='Discount factor.')
-    parser.add_argument('--lr', type=float, default=1e-4,
+    parser.add_argument('--lr', type=float, default=0.05,
                         help='Learning rate.')
-    parser.add_argument('--max_perc_update', type=float, default=float('inf'),
+    parser.add_argument('--max_perc_update', type=float, default=0.2,
                         help='Maximum percentage update of agent weigths.')
     parser.add_argument('--replay_mem_sample_size', type=float, default=0.7,
                         help='Replay memory sample size (%).')
