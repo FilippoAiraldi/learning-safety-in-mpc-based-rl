@@ -20,10 +20,10 @@ def objective(
     seed: int,
 ) -> float:
     # suggest parameters for this trial
-    gamma = 0.98 #trial.suggest_float(
+    gamma = 1.0 #trial.suggest_float(
         # 'gamma', 0.98, 1.0, log=True)
     lr = trial.suggest_float(
-        'lr', 1e-7, 1e-1, log=True)
+        'lr', 1e-3, 5e-1, log=True)
     train_eps = 5 # trial.suggest_categorical(
         # 'train_eps', [1, 5, 10, 20])
     max_perc_update = trial.suggest_categorical(
@@ -35,7 +35,7 @@ def objective(
     replay_include_last_factor = 0 # trial.suggest_int(
         # 'replay_include_last_factor', 0, 1)
     perturbation_decay = trial.suggest_float(
-        'perturbation_decay', 0.5, 0.99)
+        'perturbation_decay', 0.5, 1.0, step=0.1)
 
     # create envs and agents
     agent_config = {
@@ -199,7 +199,7 @@ def objective(
 if __name__ == '__main__':
     # parse fixed parameters of the tuning process
     parser = argparse.ArgumentParser()
-    parser.add_argument('--agents', type=int, default=50,
+    parser.add_argument('--agents', type=int, default=5,
                         help='Number of parallel agent to train.')
     parser.add_argument('--epochs', type=int, default=20,
                         help='Number of training epochs.')
