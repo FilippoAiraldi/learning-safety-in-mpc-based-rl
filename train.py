@@ -24,7 +24,7 @@ def train(
     agent_n : int
         Number of the agent.
     epochs : int
-        Number of training epochs. At the end of each session, an RL update
+        Number of training epochs. At the end of each epoch, an RL update
         is carried out.
     train_episodes : int
         Episodes per training epochs.
@@ -33,7 +33,7 @@ def train(
     agent_config : dict[str, any]
         Agent's configuration.
     perturbation_decay : float
-        Decay of exploration perturbations at the end of each session.
+        Decay of exploration perturbations at the end of each epoch.
     run_name : str
         The name of this run.
     seed : int
@@ -79,10 +79,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--agents', type=int, default=50,
                         help='Number of parallel agent to train.')
-    parser.add_argument('--sessions', type=int, default=20,
-                        help='Number of training sessions.')
+    parser.add_argument('--epochs', type=int, default=20,
+                        help='Number of training epochs.')
     parser.add_argument('--train_episodes', type=int, default=5,
-                        help='Number of training episodes per session.')
+                        help='Number of training episodes per epoch.')
     parser.add_argument('--max_ep_steps', type=int, default=50,
                         help='Maximum number of steps per episode.')
     parser.add_argument('--gamma', type=float, default=0.9792,
@@ -112,7 +112,7 @@ if __name__ == '__main__':
         'replay_include_last': args.train_episodes
     }
     const_args = (
-        args.sessions,
+        args.epochs,
         args.train_episodes,
         args.max_ep_steps,
         agent_config,

@@ -330,9 +330,9 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
         Parameters
         ----------
         n_train_epochs : int
-            Number of training sessions/epochs.
+            Number of training epochs.
         n_train_episodes : int
-            Number of training episodes per session.
+            Number of training episodes per epoch.
         perturbation_decay : float, optional
             Decay factor of the exploration perturbation, after each epoch.
         seed : int or list[int], optional

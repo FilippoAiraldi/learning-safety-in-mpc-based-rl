@@ -62,7 +62,7 @@ def objective(
         envs.append(env)
         agents.append(agent)
 
-    # train along each session, and report average performance after each one
+    # train along each epoch, and report average performance after each one
     for n_epoch in range(n_epochs):
         # learn one epoch per agent
         returns = [
@@ -82,7 +82,7 @@ def objective(
         if trial.should_prune():
             raise optuna.TrialPruned()
 
-    # return last session's averaged performance as result of the trial
+    # return last epoch's averaged performance as result of the trial
     return mean_return
 
 
@@ -189,7 +189,7 @@ def objective(
 #         ) for n_agent in range(n_agents)
 #     )
 
-#     # return last session's averaged performance as result of the trial
+#     # return last epoch's averaged performance as result of the trial
 #     if np.isnan(returns).any():
 #         raise ValueError('Nan detected.')
 #     return returns[:, -1].mean()
