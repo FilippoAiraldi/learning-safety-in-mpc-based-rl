@@ -14,6 +14,7 @@ if __name__ == '__main__':
         '-fn', '--filenames', type=str, default=None, nargs='+',
         help='The pickle data to be visualized.')
     args = parser.parse_args()
+
     if args.filenames is None:
         args.filenames = ('results/lstdq_5ep.pkl',)
 
