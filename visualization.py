@@ -43,7 +43,7 @@ if __name__ == '__main__':
 
     # plot
     plot.plot_performance_and_unsafe_episodes(envs)
-    # plot.plot_learned_weights(agents)
+    plot.plot_learned_weights(agents)
     plt.show()
     # util.plot.plot_trajectory_3d(env, 0)
     # util.plot.plot_trajectory_in_time(env, 0)
