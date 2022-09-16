@@ -24,28 +24,22 @@ class RecordLearningData(Generic[AgentType]):
             n: [p.value] for n, p in agent.weights.as_dict.items()
         }
         self.update_gradient: list[np.ndarray] = []
-        self.update_gradient_norm: list[np.ndarray] = []
-
-    def update(self, *args, **kwargs) -> np.ndarray:
-        grad = self.agent.update(*args, **kwargs)
-
-        # save gradient and its norm
-        self.update_gradient.append(grad)
-        g = np.linalg.norm(grad, axis=0).squeeze()
-        self.update_gradient_norm.append(g.item() if np.isscalar(g) else g)
-
-        # save new weights
-        for n, w in self.weights_history.items():
-            w.append(self.agent.weights[n].value)
-        return grad
 
     def learn_one_epoch(self, *args, **kwargs) -> Any:
-        # trick to pass the self's wrapped instance to the method
-        return type(self.agent).learn_one_epoch(self, *args, **kwargs)
+        returns, grad, weights = self.agent.learn_one_epoch(*args, **kwargs)
+        self._save(grad, weights)
+        return returns, grad
 
     def learn(self, *args, **kwargs) -> Any:
-        # trick to pass the self's wrapped instance to the method
-        return type(self.agent).learn(self, *args, **kwargs)
+        returns, grads, weightss = self.agent.learn(*args, **kwargs)
+        for grad, weights in zip(grads, weightss):
+            self._save(grad, weights)
+        return returns, grads, weightss
+
+    def _save(self, grad: np.ndarray, weights: dict[str, np.ndarray]) -> None:
+        self.update_gradient.append(grad)
+        for n, w in self.weights_history.items():
+            w.append(weights[n])
 
     def __getattr__(self, name) -> Any:
         '''Reroutes attributes to the wrapped agent instance.'''

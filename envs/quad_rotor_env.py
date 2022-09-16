@@ -298,7 +298,8 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
         self._n_within_termination = 0
         return self.x
 
-    def step(self, u: np.ndarray) -> tuple[np.ndarray, float, bool, dict]:
+    def step(
+        self, u: np.ndarray) -> tuple[np.ndarray, float, bool, bool, dict]:
         '''
         Steps the quadrotor environment. 
 
@@ -309,10 +310,11 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
 
         Returns
         -------
-        new_state, cost, done, info : array_like, float, bool, dict
+        new_state, cost, truncated, terminated, info : 
+                                                array_like, float, bool, dict
             A tuple containing the new state of the quadrotor, the 
             instantenuous cost of taking this action in this state, the 
-            termination flag and a dictionary of information.
+            truncation/termination flags and a dictionary of information.
         '''
         u = u.squeeze()  # in case a row or col was passed
         assert self.action_space.contains(u), 'Invalid action.'
@@ -344,16 +346,16 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
         )
         cost = float(error + usage + violation)
 
-        # check if done
+        # check if terminated
         within_bounds = ((self.config.x_bounds[:, 0] <= self._x) &
                          (self._x <= self.config.x_bounds[:, 1])).all()
         if error <= self.config.termination_error and within_bounds:
             self._n_within_termination += 1
         else:
             self._n_within_termination = 0
-        done = self._n_within_termination >= self.config.termination_N
+        terminated = self._n_within_termination >= self.config.termination_N
         #
-        return self.x, cost, done, {'error': error}
+        return self.x, cost, terminated, False, {'error': error}
 
     def render(self):
         raise NotImplementedError('Render method unavailable.')

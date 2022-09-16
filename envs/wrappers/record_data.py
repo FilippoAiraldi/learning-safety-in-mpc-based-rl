@@ -59,19 +59,21 @@ class RecordData(gym.Wrapper):
         self.ep_observations.append(observation)
         return observation
 
-    def step(self, action):
+    def step(
+        self, action: np.ndarray
+    ) -> tuple[np.ndarray, float, bool, bool, dict]:
         '''Steps through the environment, accumulating the episode data.'''
-        observation, reward, done, info = self.env.step(action)
+        obs, reward, terminated, truncated, info = self.env.step(action)
 
         # accumulate data
-        self.ep_observations.append(observation)
+        self.ep_observations.append(obs)
         self.ep_actions.append(action)
         self.ep_rewards.append(reward)
         self.ep_cum_reward += reward
         self.ep_length += 1
 
         # if episode is done, save the current data to history
-        if done:
+        if terminated or truncated:
             # stack as numpy
             o = self.ep_observations
             a = self.ep_actions
@@ -92,7 +94,7 @@ class RecordData(gym.Wrapper):
             # clear this episode's data
             self._clear_ep_data()
 
-        return observation, reward, done, info
+        return obs, reward, terminated, truncated, info
 
     def _clear_ep_data(self) -> None:
         self.ep_observations.clear()

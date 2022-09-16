@@ -236,7 +236,7 @@ def plot_performance_and_unsafe_episodes(envs: list[RecordData]) -> None:
 
 
 def plot_learned_weights(agents: list[RecordLearningData]) -> None:
-    Nupdates = len(agents[0].update_gradient_norm)
+    Nupdates = len(agents[0].update_gradient)
     weightnames = agents[0].weights_history.keys()
     Nweights = len(weightnames)
     updates = np.arange(Nupdates + 1) + 1
@@ -255,13 +255,13 @@ def plot_learned_weights(agents: list[RecordLearningData]) -> None:
                              sharex=ax)
 
         # get history and average it
-        weights: np.ndarray = np.squeeze(np.stack(
-            [agent.weights_history[name] for agent in agents]))
+        weights: np.ndarray = np.stack(
+            [np.squeeze(agent.weights_history[name]) for agent in agents])
         lbl = f'Parameter \'{name}\''
         if weights.ndim > 2:
             weights = weights.mean(axis=-1)
             lbl += ' (mean)'
-        mean_weight: np.ndarray = weights.mean(axis=0)
+        mean_weight: np.ndarray = weights.mean(axis=0)  # average over agents
 
         # plot
         ax.plot(updates, weights.T, linestyle='-', linewidth=0.1, color=clr)

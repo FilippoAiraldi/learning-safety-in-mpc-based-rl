@@ -1,6 +1,6 @@
 casadi==3.5.5
 cloudpickle==1.4.0
-gym==0.24.0
+gym==0.26.0
 joblib==1.1.0
 matplotlib==3.5.2
 numpy==1.23.1
