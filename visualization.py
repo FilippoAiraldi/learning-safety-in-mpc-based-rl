@@ -13,17 +13,19 @@ if __name__ == '__main__':
     # parse arguments
     parser = argparse.ArgumentParser(description='Visualization script')
     parser.add_argument(
-        '-fn', '--filenames', type=str, default=None, nargs='+',
+        'filenames', type=str, nargs='*',
         help='The pickle data to be visualized.')
     parser.add_argument(
-        '-dp', '--disable_plots', type=int, default=None, nargs='+',
-        help='Disables the i-th plot.')
+        '-p', '--plots', type=int, nargs='*', help='Enables the i-th plot.')
     args = parser.parse_args()
 
-    if args.filenames is None:
-        args.filenames = ('results/lstdq_1_baseline.pkl', 'results/lstdq_1_baseline_longer.pkl',)
-    if args.disable_plots is None:
-        args.disable_plots = ()
+    if len(args.filenames) == 0:
+        args.filenames = [
+            'results/lstdq_1_baseline.pkl',
+            'results/lstdq_1_baseline_longer.pkl'
+        ]
+    if len(args.plots) == 0:
+        args.plots = range(2)
 
     figs, colors = [None, None], cycle(plot.MATLAB_COLORS)
     for filename, color in zip(args.filenames, colors):
@@ -40,13 +42,13 @@ if __name__ == '__main__':
               '\n - agent config:', agent_config, '\n')
 
         # plot
-        if 0 not in args.disable_plots:
+        if 0 in args.plots:
             figs[0] = plot.plot_performance_and_unsafe_episodes(
                 envs, fig=figs[0], color=color)
-        if 1 not in args.disable_plots:
+        if 1 in args.plots and all(a is not None for a in agents):
             figs[1] = plot.plot_learned_weights(
                 agents, fig=figs[1], color=color)
-        
+
         # util.plot.plot_trajectory_3d(env, 0)
         # util.plot.plot_trajectory_in_time(env, 0)
 
