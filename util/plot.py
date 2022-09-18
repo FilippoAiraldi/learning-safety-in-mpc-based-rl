@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from agents.wrappers import RecordLearningData
 from envs.wrappers import RecordData
-from itertools import cycle, product
+from itertools import product
 from matplotlib.collections import LineCollection
 from matplotlib.figure import Figure
 from matplotlib.ticker import MaxNLocator, PercentFormatter
@@ -169,7 +169,11 @@ def plot_trajectory_in_time(env: RecordData, traj_num: int) -> Figure:
     return fig
 
 
-def plot_performance_and_unsafe_episodes(envs: list[RecordData]) -> Figure:
+def plot_performance_and_unsafe_episodes(
+    envs: list[RecordData], 
+    fig: Figure = None,
+    color: str = None
+) -> Figure:
     '''
     Plots the performance in each environment and the average performance, 
     as well as the number of unsafe episodes.
@@ -211,30 +215,37 @@ def plot_performance_and_unsafe_episodes(envs: list[RecordData]) -> Figure:
     mean_unsafe: np.ndarray = unsafes.mean(axis=0)
 
     # create figure and grid
-    fig = plt.figure(constrained_layout=True)
-    G = gridspec.GridSpec(1, 2, figure=fig)
+    if fig is None:
+        fig = plt.figure(constrained_layout=True)
+        G = gridspec.GridSpec(1, 2, figure=fig)
+        axs = (fig.add_subplot(G[0, 0]), fig.add_subplot(G[0, 1]))
+        axs[1].sharex(axs[0])
+    else:
+        axs = fig.axes
 
     # plot performance
-    ax = fig.add_subplot(G[0, 0])
-    clr = MATLAB_COLORS[0]
-    ax.plot(episodes, rewards.T, linestyle='-', linewidth=0.1, color=clr)
-    ax.plot(episodes, mean_reward, linestyle='-', linewidth=1.5, color=clr)
-    ax.set_xlabel('Episode')
-    ax.set_ylabel('Cumulative reward')
-    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+    color = color or MATLAB_COLORS[0]
+    axs[0].plot(episodes, rewards.T, linewidth=0.1, color=color)
+    axs[0].plot(episodes, mean_reward, linewidth=1.5, color=color)
+    axs[0].set_xlabel('Episode')
+    axs[0].set_ylabel('Cumulative reward')
+    axs[0].xaxis.set_major_locator(MaxNLocator(integer=True))
 
     # plot number of unsafe episodes
-    ax = fig.add_subplot(G[0, 1], sharex=ax)
-    clr = MATLAB_COLORS[1]
-    ax.plot(episodes, unsafes.T, linestyle='-', linewidth=0.1, color=clr)
-    ax.plot(episodes, mean_unsafe, linestyle='-', linewidth=1.5, color=clr)
-    ax.set_xlabel('Episode')
-    ax.set_ylabel('Constraint violation')
-    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+    color = color or MATLAB_COLORS[0]
+    axs[1].plot(episodes, unsafes.T, linewidth=0.1, color=color)
+    axs[1].plot(episodes, mean_unsafe, linewidth=1.5, color=color)
+    axs[1].set_xlabel('Episode')
+    axs[1].set_ylabel('Constraint violation')
+    axs[1].xaxis.set_major_locator(MaxNLocator(integer=True))
     return fig
 
 
-def plot_learned_weights(agents: list[RecordLearningData]) -> Figure:
+def plot_learned_weights(
+    agents: list[RecordLearningData],
+    fig: Figure = None,
+    color: str = None
+) -> Figure:
     Nupdates = len(agents[0].update_gradient)
     weightnames = agents[0].weights_history.keys()
     Nweights = len(weightnames)
@@ -243,16 +254,19 @@ def plot_learned_weights(agents: list[RecordLearningData]) -> Figure:
     # create figure and grid
     ncols = int(np.floor(np.sqrt(Nweights)))
     nrows = ncols if ncols**2 >= Nweights else (ncols + 1)
-    fig = plt.figure(constrained_layout=True)
-    G = gridspec.GridSpec(nrows, ncols, figure=fig)
+    if fig is None:
+        fig = plt.figure(constrained_layout=True)
+        G = gridspec.GridSpec(nrows, ncols, figure=fig)
+        axs = [fig.add_subplot(G[i, j])
+               for i, j in product(range(nrows), range(ncols))]
+        for i in range(1, len(axs)):
+            axs[i].sharex(axs[0])
+    else:
+        axs = fig.axes
 
     # plot each weight's history
-    ax, colors = None, cycle(MATLAB_COLORS)
-    for i, (name, clr) in enumerate(zip(weightnames, colors)):
-        # create axis
-        ax = fig.add_subplot(G[np.unravel_index(i, (G.nrows, G.ncols))],
-                             sharex=ax)
-
+    color = color or MATLAB_COLORS[0]
+    for i, (ax, name) in enumerate(zip(axs, weightnames)):
         # get history and average it
         weights: np.ndarray = np.stack(
             [np.squeeze(agent.weights_history[name]) for agent in agents])
@@ -263,9 +277,11 @@ def plot_learned_weights(agents: list[RecordLearningData]) -> Figure:
         mean_weight: np.ndarray = weights.mean(axis=0)  # average over agents
 
         # plot
-        ax.plot(updates, weights.T, linestyle='-', linewidth=0.1, color=clr)
-        ax.plot(updates, mean_weight, linestyle='-', linewidth=1.5, color=clr)
+        ax.plot(updates, weights.T, linewidth=0.1, color=color)
+        ax.plot(updates, mean_weight, linewidth=1.5, color=color)
         ax.set_xlabel('Update')
         ax.set_ylabel(lbl)
         ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+    for i in range(i + 1, len(axs)):
+        axs[i].set_axis_off()
     return fig
