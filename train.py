@@ -89,7 +89,7 @@ if __name__ == '__main__':
                         help='Discount factor.')
     parser.add_argument('--lr', type=float, default=0.3,
                         help='Learning rate.')
-    parser.add_argument('--max_perc_update', type=float, default=0.2,
+    parser.add_argument('--max_perc_update', type=float, default=0.15,
                         help='Maximum percentage update of agent weigths.')
     parser.add_argument('--replay_mem_sample_size', type=float, default=0.7,
                         help='Replay memory sample size (%).')

@@ -13,21 +13,26 @@ if __name__ == '__main__':
     parser.add_argument(
         '-fn', '--filenames', type=str, default=None, nargs='+',
         help='The pickle data to be visualized.')
+    parser.add_argument(
+        '-dp', '--disable_plots', type=int, default=None, nargs='+',
+        help='Disables the i-th plot.')
     args = parser.parse_args()
 
     if args.filenames is None:
         args.filenames = ('results/lstdq_5ep.pkl',)
+    if args.disable_plots is None:
+        args.disable_plots = ()
 
     for filename in args.filenames:
         # load data
         data = util.load_results(filename)
-        args = data['args']
+        sim_args = data['args']
         agent_config = data['agent_config']
         data = data['data']
         envs: list[RecordData] = [d['env'] for d in data]
         agents: list[RecordLearningData] = [d['agent'] for d in data]
 
-        print(filename, '\n - args:', args, 
+        print(filename, '\n - args:', sim_args,
               '\n - agent config:', agent_config, '\n')
 
         # # shorten results
@@ -47,8 +52,10 @@ if __name__ == '__main__':
         #         datum['agent'].weights_history[k] = v[:target_epochs + 1]
 
         # plot
-        plot.plot_performance_and_unsafe_episodes(envs).suptitle(filename)
-        plot.plot_learned_weights(agents).suptitle(filename)
+        if 0 not in args.disable_plots:
+            plot.plot_performance_and_unsafe_episodes(envs).suptitle(filename)
+        if 1 not in args.disable_plots:
+            plot.plot_learned_weights(agents).suptitle(filename)
         # util.plot.plot_trajectory_3d(env, 0)
         # util.plot.plot_trajectory_in_time(env, 0)
 
