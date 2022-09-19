@@ -18,6 +18,8 @@ class RecordLearningData(Generic[AgentType]):
             The agent instance to wrap.
         '''
         self.agent = agent
+        if hasattr(agent, 'config'):
+            self.agent_config = agent.config # just for saving it
 
         # initialize storages
         self.weights_history: dict[str, list[np.ndarray]] = {

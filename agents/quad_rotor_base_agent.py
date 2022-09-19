@@ -215,7 +215,7 @@ class QuadRotorBaseAgent(ABC):
         env: Env,
         n_eval_episodes: int,
         deterministic: bool = True,
-        observation_mean_std: tuple[np.ndarray, np.ndarray] = (0, 1),
+        observation_mean_std: tuple[np.ndarray, np.ndarray] = (0.0, 1.0),
         seed: int = None,
     ) -> np.ndarray:
         '''
