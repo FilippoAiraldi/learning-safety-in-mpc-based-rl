@@ -2,7 +2,9 @@ import agents
 import argparse
 import envs
 import joblib as jl
+import time
 import util
+from datetime import datetime
 from typing import Any
 
 
@@ -45,7 +47,7 @@ def train(
         Data resulting from the training.
     '''
     # create logger
-    logger = None # util.create_logger(run_name, to_file=True)
+    logger = None  # util.create_logger(run_name, to_file=True)
 
     # create envs
     env = envs.QuadRotorEnv.get_wrapped(
@@ -114,6 +116,9 @@ if __name__ == '__main__':
     run_name = util.get_run_name()
 
     # launch training
+    date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    print(f'[Simulation {run_name} started at {date}]')
+    start = time.perf_counter()
     agent_config = {
         'gamma': args.gamma,
         'lr': args.lr,
@@ -142,4 +147,9 @@ if __name__ == '__main__':
 
     # save results and launch plotting (is blocking)
     fn = util.save_results(
-        filename=run_name, args=args, agent_config=agent_config, data=data)
+        date=date,
+        filename=run_name,
+        args=args,
+        agent_config=agent_config,
+        simtime=time.perf_counter() - start,
+        data=data)
