@@ -54,7 +54,7 @@ def train(
         normalize_reward=False)
 
     # create agent
-    agent = agents.QuadRotorLSTDQAgent(
+    agent = agents.QuadRotorGPSafeLSTDQAgent(
         env=env,
         agentname=f'LSTDQ_{agent_n}',
         agent_config=agent_config,
