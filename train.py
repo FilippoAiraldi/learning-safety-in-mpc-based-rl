@@ -142,7 +142,7 @@ if __name__ == '__main__':
                         help='If passed, evaluates a PI agent.')
     parser.add_argument('--safe', action='store_true',
                         help='If passed, trains the agent\'s safe variant.')
-    parser.add_argument('--n_jobs', type=int, default=1,
+    parser.add_argument('--n_jobs', type=int, default=-1,
                         help='Joblib\'s parallel jobs.')
     args = parser.parse_args()
 
