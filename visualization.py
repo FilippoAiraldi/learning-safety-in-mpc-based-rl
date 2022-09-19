@@ -24,7 +24,7 @@ if __name__ == '__main__':
             'results/lstdq_1_baseline.pkl',
             'results/lstdq_1_baseline_longer.pkl'
         ]
-    if len(args.plots) == 0:
+    if args.plots is None or len(args.plots) == 0:
         args.plots = range(2)
 
     figs, colors = [None, None], cycle(plot.MATLAB_COLORS)

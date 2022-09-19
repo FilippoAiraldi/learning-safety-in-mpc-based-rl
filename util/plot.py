@@ -252,7 +252,7 @@ def plot_learned_weights(
     updates = np.arange(Nupdates + 1) + 1
 
     # create figure and grid
-    ncols = int(np.floor(np.sqrt(Nweights)))
+    ncols = int(np.floor(np.sqrt(Nweights + 1)))
     nrows = ncols if ncols**2 >= Nweights else (ncols + 1)
     if fig is None:
         fig = plt.figure(constrained_layout=True)
@@ -264,9 +264,19 @@ def plot_learned_weights(
     else:
         axs = fig.axes
 
-    # plot each weight's history
+    # plot update gradient norm history
     color = color or MATLAB_COLORS[0]
-    for i, (ax, name) in enumerate(zip(axs, weightnames)):
+    norms: np.ndarray = np.linalg.norm(
+        np.stack([agent.update_gradient for agent in agents]), axis=-1)
+    log10_mean_norm = 10**(np.log10(norms).mean(axis=0))
+    axs[0].semilogy(updates[:-1], norms.T, linewidth=0.1, color=color)
+    axs[0].semilogy(updates[:-1], log10_mean_norm, linewidth=1.5, color=color)
+    axs[0].set_xlabel('Update')
+    axs[0].set_ylabel('||p||')
+    axs[0].xaxis.set_major_locator(MaxNLocator(integer=True))
+
+    # plot each weight's history
+    for i, (ax, name) in enumerate(zip(axs[1:], weightnames), start=1):
         # get history and average it
         weights: np.ndarray = np.stack(
             [np.squeeze(agent.weights_history[name]) for agent in agents])
@@ -274,7 +284,7 @@ def plot_learned_weights(
         if weights.ndim > 2:
             weights = weights.mean(axis=-1)
             lbl += ' (mean)'
-        mean_weight: np.ndarray = weights.mean(axis=0)  # average over agents
+        mean_weight = weights.mean(axis=0)  # average over agents
 
         # plot
         ax.plot(updates, weights.T, linewidth=0.1, color=color)
