@@ -4,6 +4,7 @@ import util
 from agents.wrappers import RecordLearningData
 from itertools import cycle
 from envs.wrappers import RecordData
+from typing import Any
 from util import plot
 
 
@@ -21,8 +22,7 @@ if __name__ == '__main__':
 
     if len(args.filenames) == 0:
         args.filenames = [
-            'results/pi_0_baseline.pkl',
-            'results/lstdq_1_baseline.pkl',
+            'R_20220919_193856.pkl',
         ]
     if args.plots is None:
         args.plots = range(2)
@@ -30,22 +30,19 @@ if __name__ == '__main__':
     figs, colors = [None, None], cycle(plot.MATLAB_COLORS)
     for filename, color in zip(args.filenames, colors):
         # load data
-        data = util.load_results(filename)
-        sim_args = data['args']
-        agent_config = data['agent_config']
-        data = data['data']
-        envs: list[RecordData] = [d['env'] for d in data]
-        agents: list[RecordLearningData] = [d['agent'] for d in data]
+        results = util.load_results(filename)
+        data: dict[str, Any] = results.pop('data')
+        envs: list[RecordData] = data.get('envs')
+        agents: list[RecordLearningData] = data.get('agents')
 
         # print summary
-        print(filename, '\n - args:', sim_args,
-              '\n - agent config:', agent_config, '\n')
+        print(filename, *(f'\n - {k}: {v}' for k, v in results.items()))
 
         # plot
-        if 0 in args.plots:
+        if 0 in args.plots and envs is not None:
             figs[0] = plot.plot_performance_and_unsafe_episodes(
                 envs, fig=figs[0], color=color)
-        if 1 in args.plots and all(a is not None for a in agents):
+        if 1 in args.plots and agents is not None:
             figs[1] = plot.plot_learned_weights(
                 agents, fig=figs[1], color=color)
     plt.show()
