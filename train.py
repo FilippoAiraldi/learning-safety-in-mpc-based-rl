@@ -54,24 +54,36 @@ def train(
         normalize_reward=False)
 
     # create agent
-    agent = agents.QuadRotorLSTDQAgent(
+    # agent = agents.QuadRotorLSTDQAgent(
+    #     env=env,
+    #     agentname=f'LSTDQ_{agent_n}',
+    #     agent_config=agent_config,
+    #     seed=seed * (agent_n + 1) * 1000)
+
+    # agent = agents.wrappers.RecordLearningData(agent)
+
+    # # launch training
+    # agent.learn(
+    #     n_train_epochs=epochs,
+    #     n_train_episodes=train_episodes,
+    #     seed=seed,
+    #     perturbation_decay=perturbation_decay,
+    #     logger=logger
+    # )
+
+    agent = agents.QuadRotorPIAgent(
         env=env,
-        agentname=f'LSTDQ_{agent_n}',
-        agent_config=agent_config,
+        agentname=f'PI_{agent_n}',
         seed=seed * (agent_n + 1) * 1000)
 
-    agent = agents.wrappers.RecordLearningData(agent)
-
-    # launch training
-    agent.learn(
-        n_train_epochs=epochs,
-        n_train_episodes=train_episodes,
-        seed=seed,
-        perturbation_decay=perturbation_decay,
-        logger=logger
+    agent.eval(
+        env=env,
+        n_eval_episodes=epochs * train_episodes,
+        deterministic=True,
+        seed=seed
     )
 
-    return {'env': env, 'agent': agent}
+    return {'env': env, 'agent': None}
 
 
 if __name__ == '__main__':

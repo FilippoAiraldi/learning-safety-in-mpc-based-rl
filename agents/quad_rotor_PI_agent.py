@@ -18,32 +18,21 @@ class QuadRotorPIAgent(QuadRotorBaseAgent):
         *args, **kwargs
             See QuadRotorBaseAgent.
         '''
-        init_pars = {}
-        kwargs['init_pars'] = init_pars
-
-        # get the environment configuration - cannot be None
         env_config_dict = kwargs['env'].config.__dict__
-
-        # copy model parameters from env config
-        for name in ('g', 'thrust_coeff', 'pitch_d', 'pitch_dd', 'pitch_gain',
-                     'roll_d', 'roll_dd', 'roll_gain', 'xf'):
-            init_pars[name] = env_config_dict[name]
-
-        # set others to some arbitrary number - should be tuned
-        names_and_vals = [
-            ('w_Lx', 1e1),
-            ('w_Lu', 1e0),
-            ('w_Ls', 1e2),
-            ('w_Tx', 1e1),
-            ('w_Tu', 1e0),
-            ('w_Ts', 1e2),
-            ('backoff', 0.05),
-        ]
-        for name, val in names_and_vals:
-            init_pars[name] = val
-
-        # set no random perturbation for this agent
-        kwargs['fixed_pars'] = {'perturbation': 0}
+        env_pars = ('g', 'thrust_coeff', 'pitch_d', 'pitch_dd', 'pitch_gain',
+                    'roll_d', 'roll_dd', 'roll_gain', 'xf')
+        kwargs['fixed_pars'] = {
+            # set no random perturbation for this agent
+            'perturbation': 0,
+            # environment parameters - copied from true values
+            # stage cost weights - arbitrary numbers
+            **{n: env_config_dict[n] for n in env_pars},
+            'w_x': 1e1, # 8
+            'w_u': 1e0,
+            'w_s': 1e2, # 120
+            # constraint backoff - arbitrary number
+            'backoff': 0.05,
+        }
 
         # initialize class
         super().__init__(*args, **kwargs)

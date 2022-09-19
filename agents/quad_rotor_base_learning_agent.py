@@ -173,12 +173,3 @@ class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
         lb = np.maximum(theta_bounds[:, 0], theta - max_delta)
         ub = np.minimum(theta_bounds[:, 1], theta + max_delta)
         return lb, ub
-
-    @staticmethod
-    def _make_seed_list(seed: Union[int, list[int]], n: int) -> list[int]:
-        if seed is None:
-            return [None] * n
-        if isinstance(seed, int):
-            return [seed + i for i in range(n)]
-        assert len(seed) == n, 'Seed sequence with invalid length.'
-        return seed

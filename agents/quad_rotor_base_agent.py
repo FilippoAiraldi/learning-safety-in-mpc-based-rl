@@ -232,7 +232,7 @@ class QuadRotorBaseAgent(ABC):
         observation_mean_std : tuple[array_like, array_like], optional
             Mean and std for normalization of the observations before calling 
             the agent.
-        seed : int, optional
+        seed : int or list[int], optional
             RNG seed.
 
         Returns
@@ -242,19 +242,19 @@ class QuadRotorBaseAgent(ABC):
         '''
         returns = np.zeros(n_eval_episodes)
         mean, std = observation_mean_std
+        seeds = self._make_seed_list(seed, n_eval_episodes)
 
         for e in range(n_eval_episodes):
-            state = env.reset(seed=None if seed is None else (seed + e))
+            state = env.reset(seed=seeds[e])
             self.reset()
-            done = False
+            truncated, terminated = False, False
 
-            while not done:
+            while not (truncated or terminated):
                 state = (state - mean) / (std + 1e-8)
                 action = self.predict(state, deterministic=deterministic)[0]
 
-                new_state, r, done, _ = env.step(action)
+                state, r, truncated, terminated, _ = env.step(action)
                 returns[e] += r
-                state = new_state
 
         return returns
 
@@ -301,3 +301,12 @@ class QuadRotorBaseAgent(ABC):
     def __repr__(self) -> str:
         '''Returns the string representation of the Agent.'''
         return str(self)
+
+    @staticmethod
+    def _make_seed_list(seed: Union[int, list[int]], n: int) -> list[int]:
+        if seed is None:
+            return [None] * n
+        if isinstance(seed, int):
+            return [seed + i for i in range(n)]
+        assert len(seed) == n, 'Seed sequence with invalid length.'
+        return seed
