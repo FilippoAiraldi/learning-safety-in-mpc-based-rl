@@ -21,8 +21,8 @@ if __name__ == '__main__':
 
     if len(args.filenames) == 0:
         args.filenames = [
+            'results/pi_0_baseline.pkl',
             'results/lstdq_1_baseline.pkl',
-            'results/lstdq_1_baseline_longer.pkl'
         ]
     if args.plots is None or len(args.plots) == 0:
         args.plots = range(2)
@@ -48,11 +48,26 @@ if __name__ == '__main__':
         if 1 in args.plots and all(a is not None for a in agents):
             figs[1] = plot.plot_learned_weights(
                 agents, fig=figs[1], color=color)
-
-        # util.plot.plot_trajectory_3d(env, 0)
-        # util.plot.plot_trajectory_in_time(env, 0)
-
     plt.show()
+
+
+# from scipy.io import loadmat
+# axs = figs[0].axes
+# data = loadmat('results/lstdq_1_baseline_old.mat')
+# rewards, unsafes = data['rewards'], data['unsafes']
+# color = next(colors)
+# eps = list(range(1, 101))
+# axs[0].plot(eps, rewards.T, linewidth=0.05, color=color)
+# axs[0].plot(eps, rewards.mean(axis=0), linewidth=1.5,
+#             color=color, label='LSTD Q (old)')
+# axs[1].plot(eps, unsafes.T, linewidth=0.05, color=color)
+# axs[1].plot(eps, unsafes.mean(axis=0), linewidth=1.5,
+#             color=color, label='LSTD Q (old)')
+# axs[0].legend()
+# axs[1].legend()
+# axs[0].set_ylim(top=2500)
+# axs[1].set_ylim(top=10)
+
 
 # # shorten results
 # target_epochs = 13

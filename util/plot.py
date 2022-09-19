@@ -11,6 +11,9 @@ from mpl_toolkits.mplot3d.art3d import Line3DCollection, Poly3DCollection
 from util.util import MATLAB_COLORS
 
 
+LINEWIDTHS = (0.05, 1.5)
+
+
 def _set_axes3d_equal(ax):
     x_limits = ax.get_xlim3d()
     y_limits = ax.get_ylim3d()
@@ -170,9 +173,10 @@ def plot_trajectory_in_time(env: RecordData, traj_num: int) -> Figure:
 
 
 def plot_performance_and_unsafe_episodes(
-    envs: list[RecordData], 
+    envs: list[RecordData],
     fig: Figure = None,
-    color: str = None
+    color: str = None,
+    label: str = None
 ) -> Figure:
     '''
     Plots the performance in each environment and the average performance, 
@@ -225,16 +229,19 @@ def plot_performance_and_unsafe_episodes(
 
     # plot performance
     color = color or MATLAB_COLORS[0]
-    axs[0].plot(episodes, rewards.T, linewidth=0.1, color=color)
-    axs[0].plot(episodes, mean_reward, linewidth=1.5, color=color)
+    axs[0].plot(episodes, rewards.T, linewidth=LINEWIDTHS[0], color=color)
+    axs[0].plot(
+        episodes, mean_reward, linewidth=LINEWIDTHS[1],
+        color=color, label=label)
     axs[0].set_xlabel('Episode')
-    axs[0].set_ylabel('Cumulative reward')
+    axs[0].set_ylabel('Cumulative cost')
     axs[0].xaxis.set_major_locator(MaxNLocator(integer=True))
 
     # plot number of unsafe episodes
     color = color or MATLAB_COLORS[0]
-    axs[1].plot(episodes, unsafes.T, linewidth=0.1, color=color)
-    axs[1].plot(episodes, mean_unsafe, linewidth=1.5, color=color)
+    axs[1].plot(episodes, unsafes.T, linewidth=LINEWIDTHS[0], color=color)
+    axs[1].plot(episodes, mean_unsafe,
+                linewidth=LINEWIDTHS[1], color=color, label=label)
     axs[1].set_xlabel('Episode')
     axs[1].set_ylabel('Constraint violation')
     axs[1].xaxis.set_major_locator(MaxNLocator(integer=True))
@@ -244,7 +251,8 @@ def plot_performance_and_unsafe_episodes(
 def plot_learned_weights(
     agents: list[RecordLearningData],
     fig: Figure = None,
-    color: str = None
+    color: str = None,
+    label: str = None
 ) -> Figure:
     Nupdates = len(agents[0].update_gradient)
     weightnames = agents[0].weights_history.keys()
@@ -269,8 +277,10 @@ def plot_learned_weights(
     norms: np.ndarray = np.linalg.norm(
         np.stack([agent.update_gradient for agent in agents]), axis=-1)
     log10_mean_norm = 10**(np.log10(norms).mean(axis=0))
-    axs[0].semilogy(updates[:-1], norms.T, linewidth=0.1, color=color)
-    axs[0].semilogy(updates[:-1], log10_mean_norm, linewidth=1.5, color=color)
+    axs[0].semilogy(updates[:-1], norms.T,
+                    linewidth=LINEWIDTHS[0], color=color)
+    axs[0].semilogy(updates[:-1], log10_mean_norm,
+                    linewidth=LINEWIDTHS[1], color=color, label=label)
     axs[0].set_xlabel('Update')
     axs[0].set_ylabel('||p||')
     axs[0].xaxis.set_major_locator(MaxNLocator(integer=True))
@@ -287,8 +297,9 @@ def plot_learned_weights(
         mean_weight = weights.mean(axis=0)  # average over agents
 
         # plot
-        ax.plot(updates, weights.T, linewidth=0.1, color=color)
-        ax.plot(updates, mean_weight, linewidth=1.5, color=color)
+        ax.plot(updates, weights.T, linewidth=LINEWIDTHS[0], color=color)
+        ax.plot(updates, mean_weight,
+                linewidth=LINEWIDTHS[1], color=color, label=label)
         ax.set_xlabel('Update')
         ax.set_ylabel(lbl)
         ax.xaxis.set_major_locator(MaxNLocator(integer=True))
