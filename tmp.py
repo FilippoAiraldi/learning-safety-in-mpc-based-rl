@@ -1,8 +1,9 @@
 import casadi as cs
 import matplotlib.pyplot as plt
 import numpy as np
-from agents.quad_rotor_safe_lstd_q_agent import (
-    MultiOutputGaussianProcessRegressor, GPRCallback
+from agents.safety import (
+    MultiOutputGaussianProcessRegressor,
+    GaussianProcessRegressorCallback
 )
 from mpc.generic_mpc import subsevalf
 from sklearn.gaussian_process import GaussianProcessRegressor, kernels
@@ -160,7 +161,7 @@ def gp_as_casadi_callback():
     # Package the resulting regression model in a CasADi callback
 
     # Instantiate the Callback (make sure to keep a reference to it!)
-    gprcb = GPRCallback('GPR', gpr, {'enable_fd': True})
+    gprcb = GaussianProcessRegressorCallback('GPR', gpr, {'enable_fd': True})
     print(gprcb)
 
     # Find the minimum of the regression model
