@@ -259,19 +259,19 @@ def constraint_violation(
         for i in range(bnd.shape[0]):
             if not np.isfinite(bnd[i]).any():
                 continue
-            ax = next(axs)
+            ax, cv_lb_i, cv_ub_i = next(axs), cv_lb[i], cv_ub[i]
             ax.plot(
-                episodes, cv_lb[i],
+                episodes, cv_lb_i,
                 linewidth=LINEWIDTHS[0], color=color, linestyle='--')
             ax.plot(
-                episodes, cv_lb[i].mean(axis=-1),
+                episodes, np.nanmean(cv_lb_i, axis=-1),
                 linewidth=LINEWIDTHS[1], color=color, linestyle='--',
                 label=label)
             ax.plot(
-                episodes, cv_ub[i],
+                episodes, cv_ub_i,
                 linewidth=LINEWIDTHS[0], color=color, linestyle='-')
             ax.plot(
-                episodes, cv_ub[i].mean(axis=-1),
+                episodes, np.nanmean(cv_ub_i, axis=-1),
                 linewidth=LINEWIDTHS[1], color=color, linestyle='-',
                 label=label)
 
