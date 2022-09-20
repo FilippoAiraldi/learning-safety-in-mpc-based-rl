@@ -1,9 +1,13 @@
 import casadi as cs
 import logging
 import numpy as np
-import sklearn.gaussian_process as gp
 from agents.quad_rotor_lstd_q_agent import QuadRotorLSTDQAgent
+from joblib import Parallel
 from mpc import MPCSolverError
+from sklearn.gaussian_process import GaussianProcessRegressor, kernels
+from sklearn.multioutput import MultiOutputRegressor
+from sklearn.utils.fixes import delayed
+from sklearn.utils.validation import check_is_fitted
 from typing import Any, Union
 
 
@@ -18,7 +22,7 @@ class GPRCallback(cs.Callback):
     def __init__(
         self,
         name: str,
-        gpr: gp.GaussianProcessRegressor,
+        gpr: GaussianProcessRegressor,
         opts: dict[str, Any] = None
     ) -> None:
         if opts is None:
@@ -29,6 +33,45 @@ class GPRCallback(cs.Callback):
 
     def eval(self, arg):
         return self._gpr.predict(np.array(arg[0]))
+
+
+class MultiOutputGaussianProcessRegressor(MultiOutputRegressor):
+    '''Custom multioutput regressor adapted to GP regression.'''
+
+    def __init__(
+        self,
+        kernel: kernels.Kernel = None,
+        *,
+        alpha: float = 1e-10,
+        optimizer: str = 'fmin_l_bfgs_b',
+        n_restarts_optimizer: int = 0,
+        normalize_y: bool = False,
+        copy_X_train: bool = True,
+        random_state: int = None,
+        n_jobs: int = None
+    ) -> None:
+        estimator = GaussianProcessRegressor(
+            kernel=kernel,
+            alpha=alpha,
+            optimizer=optimizer,
+            n_restarts_optimizer=n_restarts_optimizer,
+            normalize_y=normalize_y,
+            copy_X_train=copy_X_train,
+            random_state=random_state
+        )
+        super().__init__(estimator, n_jobs=n_jobs)
+
+    def predict(self, X, return_std=False, return_cov=False):
+        '''See `GaussianProcessRegressor.predict`.'''
+        check_is_fitted(self)
+        y = Parallel(n_jobs=self.n_jobs)(
+            delayed(e.predict)(
+                X, return_std, return_cov
+            ) for e in self.estimators_
+        )
+        if return_std or return_cov:
+            return tuple(np.array(o).T for o in zip(*y))
+        return np.asarray(y).T
 
 
 class QuadRotorSafeLSTDQAgent(QuadRotorLSTDQAgent):
@@ -68,6 +111,8 @@ class QuadRotorSafeLSTDQAgent(QuadRotorLSTDQAgent):
                 # step the system
                 state, r, truncated, terminated, _ = env.step(action)
                 returns[e] += r
+                states.append(state)
+                actions.append(action)
 
                 # compute V(s+)
                 action, _, solV = self.predict(state, deterministic=False)
@@ -82,7 +127,7 @@ class QuadRotorSafeLSTDQAgent(QuadRotorLSTDQAgent):
                 t += 1
 
             # when episode is done, consolidate its experience into memory, and
-            # compute its trajectories' constraint violations 
+            # compute its trajectories' constraint violations
             self.consolidate_episode_experience()
             logger.debug(f'{name}|{epoch_n}|{e}: J={returns[e]:,.3f}')
 
@@ -119,12 +164,12 @@ class QuadRotorSafeLSTDQAgent(QuadRotorLSTDQAgent):
 
         # additional constraint modelled via the GP
         # create a GP as regressor of (theta, constraint violation) dataset
-        self._gpr = gp.GaussianProcessRegressor(
+        self._gpr = MultiOutputGaussianProcessRegressor(
             kernel=(
-                1**2 * gp.kernels.RBF(length_scale=np.ones(n)) +
-                gp.kernels.WhiteKernel()
+                1**2 * kernels.RBF(length_scale=np.ones(n)) +
+                kernels.WhiteKernel()
             ),
-            alpha=0.1,
+            alpha=1e-6,
             n_restarts_optimizer=9
         )
         self._gpr_data = []

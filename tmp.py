@@ -1,8 +1,12 @@
 import casadi as cs
 import matplotlib.pyplot as plt
 import numpy as np
-import sklearn.gaussian_process as gp
+from agents.quad_rotor_safe_lstd_q_agent import (
+    MultiOutputGaussianProcessRegressor, GPRCallback
+)
 from mpc.generic_mpc import subsevalf
+from sklearn.gaussian_process import GaussianProcessRegressor, kernels
+from sklearn.model_selection import train_test_split
 from typing import Union
 
 
@@ -45,74 +49,55 @@ def cs_kernel_rbf(
         return np.ones((X.shape[0], 1))
 
 
-class GPR(cs.Callback):
-    def __init__(self, name: str, gpr: gp.GaussianProcessRegressor, opts=None):
-        if opts is None:
-            opts = {}
-        self.gpr = gpr
-        cs.Callback.__init__(self)
-        self.construct(name, opts)
-
-    def eval(self, arg):
-        return self.gpr.predict(np.array(arg[0]))
-
-
-if __name__ == '__main__':
-    # =========================================================== #
-    # Multi-dimension GP (sklearn's GP) and reproducing in CasADi #
-    # =========================================================== #
-
+def reproducing_gp_in_casadi():
     # create data
-    # X = np.stack((
-    #     np.linspace(start=0, stop=10, num=1_000),
-    #     np.linspace(start=-5, stop=5, num=1_000)), axis=-1)
     X = np.linspace(start=0, stop=10, num=1_000).reshape(-1, 1)
-    y = (X * np.sin(X)).sum(axis=-1)
+    y = np.squeeze(X * np.sin(X))
 
     # create training data
     rng = np.random.RandomState(1)
-    training_indices = rng.choice(np.arange(y.size), size=60, replace=False)
+    training_indices = rng.choice(np.arange(y.shape[0]), size=6, replace=False)
     X_train, y_train = X[training_indices], y[training_indices]
     noise_std = 0.75
     y_train_noisy = y_train + rng.normal(
         loc=0.0, scale=noise_std, size=y_train.shape)
 
     # create kernel and GP and fit it
-    kernel = 2 * gp.kernels.RBF(length_scale=1.0,
-                                length_scale_bounds=(1e-2, 1e2))
-    gpr = gp.GaussianProcessRegressor(
-        kernel=kernel, n_restarts_optimizer=9,  # alpha=noise_std**2,
+    kernel = 1 * kernels.RBF(
+        length_scale=1.0, length_scale_bounds=(1e-2, 1e2))
+    gpr = GaussianProcessRegressor(
+        kernel=kernel, n_restarts_optimizer=9, alpha=noise_std**2,
     )
     gpr.fit(X_train, y_train_noisy)
 
     # perform numerical prediction
-    mean_prediction, std_prediction = gpr.predict(X, return_std=True)
+    y_mean0, y_std0 = gpr.predict(X, return_std=True)
 
-    plt.plot(X, y, label=r"$f(x) = x \sin(x)$", linestyle="dotted")
-    plt.errorbar(
-        X_train,
-        y_train_noisy,
-        noise_std,
-        linestyle="None",
-        color="tab:blue",
-        marker=".",
-        markersize=10,
-        label="Observations",
-    )
-    plt.plot(X, mean_prediction, label="Mean prediction")
-    plt.fill_between(
-        X.ravel(),
-        mean_prediction - 1.96 * std_prediction,
-        mean_prediction + 1.96 * std_prediction,
-        color="tab:orange",
-        alpha=0.5,
-        label=r"95% confidence interval",
-    )
-    plt.legend()
-    plt.xlabel("$x$")
-    plt.ylabel("$f(x)$")
-    plt.title("Gaussian process regression on a noisy dataset")
-    plt.show()
+    # plt.plot(X, y, label=r"$f(x) = x \sin(x)$", linestyle="dotted")
+    # plt.errorbar(
+    #     X_train,
+    #     y_train_noisy,
+    #     noise_std,
+    #     linestyle="None",
+    #     color="tab:blue",
+    #     marker=".",
+    #     markersize=10,
+    #     label="Observations",
+    # )
+    # plt.plot(X, y_mean0, label="Mean prediction")
+    # plt.fill_between(
+    #     X.ravel(),
+    #     y_mean0 - 1.96 * y_std0,
+    #     y_mean0 + 1.96 * y_std0,
+    #     color="tab:orange",
+    #     alpha=0.5,
+    #     label=r"95% confidence interval",
+    # )
+    # plt.legend()
+    # plt.xlabel("$x$")
+    # plt.ylabel("$f(x)$")
+    # plt.title("Gaussian process regression on a noisy dataset")
+    # plt.show()
 
     # perform numerical prediction manually
     k = gpr.kernel_(gpr.X_train_, X)
@@ -135,13 +120,15 @@ if __name__ == '__main__':
         cs_kernel_diag(Xsym) -
         cs.vertcat(*(k[:, i].T @ K_inv @ k[:, i] for i in range(k.shape[1])))
     )
+    y_mean2 = subsevalf(y_mean_sym, Xsym, X)
+    y_std2 = subsevalf(y_std_sym, Xsym, X)
 
-    quit(0)
+    print(*(np.allclose(*o) for o in [
+        (y_mean0, y_mean1), (y_mean1, y_mean2),
+        (y_std0, y_std1), (y_std1, y_std2)]))
 
-    # ==================================================== #
-    # CasADi Callbacks for external library (sklearn's GP) #
-    # ==================================================== #
 
+def gp_as_casadi_callback():
     # Create data points: a noisy sine wave
     N = 20
     np.random.seed(0)
@@ -149,10 +136,10 @@ if __name__ == '__main__':
     value = np.sin(data) + np.random.normal(0, 0.1, (N, 1))
 
     # use sklearn
-    gpr = gp.GaussianProcessRegressor(
+    gpr = GaussianProcessRegressor(
         kernel=(
-            gp.kernels.ConstantKernel() + gp.kernels.DotProduct() +
-            gp.kernels.WhiteKernel() + gp.kernels.RBF()),
+            kernels.ConstantKernel() + kernels.DotProduct() +
+            kernels.WhiteKernel() + kernels.RBF()),
         n_restarts_optimizer=9
     )
     gpr.fit(data, value)
@@ -173,17 +160,61 @@ if __name__ == '__main__':
     # Package the resulting regression model in a CasADi callback
 
     # Instantiate the Callback (make sure to keep a reference to it!)
-    gpr = GPR('GPR', {'enable_fd': True})
-    print(gpr)
+    gprcb = GPRCallback('GPR', gpr, {'enable_fd': True})
+    print(gprcb)
 
     # Find the minimum of the regression model
     x = cs.MX.sym('x')
-    solver = cs.nlpsol('solver', 'ipopt', {'x': x, 'f': x, 'g': 0.75 - gpr(x)})
+    solver = cs.nlpsol(
+        'solver', 'ipopt', {'x': x, 'f': x, 'g': 0.75 - gprcb(x)})
     res = solver(x0=3, lbg=-np.inf, ubg=0)
 
-    plt.plot(float(res['x']), float(gpr(res['x'])), 'k*', markersize=10,
+    plt.plot(float(res['x']), float(gprcb(res['x'])), 'k*', markersize=10,
              label='Function minimum by CasADi/Ipopt')
     plt.legend()
     plt.show()
 
-    quit(0)
+
+def multioutput_gp():
+    # create data
+    X = np.stack((
+        np.linspace(start=0, stop=10, num=1000),
+        np.linspace(start=-5, stop=5, num=1000)
+    ), axis=-1)
+    y = np.stack((
+        (X * np.sin(X)).sum(axis=-1),
+        (X * np.cos(X)).sum(axis=-1)
+    ), axis=-1)
+    rng = np.random.RandomState(1)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, train_size=6, random_state=rng)
+    noise_std = 0.75
+    y_train_noisy = y_train + rng.normal(
+        loc=0.0, scale=noise_std, size=y_train.shape)
+
+    # fit a multioutput GPR
+    kwargs = {
+        'kernel': 1 * kernels.RBF(
+            length_scale=1.0, length_scale_bounds=(1e-2, 1e2)),
+        'n_restarts_optimizer': 9,
+        'alpha': noise_std**2
+    }
+    mask = np.ones(y.shape[0], dtype=bool)
+    gpr = GaussianProcessRegressor(**kwargs)
+    gpr.fit(X_train, y_train_noisy)
+    score = gpr.score(X_test, y_test)
+    y_mean, y_std = gpr.predict(X_test[:3], return_std=True)
+
+    # fit a MultiOutputRegressor for each output
+    mogpr = MultiOutputGaussianProcessRegressor(**kwargs)
+    mogpr.fit(X_train, y_train_noisy)
+    score_mo = mogpr.score(X_test, y_test)
+    y_mean_mo, y_std_mo = mogpr.predict(X_test[:3], return_std=True)
+
+    print(score, score_mo)
+
+
+if __name__ == '__main__':
+    # reproducing_gp_in_casadi()
+    gp_as_casadi_callback()
+    # multioutput_gp()
