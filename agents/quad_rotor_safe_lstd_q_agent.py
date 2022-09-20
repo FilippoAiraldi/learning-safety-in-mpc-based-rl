@@ -74,6 +74,35 @@ class MultiOutputGaussianProcessRegressor(MultiOutputRegressor):
         return np.asarray(y).T
 
 
+def constraint_violation(
+    *arrays_and_bounds: tuple[np.ndarray, np.ndarray]
+) -> list[tuple[np.ndarray, np.ndarray]]:
+    '''Computes constraint violations.
+
+    Parameters
+    ----------
+    arrays_and_bounds : *tuple[array_like, array_like]
+        Any number of `(array, bounds)` for which to compute the constraint 
+        violations.
+        For each tuple, `bounds` is an array of shape `(N, 2)`, where `N` is 
+        the number of features, and the first and second columns are lower and
+        upper bounds, respectively. `array` is an array of shape `(N, ...)`.
+
+    Returns
+    -------
+    cv : list[tuple[array_like, array_like]]
+        For each tuple provided, returns a tuple of lower and upper bound 
+        violations. 
+    '''
+    cv = []
+    for a, bnd in arrays_and_bounds:
+        lb, ub = bnd[:, 0], bnd[:, 1]
+        g_lb = np.expand_dims(lb, tuple(range(1, a.ndim))) - a
+        g_ub = a - np.expand_dims(ub, tuple(range(1, a.ndim)))
+        cv.append((g_lb, g_ub))
+    return cv
+
+
 class QuadRotorSafeLSTDQAgent(QuadRotorLSTDQAgent):
     def update(self) -> np.ndarray:
         raise NotImplementedError('Launch new type of qp solver.')
