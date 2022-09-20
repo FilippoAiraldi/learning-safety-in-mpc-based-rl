@@ -36,13 +36,14 @@ if __name__ == '__main__':
         agents: list[RecordLearningData] = data.get('agents')
 
         # print summary
-        print(filename, *(f'\n - {k}: {v}' for k, v in results.items()))
+        print(filename, '\n', *(f' -{k}: {v}\n' for k, v in results.items()))
 
         # plot
         if 0 in args.plots and envs is not None:
             figs[0] = plot.plot_performance_and_unsafe_episodes(
                 envs, fig=figs[0], color=color)
-        if 1 in args.plots and agents is not None:
+        if 1 in args.plots and agents is not None and \
+                all(a is not None for a in agents):
             figs[1] = plot.plot_learned_weights(
                 agents, fig=figs[1], color=color)
     plt.show()

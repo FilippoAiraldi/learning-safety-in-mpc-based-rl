@@ -137,7 +137,7 @@ if __name__ == '__main__':
                         help='Replay memory sample size (%).')
     parser.add_argument('--perturbation_decay', type=float, default=0.885,
                         help='Exploration perturbance decay.')
-    parser.add_argument('--seed', type=int, default=42, help='RNG seed.')
+    parser.add_argument('--seed', type=int, default=1909, help='RNG seed.')
     parser.add_argument('--pi_agent', action='store_true',
                         help='If passed, evaluates a PI agent.')
     parser.add_argument('--safe', action='store_true',
