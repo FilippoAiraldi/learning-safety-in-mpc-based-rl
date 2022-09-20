@@ -41,27 +41,32 @@ class QuadRotorSafeLSTDQAgent(QuadRotorLSTDQAgent):
         perturbation_decay: float = 0.75,
         seed: Union[int, list[int]] = None,
         logger: logging.Logger = None,
-        raises: bool = True
-    ) -> np.ndarray:
+        raises: bool = True,
+        return_info: bool = False
+    ) -> Union[
+        np.ndarray,
+        tuple[np.ndarray, np.ndarray, dict[str, np.ndarray]]
+    ]:
         logger = logger or logging.getLogger('dummy')
 
         env, name, epoch_n = self.env, self.name, self._epoch_n
         returns = np.zeros(n_episodes)
-        seeds = self._prepare_seed(seed, n_episodes)
+        seeds = self._make_seed_list(seed, n_episodes)
 
         for e in range(n_episodes):
             state = env.reset(seed=seeds[e])
             self.reset()
-            done, t = False, 0
+            truncated, terminated, t = False, False, 0
             action = self.predict(state, deterministic=False)[0]
+            states, actions = [state], []
 
-            while not done:
+            while not (truncated or terminated):
                 # compute Q(s, a)
                 self.fixed_pars.update({'u0': action})
                 solQ = self.solve_mpc('Q', state)
 
                 # step the system
-                state, r, done, _ = env.step(action)
+                state, r, truncated, terminated, _ = env.step(action)
                 returns[e] += r
 
                 # compute V(s+)
@@ -76,7 +81,8 @@ class QuadRotorSafeLSTDQAgent(QuadRotorLSTDQAgent):
                         raise MPCSolverError('MPC failed.')
                 t += 1
 
-            # when episode is done, consolidate its experience into memory
+            # when episode is done, consolidate its experience into memory, and
+            # compute its trajectories' constraint violations 
             self.consolidate_episode_experience()
             logger.debug(f'{name}|{epoch_n}|{e}: J={returns[e]:,.3f}')
 
@@ -93,7 +99,11 @@ class QuadRotorSafeLSTDQAgent(QuadRotorLSTDQAgent):
         logger.debug(f'{self.name}|{epoch_n}: J_mean={returns.mean():,.3f}; '
                      f'||p||={np.linalg.norm(update_grad):.3e}; ' +
                      self.weights.values2str())
-        return returns
+        return (
+            (returns, update_grad, self.weights.values(as_dict=True))
+            if return_info else
+            returns
+        )
 
     def _init_qp_solver(self) -> None:
         n = sum(self.weights.sizes())
