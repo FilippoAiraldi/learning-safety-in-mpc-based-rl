@@ -1,11 +1,11 @@
 from agents.quad_rotor_base_agent import QuadRotorBaseAgent
 
 
-class QuadRotorPIAgent(QuadRotorBaseAgent):
+class QuadRotorPKAgent(QuadRotorBaseAgent):
     '''
-    Quad rotor agent with Perfect Information available, i.e., the agent is 
+    Quad rotor agent with Perfect Knowledge available, i.e., the agent is 
     equipped with the exact values governing the target environment. For this 
-    reason, the PI agent is often the baseline controller. Rather obviously, 
+    reason, the PK agent is often the baseline controller. Rather obviously, 
     this agent does not implement any RL parameter update paradigm. 
     '''
 

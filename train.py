@@ -8,11 +8,11 @@ from datetime import datetime
 from typing import Any
 
 
-def eval_pi_agent(
+def eval_pk_agent(
     agent_n: int, episodes: int, max_ep_steps: int, seed: int
 ) -> dict[str, Any]:
     '''
-    Evaluation of a single perfect-information (PI) agent.
+    Evaluation of a single perfect-knowledge (PK) agent.
 
     Parameters
     ----------
@@ -35,9 +35,9 @@ def eval_pi_agent(
         normalize_observation=False,
         normalize_reward=False
     )
-    agents.QuadRotorPIAgent(
+    agents.QuadRotorPKAgent(
         env=env,
-        agentname=f'PI_{agent_n}',
+        agentname=f'PK_{agent_n}',
         seed=seed
     ).eval(
         env=env,
@@ -138,8 +138,8 @@ if __name__ == '__main__':
     parser.add_argument('--perturbation_decay', type=float, default=0.885,
                         help='Exploration perturbance decay.')
     parser.add_argument('--seed', type=int, default=1909, help='RNG seed.')
-    parser.add_argument('--pi_agent', action='store_true',
-                        help='If passed, evaluates a PI agent.')
+    parser.add_argument('--eval_pk', action='store_true',
+                        help='If passed, evaluates a PK agent.')
     parser.add_argument('--safe', action='store_true',
                         help='If passed, trains the agent\'s safe variant.')
     parser.add_argument('--n_jobs', type=int, default=-1,
@@ -164,8 +164,8 @@ if __name__ == '__main__':
 
     # launch training/evaluation
     print(f'[Simulation {run_name} started at {date}]')
-    if args.pi_agent:
-        func = lambda n: eval_pi_agent(
+    if args.eval_pk:
+        func = lambda n: eval_pk_agent(
             agent_n=n,
             episodes=tot_episodes,
             max_ep_steps=args.max_ep_steps,
