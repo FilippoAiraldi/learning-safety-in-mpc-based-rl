@@ -1,6 +1,7 @@
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import numpy as np
+from agents.quad_rotor_safe_lstd_q_agent import constraint_violation as cv_
 from agents.wrappers import RecordLearningData
 from envs.wrappers import RecordData
 from itertools import product
@@ -30,7 +31,7 @@ def _set_axes3d_equal(ax):
     ax.set_zlim3d([z_middle - plot_radius, z_middle + plot_radius])
 
 
-def plot_trajectory_3d(env: RecordData, traj_num: int) -> Figure:
+def trajectory_3d(env: RecordData, traj_num: int) -> Figure:
     '''Plots the i-th trajecetory of the recorded data in 3D.'''
     x0, xf = env.config.x0, env.config.xf
     data = env.observations[traj_num].T
@@ -118,7 +119,7 @@ def plot_trajectory_3d(env: RecordData, traj_num: int) -> Figure:
     return fig
 
 
-def plot_trajectory_in_time(env: RecordData, traj_num: int) -> Figure:
+def trajectory_time(env: RecordData, traj_num: int) -> Figure:
     '''Plots the i-th trajecetory of the recorded data.'''
 
     # prepare for plotting
@@ -172,83 +173,117 @@ def plot_trajectory_in_time(env: RecordData, traj_num: int) -> Figure:
     return fig
 
 
-def plot_performance_and_unsafe_episodes(
+def performance(
     envs: list[RecordData],
     fig: Figure = None,
     color: str = None,
     label: str = None
 ) -> Figure:
     '''
-    Plots the performance in each environment and the average performance, 
-    as well as the number of unsafe episodes.
+    Plots the performance in each environment and the average performance.
     '''
-    Nenv, Nep = len(envs), len(envs[0].cum_rewards)
-    episodes = np.arange(Nep) + 1
+    if fig is None:
+        fig, ax = plt.subplots(1, 1, constrained_layout=True)
+    else:
+        ax = fig.axes[0]
 
-    # compute rewards and mean reward
+    episodes = np.arange(len(envs[0].cum_rewards)) + 1
     rewards: np.ndarray = np.stack([env.cum_rewards for env in envs])
     mean_reward: np.ndarray = rewards.mean(axis=0)
 
-    # compute number of unsafe episodes
-    unsafes = np.empty((Nenv, Nep))
-    for i, env in enumerate(envs):
-        x_bnd, u_bnd = env.config.x_bounds, env.config.u_bounds
-        for j, (obs, acts) in enumerate(zip(env.observations, env.actions)):
-            # # count unsafe
-            # item = not (
-            #     ((obs >= x_bnd[:, 0]) & (obs <= x_bnd[:, 1])).all() and
-            #     ((acts >= u_bnd[:, 0]) & (acts <= u_bnd[:, 1])).all()
-            # )
-
-            # constraint violation
-            # item = max(
-            #     np.maximum(0, x_bnd[:, 0] - obs).max(),
-            #     np.maximum(0, obs - x_bnd[:, 1]).max(),
-            #     np.maximum(0, u_bnd[:, 0] - acts).max(),
-            #     np.maximum(0, acts - u_bnd[:, 1]).max()
-            # )
-            item = (
-                np.maximum(0, x_bnd[:, 0] - obs).sum() +
-                np.maximum(0, obs - x_bnd[:, 1]).sum() +
-                np.maximum(0, u_bnd[:, 0] - acts).sum() +
-                np.maximum(0, acts - u_bnd[:, 1]).sum()
-            )
-
-            # assign to data
-            unsafes[i, j] = item
-    mean_unsafe: np.ndarray = unsafes.mean(axis=0)
-
-    # create figure and grid
-    if fig is None:
-        fig = plt.figure(constrained_layout=True)
-        G = gridspec.GridSpec(1, 2, figure=fig)
-        axs = (fig.add_subplot(G[0, 0]), fig.add_subplot(G[0, 1]))
-        axs[1].sharex(axs[0])
-    else:
-        axs = fig.axes
-
-    # plot performance
     color = color or MATLAB_COLORS[0]
-    axs[0].plot(episodes, rewards.T, linewidth=LINEWIDTHS[0], color=color)
-    axs[0].plot(
+    ax.plot(episodes, rewards.T, linewidth=LINEWIDTHS[0], color=color)
+    ax.plot(
         episodes, mean_reward, linewidth=LINEWIDTHS[1],
         color=color, label=label)
-    axs[0].set_xlabel('Episode')
-    axs[0].set_ylabel('Cumulative cost')
-    axs[0].xaxis.set_major_locator(MaxNLocator(integer=True))
-
-    # plot number of unsafe episodes
-    color = color or MATLAB_COLORS[0]
-    axs[1].plot(episodes, unsafes.T, linewidth=LINEWIDTHS[0], color=color)
-    axs[1].plot(episodes, mean_unsafe,
-                linewidth=LINEWIDTHS[1], color=color, label=label)
-    axs[1].set_xlabel('Episode')
-    axs[1].set_ylabel('Constraint violation')
-    axs[1].xaxis.set_major_locator(MaxNLocator(integer=True))
+    ax.set_xlabel('Episode')
+    ax.set_ylabel('Cumulative cost')
+    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
     return fig
 
 
-def plot_learned_weights(
+def constraint_violation(
+    envs: list[RecordData],
+    fig: Figure = None,
+    color: str = None,
+    label: str = None
+) -> Figure:
+    '''
+    Plots the constraint violations in each environment and the average 
+    violation.
+    '''
+    x_bnd, u_bnd = envs[0].config.x_bounds, envs[0].config.u_bounds
+    N = (np.isfinite(x_bnd).sum(axis=1) > 0).sum() + \
+        (np.isfinite(u_bnd).sum(axis=1) > 0).sum()
+    ncols = int(np.round(np.sqrt(N)))
+    nrows = int(np.ceil(N / ncols))
+    if fig is None:
+        fig = plt.figure(constrained_layout=True)
+        G = gridspec.GridSpec(nrows, ncols, figure=fig)
+        axs = [fig.add_subplot(G[i, j])
+               for i, j in product(range(nrows), range(ncols))]
+        for i in range(1, len(axs)):
+            axs[i].sharex(axs[0])
+    else:
+        axs = fig.axes
+
+    max_ep_len = max(max(env.episode_lengths) for env in envs)
+    observations, actions = [], []
+    for env in envs:
+        obs, act = [], []
+        for ep in range(len(env.episode_lengths)):
+            x = env.observations[ep][1:, :]
+            x = np.pad(x, ((0, max_ep_len - x.shape[0]), (0, 0)),
+                       constant_values=np.nan)
+            u = env.actions[ep]
+            u = np.pad(u, ((0, max_ep_len - u.shape[0]), (0, 0)),
+                       constant_values=np.nan)
+            obs.append(x)
+            act.append(u)
+        observations.append(obs)
+        actions.append(act)
+    observations, actions = [
+        np.transpose(np.array(a), (3, 2, 1, 0))
+        for a in (observations, actions)  # [nx(nu), max_ep_len, Nep, Nenv]
+    ]
+    episodes = np.arange(observations.shape[2]) + 1
+
+    # reduce each trajectory's violations to scalar by picking max
+    cv_obs, cv_act = (
+        (np.nanmax(cv_lb, axis=1), np.nanmax(cv_ub, axis=1))
+        for cv_lb, cv_ub in cv_((observations, x_bnd), (actions, u_bnd))
+    )
+
+    axs = iter(axs)
+    for n, (cv_lb, cv_ub), bnd in [('x', cv_obs, x_bnd), ('u', cv_act, u_bnd)]:
+        for i in range(bnd.shape[0]):
+            if not np.isfinite(bnd[i]).any():
+                continue
+            ax = next(axs)
+            ax.plot(
+                episodes, cv_lb[i],
+                linewidth=LINEWIDTHS[0], color=color, linestyle='--')
+            ax.plot(
+                episodes, cv_lb[i].mean(axis=-1),
+                linewidth=LINEWIDTHS[1], color=color, linestyle='--',
+                label=label)
+            ax.plot(
+                episodes, cv_ub[i],
+                linewidth=LINEWIDTHS[0], color=color, linestyle='-')
+            ax.plot(
+                episodes, cv_ub[i].mean(axis=-1),
+                linewidth=LINEWIDTHS[1], color=color, linestyle='-',
+                label=label)
+
+            ax.set_xlabel('Episode')
+            ax.set_ylabel(f'Violation of ${n}_{i}$')
+            ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+    for ax in axs:
+        ax.set_axis_off()
+    return fig
+
+
+def learned_weights(
     agents: list[RecordLearningData],
     fig: Figure = None,
     color: str = None,
@@ -260,8 +295,8 @@ def plot_learned_weights(
     updates = np.arange(Nupdates + 1) + 1
 
     # create figure and grid
-    ncols = int(np.floor(np.sqrt(Nweights + 1)))
-    nrows = ncols if ncols**2 >= Nweights else (ncols + 1)
+    ncols = int(np.round(np.sqrt(Nweights + 1)))
+    nrows = int(np.ceil((Nweights + 1) / ncols))
     if fig is None:
         fig = plt.figure(constrained_layout=True)
         G = gridspec.GridSpec(nrows, ncols, figure=fig)
@@ -273,24 +308,26 @@ def plot_learned_weights(
         axs = fig.axes
 
     # plot update gradient norm history
+    axs = iter(axs)
+    ax = next(axs)
     color = color or MATLAB_COLORS[0]
     norms: np.ndarray = np.linalg.norm(
         np.stack([agent.update_gradient for agent in agents]), axis=-1)
     log10_mean_norm = 10**(np.log10(norms).mean(axis=0))
-    axs[0].semilogy(updates[:-1], norms.T,
-                    linewidth=LINEWIDTHS[0], color=color)
-    axs[0].semilogy(updates[:-1], log10_mean_norm,
-                    linewidth=LINEWIDTHS[1], color=color, label=label)
-    axs[0].set_xlabel('Update')
-    axs[0].set_ylabel('||p||')
-    axs[0].xaxis.set_major_locator(MaxNLocator(integer=True))
+    ax.semilogy(updates[:-1], norms.T,
+                linewidth=LINEWIDTHS[0], color=color)
+    ax.semilogy(updates[:-1], log10_mean_norm,
+                linewidth=LINEWIDTHS[1], color=color, label=label)
+    ax.set_xlabel('Update')
+    ax.set_ylabel('||p||')
+    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
 
     # plot each weight's history
-    for i, (ax, name) in enumerate(zip(axs[1:], weightnames), start=1):
+    for ax, name in zip(axs, weightnames):
         # get history and average it
         weights: np.ndarray = np.stack(
             [np.squeeze(agent.weights_history[name]) for agent in agents])
-        lbl = f'Parameter \'{name}\''
+        lbl = f'Parameter ${name}$'
         if weights.ndim > 2:
             weights = weights.mean(axis=-1)
             lbl += ' (mean)'
@@ -303,6 +340,6 @@ def plot_learned_weights(
         ax.set_xlabel('Update')
         ax.set_ylabel(lbl)
         ax.xaxis.set_major_locator(MaxNLocator(integer=True))
-    for i in range(i + 1, len(axs)):
-        axs[i].set_axis_off()
+    for ax in axs:
+        ax.set_axis_off()
     return fig

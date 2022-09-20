@@ -22,12 +22,13 @@ if __name__ == '__main__':
 
     if len(args.filenames) == 0:
         args.filenames = [
-            'R_20220919_193856.pkl',
+            'results/lstdq_1_baseline.pkl',
+            'results/pi_0_baseline.pkl'
         ]
     if args.plots is None:
-        args.plots = range(2)
+        args.plots = range(3)
 
-    figs, colors = [None, None], cycle(plot.MATLAB_COLORS)
+    figs, colors = [None, None, None], cycle(plot.MATLAB_COLORS)
     for filename, color in zip(args.filenames, colors):
         # load data
         results = util.load_results(filename)
@@ -40,12 +41,12 @@ if __name__ == '__main__':
 
         # plot
         if 0 in args.plots and envs is not None:
-            figs[0] = plot.plot_performance_and_unsafe_episodes(
-                envs, fig=figs[0], color=color)
-        if 1 in args.plots and agents is not None and \
+            figs[0] = plot.performance(envs, fig=figs[0], color=color)
+        if 1 in args.plots and envs is not None:
+            figs[1] = plot.constraint_violation(envs, fig=figs[1], color=color)
+        if 2 in args.plots and agents is not None and \
                 all(a is not None for a in agents):
-            figs[1] = plot.plot_learned_weights(
-                agents, fig=figs[1], color=color)
+            figs[2] = plot.learned_weights(agents, fig=figs[2], color=color)
     plt.show()
 
 
