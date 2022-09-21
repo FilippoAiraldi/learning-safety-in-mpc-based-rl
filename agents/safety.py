@@ -1,6 +1,7 @@
 import casadi as cs
 import numpy as np
 from joblib import Parallel
+from scipy.stats import norm
 from sklearn.gaussian_process import GaussianProcessRegressor, kernels
 from sklearn.multioutput import MultiOutputRegressor
 from sklearn.utils.fixes import delayed
@@ -15,24 +16,39 @@ from typing import Any
 # https://groups.google.com/g/casadi-users/c/gLJNzajFM6w
 
 
-class GaussianProcessRegressorCallback(cs.Callback):
+class GaussianProcessRegressorConstraintCallback(cs.Callback):
     def __init__(
         self,
         name: str,
         gpr: GaussianProcessRegressor,
+        beta: float,
+        center: float = 0.0,
         opts: dict[str, Any] = None
     ) -> None:
         if opts is None:
             opts = {}
         self._gpr = gpr
+        self.beta = beta
+        self._C = center
         cs.Callback.__init__(self)
         self.construct(name, opts)
 
-    def eval(self, arg):
-        return self._gpr.predict(np.array(arg[0]))
+    @property
+    def beta(self) -> float:
+        return self._beta
+
+    @beta.setter
+    def beta(self, value: float) -> None:
+        assert 0.0 <= value <= 1.0, 'beta must be in range [0, 1].'
+        self._beta = value
+        self._beta_ppf = norm.ppf(1 - value)
+
+    def eval(self, arg: Any) -> Any:
+        mean, std = self._gpr.predict(np.array(arg[0]), return_std=True)
+        return (mean - self._C) + self._beta_ppf * std
 
 
-class MultiOutputGaussianProcessRegressor(MultiOutputRegressor):
+class MultitGaussianProcessRegressor(MultiOutputRegressor):
     '''Custom multioutput regressor adapted to GP regression.'''
 
     def __init__(
@@ -84,6 +100,7 @@ def constraint_violation(
         For each tuple, `bounds` is an array of shape `(N, 2)`, where `N` is 
         the number of features, and the first and second columns are lower and
         upper bounds, respectively. `array` is an array of shape `(N, ...)`.
+        A violation is defined as `x <= bound`.
 
     Returns
     -------
@@ -93,8 +110,8 @@ def constraint_violation(
     '''
     cv = []
     for a, bnd in arrays_and_bounds:
-        lb, ub = bnd[:, 0], bnd[:, 1]
-        g_lb = np.expand_dims(lb, tuple(range(1, a.ndim))) - a
-        g_ub = a - np.expand_dims(ub, tuple(range(1, a.ndim)))
-        cv.append((g_lb, g_ub))
+        a = np.asarray(a)
+        lb = np.expand_dims(bnd[:, 0], tuple(range(1, a.ndim)))
+        ub = np.expand_dims(bnd[:, 1], tuple(range(1, a.ndim)))
+        cv.append((lb - a, a - ub))
     return cv

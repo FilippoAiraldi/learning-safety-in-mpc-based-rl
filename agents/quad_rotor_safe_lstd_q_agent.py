@@ -4,12 +4,12 @@ import numpy as np
 from agents.quad_rotor_lstd_q_agent import QuadRotorLSTDQAgent
 from agents.safety import (
     constraint_violation,
-    MultiOutputGaussianProcessRegressor,
-    GaussianProcessRegressorCallback
+    MultitGaussianProcessRegressor,
+    GaussianProcessRegressorConstraintCallback
 )
 from mpc import MPCSolverError
 from sklearn.gaussian_process import kernels
-from typing import Any, Union
+from typing import Union
 
 
 class QuadRotorSafeLSTDQAgent(QuadRotorLSTDQAgent):
@@ -68,9 +68,10 @@ class QuadRotorSafeLSTDQAgent(QuadRotorLSTDQAgent):
             # compute its trajectories' constraint violations
             self.consolidate_episode_experience()
             logger.debug(f'{name}|{epoch_n}|{e}: J={returns[e]:,.3f}')
-
-            # additionally, save the trajectory outcome for the GP to learn
-            # self.
+            self._gpr_data.append((
+                self.weights.values(),
+                self._compute_constraint_violation(states, actions)
+            ))
 
         # when all m episodes are done, perform RL update and reduce
         # exploration strength and chance
@@ -119,3 +120,20 @@ class QuadRotorSafeLSTDQAgent(QuadRotorLSTDQAgent):
         qp = {'x': theta_new, 'p': cs.vertcat(theta, c), 'f': f, 'g': g}
         opts = {'print_iter': True, 'print_header': True}
         self._solver = cs.qpsol(f'qpsol_{self.name}', 'qrqp', qp, opts)
+
+    def _compute_constraint_violation(
+        self,
+        states: list[np.ndarray],
+        actions: list[np.ndarray],
+    ) -> np.ndarray:
+        x_bnd, u_bnd = self.env.config.x_bounds, self.env.config.u_bounds
+        x, u = np.stack(states, axis=-1), np.stack(actions, axis=-1)
+
+        # compute state and action constraints violations along trajectory and
+        # pick maximum violation
+        (x_cv_lb, x_cv_ub), (u_cv_lb, u_cv_ub) = [
+            (cv_lb.max(axis=-1), cv_ub.max(axis=-1))
+            for cv_lb, cv_ub in constraint_violation((x, x_bnd), (u, u_bnd))
+        ]
+        cv = np.concatenate((x_cv_lb, x_cv_ub, u_cv_lb, u_cv_ub))
+        return cv[np.isfinite(cv)]  # only regress over finite data

@@ -2,8 +2,8 @@ import casadi as cs
 import matplotlib.pyplot as plt
 import numpy as np
 from agents.safety import (
-    MultiOutputGaussianProcessRegressor,
-    GaussianProcessRegressorCallback
+    MultitGaussianProcessRegressor,
+    GaussianProcessRegressorConstraintCallback
 )
 from mpc.generic_mpc import subsevalf
 from sklearn.gaussian_process import GaussianProcessRegressor, kernels
@@ -134,13 +134,14 @@ def gp_as_casadi_callback():
     N = 20
     np.random.seed(0)
     data = np.linspace(0, 10, N).reshape((N, 1))
-    value = np.sin(data) + np.random.normal(0, 0.1, (N, 1))
+    value = 0.2 * data + np.sin(data) + np.random.normal(0, 0.1, (N, 1))
 
     # use sklearn
     gpr = GaussianProcessRegressor(
         kernel=(
             kernels.ConstantKernel() + kernels.DotProduct() +
-            kernels.WhiteKernel() + kernels.RBF()),
+            kernels.WhiteKernel() + kernels.RBF()
+        ),
         n_restarts_optimizer=9
     )
     gpr.fit(data, value)
@@ -158,17 +159,18 @@ def gp_as_casadi_callback():
     plt.ylabel('dependant variable')
     plt.legend()
 
-    # Package the resulting regression model in a CasADi callback
-
     # Instantiate the Callback (make sure to keep a reference to it!)
-    gprcb = GaussianProcessRegressorCallback('GPR', gpr, {'enable_fd': True})
+    gprcb = GaussianProcessRegressorConstraintCallback(
+        'GPR', gpr, {'enable_fd': True})
     print(gprcb)
 
     # Find the minimum of the regression model
     x = cs.MX.sym('x')
+    mean = gprcb(x)
+    std = 0
     solver = cs.nlpsol(
-        'solver', 'ipopt', {'x': x, 'f': x, 'g': 0.75 - gprcb(x)})
-    res = solver(x0=3, lbg=-np.inf, ubg=0)
+        'solver', 'ipopt', {'x': x, 'f': mean + 3 * std})
+    res = solver(x0=7, lbg=-np.inf, ubg=0)
 
     plt.plot(float(res['x']), float(gprcb(res['x'])), 'k*', markersize=10,
              label='Function minimum by CasADi/Ipopt')
@@ -207,7 +209,7 @@ def multioutput_gp():
     y_mean, y_std = gpr.predict(X_test[:3], return_std=True)
 
     # fit a MultiOutputRegressor for each output
-    mogpr = MultiOutputGaussianProcessRegressor(**kwargs)
+    mogpr = MultitGaussianProcessRegressor(**kwargs)
     mogpr.fit(X_train, y_train_noisy)
     score_mo = mogpr.score(X_test, y_test)
     y_mean_mo, y_std_mo = mogpr.predict(X_test[:3], return_std=True)
