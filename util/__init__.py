@@ -1,16 +1,17 @@
 from util.util import (
-    quad_form,
+    cs_quad_form,
+    cs_prod,
+    cs_norm_cdf,
+    cs_norm_ppf,
     spy,
     set_np_mpl_defaults,
     save_results,
     load_results,
     nchoosek,
-    cs_prod,
     monomial_powers,
     get_run_name,
     create_logger,
     tqdm_joblib,
-    cs_sigmoid,
     is_env_wrapped,
     cholesky_added_multiple_identities
 )

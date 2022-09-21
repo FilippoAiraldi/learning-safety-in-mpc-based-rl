@@ -20,7 +20,9 @@ MATLAB_COLORS = [
 ]
 
 
-def cs_prod(x: Union[cs.SX, cs.DM], axis: int = 0) -> Union[cs.SX, cs.DM]:
+def cs_prod(
+    x: Union[cs.SX, cs.MX, cs.DM], axis: int = 0
+) -> Union[cs.SX, cs.MX, cs.DM]:
     '''I couldn't find an equivalent of np.prod in CasADi...'''
     if x.is_vector():
         return cs.det(cs.diag(x))
@@ -28,10 +30,31 @@ def cs_prod(x: Union[cs.SX, cs.DM], axis: int = 0) -> Union[cs.SX, cs.DM]:
     return cs.exp(sum_(cs.log(x))) if axis == 0 else cs.exp(sum_(cs.log(x)))
 
 
-def cs_sigmoid(x: Union[cs.SX, cs.DM, cs.MX]) -> Union[cs.SX, cs.DM, cs.MX]:
-    '''Computes sigmoid.'''
-    e = cs.exp(x)
-    return e / (e + 1)
+def cs_quad_form(
+    A: Union[cs.SX, cs.MX, cs.DM], x: Union[cs.SX, cs.MX, cs.DM]
+) -> Union[cs.SX, cs.MX, cs.DM]:
+    '''Calculates quadratic form x^T A x.'''
+    if A.is_vector():
+        A = cs.diag(A)
+    return cs.bilin(A, x, x)
+
+
+def cs_norm_cdf(
+    x: Union[cs.SX, cs.MX, cs.DM], 
+    loc: Union[cs.SX, cs.MX, cs.DM] = 0, 
+    scale: Union[cs.SX, cs.MX, cs.DM] = 1
+) -> Union[cs.SX, cs.MX, cs.DM]:
+    '''CasADi version of `scipy.stats.norm.cdf`.'''
+    return 0.5 * (1 + cs.erf((x - loc) / np.sqrt(2) / scale))
+
+
+def cs_norm_ppf(
+    p: Union[cs.SX, cs.MX, cs.DM], 
+    loc: Union[cs.SX, cs.MX, cs.DM] = 0, 
+    scale: Union[cs.SX, cs.MX, cs.DM] = 1
+) -> Union[cs.SX, cs.MX, cs.DM]:
+    '''CasADi version of `scipy.stats.norm.ppf`.'''
+    return np.sqrt(2) * scale * cs.erfinv(2 * p - 1) + loc 
 
 
 def nchoosek(n: Union[int, Iterable[Any]],
@@ -56,15 +79,7 @@ def monomial_powers(d: int, k: int) -> np.ndarray:
     return np.flipud(np.diff(dividers, axis=1) - 1)
 
 
-def quad_form(
-        A: Union[cs.SX, cs.DM], x: Union[cs.SX, cs.DM]) -> Union[cs.SX, cs.DM]:
-    '''Calculates quadratic form x^T A x.'''
-    if A.is_vector():
-        A = cs.diag(A)
-    return cs.bilin(A, x, x)
-
-
-def spy(H: Union[cs.SX, cs.DM, np.ndarray], **original_kwargs) -> None:
+def spy(H: Union[cs.SX, cs.MX, cs.DM, np.ndarray], **original_kwargs) -> None:
     '''See Matplotlib.pyplot.spy.'''
     # try convert to numerical; if it fails, then use symbolic method from cs
     try:

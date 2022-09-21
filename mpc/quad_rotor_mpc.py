@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from envs.quad_rotor_env import QuadRotorEnv
 from mpc.generic_mpc import GenericMPC
 from typing import Union
-from util import quad_form
+from util import cs_quad_form
 
 
 @dataclass(frozen=True)
@@ -130,13 +130,13 @@ class QuadRotorMPC(GenericMPC):
         w_u = self.add_par('w_u', nu, 1)    # weights for stage/final control
         w_s = self.add_par('w_s', ns, 1)    # weights for stage/final slack
         J += sum((
-            quad_form(w_x, x[:, k] - xf) +
-            quad_form(w_u, u[:, k] - uf) +
+            cs_quad_form(w_x, x[:, k] - xf) +
+            cs_quad_form(w_u, u[:, k] - uf) +
             cs.dot(w_s, s[:, k])) for k in range(N - 1))
 
         # 3) terminal cost
-        J += quad_form(w_x, x[:, -1] - xf) + \
-            quad_form(w_u, u[:, -1] - uf) + \
+        J += cs_quad_form(w_x, x[:, -1] - xf) + \
+            cs_quad_form(w_u, u[:, -1] - uf) + \
             cs.dot(w_s, s[:, -1])
 
         # assign cost
