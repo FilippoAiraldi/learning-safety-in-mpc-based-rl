@@ -2,8 +2,7 @@ import logging
 import numpy as np
 from abc import ABC, abstractmethod
 from agents.quad_rotor_base_agent import QuadRotorBaseAgent
-from envs.quad_rotor_env import QuadRotorEnv
-from mpc.quad_rotor_mpc import QuadRotorMPC, QuadRotorMPCConfig
+from mpc.quad_rotor_mpc import QuadRotorMPC
 from mpc.wrappers import DifferentiableMPC
 from typing import Union
 
@@ -14,17 +13,8 @@ class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
     `Q` and `V` differentiable, such that their parameters can be learnt. 
     '''
 
-    def __init__(
-        self,
-        env: QuadRotorEnv,
-        agentname: str = None,
-        init_pars: dict[str, np.ndarray] = None,
-        fixed_pars: dict[str, np.ndarray] = None,
-        mpc_config: Union[dict, QuadRotorMPCConfig] = None,
-        seed: int = None
-    ) -> None:
-        super().__init__(
-            env, agentname, init_pars, fixed_pars, mpc_config, seed)
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
         self._V = DifferentiableMPC[QuadRotorMPC](self._V)
         self._Q = DifferentiableMPC[QuadRotorMPC](self._Q)
         self._epoch_n = None  # keeps track of epoch number just for logging
