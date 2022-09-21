@@ -41,7 +41,7 @@ class GaussianProcessRegressorConstraintCallback(cs.Callback):
     def beta(self, value: float) -> None:
         assert 0.0 <= value <= 1.0, 'beta must be in range [0, 1].'
         self._beta = value
-        self._beta_ppf = norm.ppf(1 - value)
+        self._beta_ppf = norm.ppf(value)
 
     def eval(self, arg: Any) -> Any:
         mean, std = self._gpr.predict(np.array(arg[0]), return_std=True)
