@@ -6,7 +6,7 @@ from gym import Env
 from gym.utils.seeding import np_random
 from itertools import count
 from mpc import QuadRotorMPC, QuadRotorMPCConfig, Solution
-from typing import Union
+from typing import Any, Union
 
 
 class QuadRotorBaseAgent(ABC):
@@ -20,6 +20,7 @@ class QuadRotorBaseAgent(ABC):
         self,
         env: QuadRotorEnv,
         agentname: str = None,
+        agent_config: Union[dict, Any] = None,
         init_pars: dict[str, np.ndarray] = None,
         fixed_pars: dict[str, np.ndarray] = None,
         mpc_config: Union[dict, QuadRotorMPCConfig] = None,
@@ -34,9 +35,9 @@ class QuadRotorBaseAgent(ABC):
             Environment for which to create the agent.
         agentname : str, optional
             Name of the agent.
-        init_pars : dict[str, np.ndarray]
-            A dictionary containing for each RL parameter the corresponding
-            initial value.
+        agent_config : dict, ConfigType
+            A set of parameters for the quadrotor agent. If not given, the 
+            default ones are used.
         fixed_pars : dict[str, np.ndarray]
             A dictionary containing MPC parameters that are fixed.
         mpc_config : dict, QuadRotorMPCConfig
@@ -49,6 +50,23 @@ class QuadRotorBaseAgent(ABC):
         self.id = next(self._ids)
         self.name = f'Agent{self.id}' if agentname is None else agentname
         self.env = env
+
+        # initialize config - must be a dataclass
+        if hasattr(self, 'config_cls'):
+            if agent_config is None:
+                self._config = self.config_cls()
+            elif isinstance(agent_config, dict):
+                if not hasattr(self.config_cls, '__dataclass_fields__'):
+                    raise ValueError('Agent config must be a dataclass.')
+                keys = self.config_cls.__dataclass_fields__.keys()
+                self._config = self.config_cls(
+                    **{k: agent_config[k] for k in keys if k in agent_config})
+            elif isinstance(agent_config, self.config_cls):
+                self._config = agent_config
+            else:
+                raise TypeError('Invalid agent config type.')
+        else:
+            self._config = None
 
         # initialize default MPC parameters
         self.fixed_pars = {} if fixed_pars is None else fixed_pars
@@ -71,6 +89,7 @@ class QuadRotorBaseAgent(ABC):
         self._V = QuadRotorMPC(env, config=mpc_config, type='V')
 
         # initialize learnable weights/parameters
+        init_pars = getattr(self._config, 'init_pars', None)
         self._init_mpc_parameters(init_pars=init_pars)
 
     @property
@@ -82,6 +101,11 @@ class QuadRotorBaseAgent(ABC):
     def Q(self) -> QuadRotorMPC:
         '''Gets the `Q` action-value function approximation MPC scheme.'''
         return self._Q
+
+    @property
+    def config(self) -> Any:
+        '''Gets this agent's configuration.'''
+        return self._config
 
     def reset(self) -> None:
         '''Resets internal variables of the agent.'''

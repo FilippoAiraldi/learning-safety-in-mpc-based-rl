@@ -50,6 +50,8 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
     The RL update exploits a replay memory to spread out noise.
     '''
 
+    config_cls: type = QuadRotorLSTDQAgentConfig
+
     def __init__(
         self,
         env: QuadRotorEnv,
@@ -76,18 +78,10 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
         seed : int, optional
             Seed for the random number generator.
         '''
-        if agent_config is None:
-            agent_config = QuadRotorLSTDQAgentConfig()
-        elif isinstance(agent_config, dict):
-            keys = QuadRotorLSTDQAgentConfig.__dataclass_fields__.keys()
-            agent_config = QuadRotorLSTDQAgentConfig(
-                **{k: agent_config[k] for k in keys if k in agent_config})
-
-        self.config = agent_config
         super().__init__(
             env,
             agentname=agentname,
-            init_pars=self.config.init_pars,
+            agent_config=agent_config,
             fixed_pars={
                 'pitch_d': 12,
                 'pitch_dd': 7,
@@ -108,7 +102,7 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
         # initialize the replay memory. Per each episode the memory saves the
         # gradient and Hessian of Q at each instant
         self.replay_memory = ReplayMemory[list[tuple[np.ndarray, ...]]](
-            maxlen=agent_config.replay_maxlen, seed=seed)
+            maxlen=self.config.replay_maxlen, seed=seed)
         self._episode_buffer: list[tuple[np.ndarray, ...]] = []
 
         # initialize symbols for derivatives to be used later. Also initialize
@@ -243,8 +237,8 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
                      f'||p||={np.linalg.norm(update_grad):.3e}; ' +
                      self.weights.values2str())
         return (
-            (returns, update_grad, self.weights.values(as_dict=True)) 
-            if return_info else 
+            (returns, update_grad, self.weights.values(as_dict=True))
+            if return_info else
             returns
         )
 
