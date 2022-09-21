@@ -11,7 +11,7 @@ class QuadRotorEnvConfig:
     Quadrotor environments configuration parameters. The model parameters must 
     be nonnegative, whereas the disturbance parameter 'winds' is a dictionary 
     with each gust's altitude and strength. Also the bounds on state and action
-    are included, as well as the numerical tolerance.
+    are included.
     '''
     # model parameters
     T: float = 0.1
@@ -96,13 +96,19 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
 
     ### Transition Dynamics:
     Given an action, the quadrotor follows the following transition dynamics:
-        x+ = A*x + B*u + C*phi(s[2])*w + e
-    where x and x+ are the current and next state, u is the control action, phi
-    is a nonlinear term modulating wind disturbance strength and w is a 
-    uniformly distributed random variable. A, B, C and e are system elements.
+    ```
+    x+ = A*x + B*u + C*phi(s[2])*w + e
+    ```
+    where `x` and `x+` are the current and next state, `u` is the control 
+    action, `phi` is a nonlinear term modulating wind disturbance strength and 
+    `w` is a uniformly distributed random variable. `A`, `B`, `C` and `e` are 
+    system elements.
 
     ### Cost:
-    ...
+    The cost consists of three source: positional error (proportional to the 
+    distance of the quadrotor to the final position), control action usage (
+    proportional to the magnitude of the control action), and constraint 
+    violation (proportional to violations of both state and action bounds).
 
     ### Initial And Final State
     The initial and final states are constant across resets, unless manually 
@@ -111,11 +117,6 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
     ### Episode End
     The episode ends if the state approaches the final one within the specified
     error and stays within this error bound for the specified amount of steps.
-
-    ### Arguments
-    ```
-    gym.make('QuadRotor')
-    ```
     '''
     spec: dict = None
     nx: int = 10
@@ -200,22 +201,22 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
 
     @property
     def A(self) -> np.ndarray:
-        '''Returns the dynamics A matrix.'''
+        '''Returns the dynamics `A` matrix.'''
         return self._A.copy()
 
     @property
     def B(self) -> np.ndarray:
-        '''Returns the dynamics B matrix.'''
+        '''Returns the dynamics `B` matrix.'''
         return self._B.copy()
 
     @property
     def C(self) -> np.ndarray:
-        '''Returns the dynamics C matrix.'''
+        '''Returns the dynamics `C` matrix.'''
         return self._C.copy()
 
     @property
     def e(self) -> np.ndarray:
-        '''Returns the dynamics e vector.'''
+        '''Returns the dynamics `e` vector.'''
         return self._e.copy()
 
     @property
@@ -299,7 +300,7 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
         return self.x
 
     def step(
-        self, u: np.ndarray) -> tuple[np.ndarray, float, bool, bool, dict]:
+            self, u: np.ndarray) -> tuple[np.ndarray, float, bool, bool, dict]:
         '''
         Steps the quadrotor environment. 
 
@@ -323,9 +324,6 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
         wind = self._C @ self.phi(self.x[2]) * self.np_random.uniform(
             low=[0, 0, -1, 0, 0, 0, -1, -1, 0, 0],
             high=[1, 1, 0, 0, 0, 0, 1, 1, 0, 0]).reshape(self.nx, 1)
-        # wind = self.np_random.normal(
-        #     scale=[0.1, 0.1, 0.1, 0, 0, 0, 0.1, 0.1, 0, 0]).reshape(
-        #     self.nx, 1)
 
         # compute new state: x+ = A*x + B*u + e + C*phi(s[2])*w
         self.x = (

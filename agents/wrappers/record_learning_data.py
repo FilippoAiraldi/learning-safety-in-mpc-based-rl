@@ -9,8 +9,7 @@ AgentType = TypeVar('AgentType', bound=QuadRotorBaseLearningAgent)
 class RecordLearningData(Generic[AgentType]):
     def __init__(self, agent: AgentType) -> None:
         '''
-        Wraps an agent to allow storing learning-related data. In particular, 
-        it wraps the methods 'update' and 'consolidate_episode_experience'.
+        Wraps an agent to allow storing learning-related data.
 
         Parameters
         ----------

@@ -29,7 +29,7 @@ class ReplayMemory(deque[T]):
         maxlen : int
             Maximum length/capacity of the memory. Can be None if unlimited.
         args : ...
-            Args passed to collections.deque.__init__.
+            Args passed to `collections.deque.__init__`.
         seed : int, optional
             Seed for the random number generator.
         '''

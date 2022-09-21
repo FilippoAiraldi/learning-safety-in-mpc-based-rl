@@ -167,7 +167,7 @@ class GenericMPC:
         self, name: str, expr1: cs.SX, op: str, expr2: cs.SX
     ) -> tuple[cs.SX, cs.SX]:
         '''
-        Adds a constraint to the MPC problem, e.g., 'expr1 <= expr2'.
+        Adds a constraint to the MPC problem, e.g., `expr1 <= expr2`.
 
         Parameters
         ----------
@@ -183,8 +183,8 @@ class GenericMPC:
         Returns
         -------
         expr : casadi.SX
-            The constraint expression in canonical form, i.e., h(x,u) = 0 or 
-            g(x,u) <= 0.
+            The constraint expression in canonical form, i.e., `h(x,u) = 0` or 
+            `g(x,u) <= 0`.
         lam : casadi.SX
             The symbol corresponding to the new constraint's multipliers.
         '''

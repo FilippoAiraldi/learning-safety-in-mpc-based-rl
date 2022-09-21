@@ -21,7 +21,7 @@ class ClipActionIfClose(ClipAction):
         env : gym.Env
             The environment to apply the wrapper
         np_isclose_kwargs : dict
-            Optional arguments passed to numpy.isclose function to check if 
+            Optional arguments passed to `numpy.isclose` function to check if 
             the action is numerically close to the bounds.
         '''
         super().__init__(env)

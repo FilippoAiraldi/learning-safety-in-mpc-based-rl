@@ -25,26 +25,26 @@ class BaseEnv(gym.Env[ObsType, ActType], ABC):
         '''
         Returns the environment properly encapsulated in some useful wrappers.
         The wrappers are (from in to outward)
-            - OrderEnforcing
-            - ClipActionIfClose (optional)
-            - RecordData
-            - NormalizeObservation (optional)
-            - NormalizeReward (optional)
-            - TimeLimit
+            - `OrderEnforcing`
+            - `ClipActionIfClose` (optional)
+            - `RecordData`
+            - `NormalizeObservation` (optional)
+            - `NormalizeReward` (optional)
+            - `TimeLimit`
 
         Parameters
         ---------
         max_episode_steps : int, optional
-            Maximum number of steps per episode (see TimeLimit).
+            Maximum number of steps per episode (see `TimeLimit`).
         record_data : bool, optional
-            Whether to wrap the env for data recording (See RecordData).
+            Whether to wrap the env for data recording (see `RecordData`).
         deque_size : int, optional
-            Maximum number of episodic data saved (see RecordData).
+            Maximum number of episodic data saved (see `RecordData`).
         normalize_observation : bool, optional
             Whether to apply observation normalization (see 
-            NormalizeObservation).
+            `NormalizeObservation`).
         normalize_reward : bool, optional
-            Whether to apply return normalization (see NormalizeReward).
+            Whether to apply return normalization (see `NormalizeReward`).
 
         Returns
         -------

@@ -27,7 +27,7 @@ class DifferentiableMPC(Generic[MPCType]):
     def _non_redundant_x_bound_indices(self) -> tuple[np.ndarray, np.ndarray]:
         '''
         Gets the indices of lbx and ubx which are not redundant, i.e., 
-        different from +/-inf.
+        different from `+/-inf`.
         '''
         return (np.where(self._mpc.lbx != -np.inf)[0],
                 np.where(self._mpc.ubx != np.inf)[0])

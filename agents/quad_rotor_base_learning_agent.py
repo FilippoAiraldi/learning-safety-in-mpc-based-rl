@@ -11,7 +11,7 @@ from typing import Union
 class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
     '''
     Abstract base agent class that renders the two MPC function approximators
-    Q and V differentiable, such that their parameters can be learnt. 
+    `Q` and `V` differentiable, such that their parameters can be learnt. 
     '''
 
     def __init__(
@@ -31,12 +31,10 @@ class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
 
     @property
     def V(self) -> DifferentiableMPC[QuadRotorMPC]:
-        '''Gets the V action-value function approximation MPC scheme.'''
         return self._V
 
     @property
     def Q(self) -> DifferentiableMPC[QuadRotorMPC]:
-        '''Gets the Q action-value function approximation MPC scheme.'''
         return self._Q
 
     @abstractmethod

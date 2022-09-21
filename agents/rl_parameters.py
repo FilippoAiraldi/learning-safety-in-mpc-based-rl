@@ -52,12 +52,12 @@ class RLParameterCollection(Sequence[RLParameter]):
 
     @property
     def as_list(self) -> dict[str, RLParameter]:
-        '''Returns a view of the collection as list.'''
+        '''Returns a view of the collection as `list`.'''
         return self._list
 
     @property
     def as_dict(self) -> dict[str, RLParameter]:
-        '''Returns a view of the collection as dict.'''
+        '''Returns a view of the collection as `dict`.'''
         return self._dict
 
     def names(self) -> Sequence[str]:
@@ -68,7 +68,7 @@ class RLParameterCollection(Sequence[RLParameter]):
         self, as_dict: bool = False
     ) -> Union[np.ndarray, dict[str, np.ndarray]]:
         '''Returns the values of the parameters in the collection concatenated
-        into a single array, by default. Otherwise, if as_dict is True, a dict
+        into a single array, by default. Otherwise, if `as_dict=True`, a `dict`
         with each value is returned.'''
         if as_dict:
             return {name: p.value for name, p in self.items()}
@@ -78,7 +78,7 @@ class RLParameterCollection(Sequence[RLParameter]):
         self, as_dict: bool = False
     ) -> Union[np.ndarray, dict[str, np.ndarray]]:
         '''Returns the bounds of the parameters in the collection concatenated
-        into a single array, by default. Otherwise, if as_dict is True, a dict
+        into a single array, by default. Otherwise, if `as_dict=True`, a `dict`
         with each bound is returned.'''
         if as_dict:
             return {name: p.bounds for name, p in self.items()}
@@ -86,7 +86,7 @@ class RLParameterCollection(Sequence[RLParameter]):
 
     def symV(self, as_dict: bool = False) -> Union[cs.SX, dict[str, cs.SX]]:
         '''Returns the symbols of the parameters in the collection concatenated
-        into a single array, by default. Otherwise, if as_dict is True, a dict
+        into a single array, by default. Otherwise, if `as_dict=True`, a `dict`
         with each symbolical V variable is returned.'''
         if as_dict:
             return {name: p.symV for name, p in self.items()}
@@ -94,7 +94,7 @@ class RLParameterCollection(Sequence[RLParameter]):
 
     def symQ(self, as_dict: bool = False) -> Union[cs.SX, dict[str, cs.SX]]:
         '''Returns the symbols of the parameters in the collection concatenated
-        into a single array, by default. Otherwise, if as_dict is True, a dict
+        into a single array, by default. Otherwise, if `as_dict=True`, a `dict`
         with each symbolical Q variable is returned.'''
         if as_dict:
             return {name: p.symQ for name, p in self.items()}

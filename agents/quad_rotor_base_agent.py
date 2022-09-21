@@ -12,7 +12,7 @@ from typing import Union
 class QuadRotorBaseAgent(ABC):
     '''
     Abstract base agent class that contains the two MPC function approximators
-    Q and V.
+    `Q` and `V`.
     '''
     _ids = count(0)
 
@@ -75,12 +75,12 @@ class QuadRotorBaseAgent(ABC):
 
     @property
     def V(self) -> QuadRotorMPC:
-        '''Gets the V action-value function approximation MPC scheme.'''
+        '''Gets the `V` action-value function approximation MPC scheme.'''
         return self._V
 
     @property
     def Q(self) -> QuadRotorMPC:
-        '''Gets the Q action-value function approximation MPC scheme.'''
+        '''Gets the `Q` action-value function approximation MPC scheme.'''
         return self._Q
 
     def reset(self) -> None:
@@ -155,7 +155,7 @@ class QuadRotorBaseAgent(ABC):
     ) -> tuple[np.ndarray, np.ndarray, Solution]:
         '''
         Computes the optimal action for the given state by solving the MPC
-        scheme V and predicts the next state.
+        scheme `V` and predicts the next state.
 
         Parameters
         ----------
