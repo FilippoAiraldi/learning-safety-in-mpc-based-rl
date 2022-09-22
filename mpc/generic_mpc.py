@@ -35,7 +35,8 @@ class Solution:
         return self.get_value(x)
 
 
-class MPCSolverError(RuntimeError): ...
+class MPCSolverError(RuntimeError):
+    ...
 
 
 class GenericMPC:
@@ -260,8 +261,7 @@ class GenericMPC:
         assert self.solver is not None, 'Solver uninitialized.'
         assert len(self.pars.keys() - pars.keys()) == 0, \
             'Trying to solve the MPC with unspecified parameters: ' + \
-                ', '.join(self.pars.keys() - pars.keys()) + '.'
-            
+            ', '.join(self.pars.keys() - pars.keys()) + '.'
 
         # convert to nlp format and solve
         p = subsevalf(self.p, self.pars, pars)
@@ -352,6 +352,6 @@ def subsevalf(
         expr = cs.substitute(expr, old, new)
 
     if eval:
-        expr = cs.DM(expr).full().squeeze()  # faster
-        # expr = _np.squeeze(_np.array(cs.evalf(expr)))
+        # expr = _np.squeeze(_np.array(cs.evalf(expr))) # original
+        expr = cs.DM(expr).full().squeeze()  # faster, does not work with cs.MX
     return expr
