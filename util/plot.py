@@ -248,33 +248,22 @@ def constraint_violation(
     ]
     episodes = np.arange(observations.shape[2]) + 1
 
-    # reduce each trajectory's violations to scalar by picking max
-    cv_obs, cv_act = (
-        (np.nanmax(cv_lb, axis=1), np.nanmax(cv_ub, axis=1))
-        for cv_lb, cv_ub in cv_((observations, x_bnd), (actions, u_bnd))
-    )
+    # apply 2 reductions: first merge lb and ub in a single constraint (since
+    # both cannot be active at the same time) (max axis=1); then reduce each
+    # trajectory's violations to scalar by picking max violation (max axis=2)
+    cv_obs, cv_act = (np.nanmax(cv, axis=(1, 2))
+                      for cv in cv_((observations, x_bnd), (actions, u_bnd)))
 
+    # proceed to plot
     axs = iter(axs)
-    for n, (cv_lb, cv_ub), bnd in [('x', cv_obs, x_bnd), ('u', cv_act, u_bnd)]:
+    for n, cv, bnd in [('x', cv_obs, x_bnd), ('u', cv_act, u_bnd)]:
         for i in range(bnd.shape[0]):
             if not np.isfinite(bnd[i]).any():
                 continue
-            ax, cv_lb_i, cv_ub_i = next(axs), cv_lb[i], cv_ub[i]
-            ax.plot(
-                episodes, cv_lb_i,
-                linewidth=LINEWIDTHS[0], color=color, linestyle='--')
-            ax.plot(
-                episodes, np.nanmean(cv_lb_i, axis=-1),
-                linewidth=LINEWIDTHS[1], color=color, linestyle='--',
-                label=label)
-            ax.plot(
-                episodes, cv_ub_i,
-                linewidth=LINEWIDTHS[0], color=color, linestyle='-')
-            ax.plot(
-                episodes, np.nanmean(cv_ub_i, axis=-1),
-                linewidth=LINEWIDTHS[1], color=color, linestyle='-',
-                label=label)
-
+            ax = next(axs)
+            ax.plot(episodes, cv[i], linewidth=LINEWIDTHS[0], color=color)
+            ax.plot(episodes, np.nanmean(cv[i], axis=-1),
+                    linewidth=LINEWIDTHS[1], color=color, label=label)
             ax.set_xlabel('Episode')
             ax.set_ylabel(f'Violation of ${n}_{i}$')
             ax.xaxis.set_major_locator(MaxNLocator(integer=True))

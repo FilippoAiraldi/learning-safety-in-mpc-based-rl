@@ -6,7 +6,7 @@ from sklearn.gaussian_process import GaussianProcessRegressor, kernels
 from sklearn.multioutput import MultiOutputRegressor
 from sklearn.utils.fixes import delayed
 from sklearn.utils.validation import check_is_fitted
-from typing import Any
+from typing import Any, Iterator
 
 
 class MultitGaussianProcessRegressor(MultiOutputRegressor):
@@ -102,7 +102,7 @@ class MultiGaussianProcessRegressorCallback(cs.Callback):
 
 def constraint_violation(
     *arrays_and_bounds: tuple[np.ndarray, np.ndarray]
-) -> list[tuple[np.ndarray, np.ndarray]]:
+) -> Iterator[np.ndarray]:
     '''Computes constraint violations.
 
     Parameters
@@ -117,14 +117,12 @@ def constraint_violation(
 
     Returns
     -------
-    cv : list[tuple[array_like, array_like]]
-        For each tuple provided, returns a tuple of lower and upper bound 
-        violations. 
+    cv : iterator[array_like]
+        For each tuple provided, yields an array of lower and upper bound 
+        violations of shape `(N, 2, ...)`. 
     '''
-    cv = []
     for a, bnd in arrays_and_bounds:
         a = np.asarray(a)
         lb = np.expand_dims(bnd[:, 0], tuple(range(1, a.ndim)))
         ub = np.expand_dims(bnd[:, 1], tuple(range(1, a.ndim)))
-        cv.append((lb - a, a - ub))
-    return cv
+        yield np.stack((lb - a, a - ub), axis=1)
