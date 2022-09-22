@@ -3,15 +3,15 @@ from agents.rl_parameters import RLParameter, RLParameterCollection
 
 from agents.quad_rotor_pk_agent import QuadRotorPKAgent
 from agents.quad_rotor_lstd_q_agent import (
-    QuadRotorLSTDQAgent, 
+    QuadRotorLSTDQAgent,
     QuadRotorLSTDQAgentConfig
 )
 from agents.quad_rotor_lstd_dpg_agent import (
-    QuadRotorLSTDDPGAgent, 
+    QuadRotorLSTDDPGAgent,
     QuadRotorLSTDDPGAgentConfig
 )
 from agents.quad_rotor_gp_safe_lstd_q_agent import (
-    QuadRotorGPSafeLSTDQAgent, 
+    QuadRotorGPSafeLSTDQAgent,
     QuadRotorGPSafeLSTDQAgentConfig
 )
 

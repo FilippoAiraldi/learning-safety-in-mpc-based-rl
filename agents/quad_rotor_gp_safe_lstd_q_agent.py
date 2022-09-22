@@ -12,7 +12,7 @@ from sklearn.gaussian_process import kernels
 from typing import Union
 
 
-class QuadRotorSafeLSTDQAgent(QuadRotorLSTDQAgent):
+class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
     def update(self) -> np.ndarray:
         raise NotImplementedError('Launch new type of qp solver.')
 
