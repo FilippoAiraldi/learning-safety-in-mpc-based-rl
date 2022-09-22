@@ -17,7 +17,8 @@ from mpc import MPCSolverError
 from scipy.linalg import cho_solve
 from sklearn.gaussian_process import kernels
 from typing import Union
-from util import cs_norm_ppf, cholesky_added_multiple_identities
+from util.casadi import norm_ppf
+from util.math import cholesky_added_multiple_identities
 
 
 @dataclass(frozen=True)
@@ -186,7 +187,7 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
 
         # compute GP safety constraints (in canonical form: g(theta) <= 0)
         gp_mean, gp_std = self._cs_gpr(theta)
-        g = gp_mean - alpha + cs_norm_ppf(beta) * gp_std
+        g = gp_mean - alpha + norm_ppf(beta) * gp_std
 
         # prepare solver
         p = cs.vertcat(theta, c, alpha, beta)

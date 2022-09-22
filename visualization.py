@@ -1,15 +1,14 @@
 import argparse
 import matplotlib.pyplot as plt
-import util
 from agents.wrappers import RecordLearningData
 from itertools import cycle
 from envs.wrappers import RecordData
 from typing import Any
-from util import plot
+from util import io, plot
 
 
 if __name__ == '__main__':
-    util.set_np_mpl_defaults()
+    plot.set_mpl_defaults()
 
     # parse arguments
     parser = argparse.ArgumentParser(description='Visualization script')
@@ -31,7 +30,7 @@ if __name__ == '__main__':
     figs, colors = [None, None, None], cycle(plot.MATLAB_COLORS)
     for filename, color in zip(args.filenames, colors):
         # load data
-        results = util.load_results(filename)
+        results = io.load_results(filename)
         data: dict[str, Any] = results.pop('data')
         envs: list[RecordData] = data.get('envs')
         agents: list[RecordLearningData] = data.get('agents')

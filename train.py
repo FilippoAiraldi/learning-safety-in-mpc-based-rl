@@ -3,9 +3,9 @@ import argparse
 import envs
 import joblib as jl
 import time
-import util
 from datetime import datetime
 from typing import Any
+from util import io, log
 
 
 def eval_pk_agent(
@@ -89,7 +89,7 @@ def train_lstdq_agent(
     dict[str, Any]
         Data resulting from the simulation.
     '''
-    logger = None  # util.create_logger(run_name, to_file=False)
+    logger = log.create_logger(run_name, to_file=False)
     env = envs.QuadRotorEnv.get_wrapped(
         max_episode_steps=max_ep_steps,
         normalize_observation=False,
@@ -115,8 +115,6 @@ def train_lstdq_agent(
 
 
 if __name__ == '__main__':
-    util.set_np_mpl_defaults()
-
     # parse arguments
     parser = argparse.ArgumentParser()
     parser.add_argument('--agents', type=int, default=50,
@@ -149,7 +147,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # prepare to launch
-    run_name = util.get_run_name()
+    run_name = log.get_run_name()
     date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     start = time.perf_counter()
     agent_config = {
@@ -185,7 +183,7 @@ if __name__ == '__main__':
             safe=args.safe,
             seed=args.seed + (tot_episodes + 1) * n
         )
-    with util.tqdm_joblib(desc='Simulation', total=args.agents):
+    with log.tqdm_joblib(desc='Simulation', total=args.agents):
         raw_data = jl.Parallel(n_jobs=args.n_jobs)(
             jl.delayed(func)(i) for i in range(args.agents)
         )
@@ -195,7 +193,7 @@ if __name__ == '__main__':
         f'{key}s': [r[key] for r in raw_data]
         for key in ('env', 'agent') if key in raw_data[0]
     }
-    fn = util.save_results(
+    fn = io.save_results(
         filename=run_name,
         date=date,
         args=args,

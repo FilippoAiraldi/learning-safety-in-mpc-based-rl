@@ -5,10 +5,10 @@ import numpy as np
 import optuna
 # import os
 # import shutil
-import util
 from agents import QuadRotorLSTDQAgent, QuadRotorLSTDDPGAgent
 from envs import QuadRotorEnv
 from mpc import MPCSolverError
+from util import io
 # from typing import Any, Callable
 
 
@@ -235,7 +235,7 @@ if __name__ == '__main__':
         show_progress_bar=False)
 
     # save results
-    util.save_results('tuning/lstdq.pkl', args=args, study=study)
+    io.save_results('tuning/lstdq.pkl', args=args, study=study)
 
     # display some stats
     pruned_trials = study.get_trials(

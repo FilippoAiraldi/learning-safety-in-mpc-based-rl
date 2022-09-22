@@ -8,7 +8,8 @@ from envs import QuadRotorEnv
 from mpc import Solution, MPCSolverError, QuadRotorMPCConfig
 from scipy.linalg import lstsq
 from typing import Union
-from util import monomial_powers, cs_prod
+from util.casadi import prod
+from util.math import monomial_powers
 
 
 @dataclass(frozen=True)
@@ -329,7 +330,7 @@ class QuadRotorLSTDDPGAgent(QuadRotorBaseLearningAgent):
         # mean = np.array([-200, 200, 100, -100, 50, 50, -1, -1, -10, -5])
         # std = np.array([300, 200, 100, 75, 50, 25, 5, 5, 25, 30])
         # x_norm = (x - mean) / std
-        y: cs.SX = cs.vertcat(*(cs_prod(x**p) for i in range(1, 4)
+        y: cs.SX = cs.vertcat(*(prod(x**p) for i in range(1, 4)
                                 for p in monomial_powers(self.env.nx, i)))
         self._Phi = cs.Function('Phi', [x], [y], ['s'], ['Phi(s)'])
 

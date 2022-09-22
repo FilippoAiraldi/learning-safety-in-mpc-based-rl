@@ -1,18 +1,64 @@
+import casadi as cs
+import matplotlib as mpl
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import numpy as np
 from agents.safety import constraint_violation as cv_
 from agents.wrappers import RecordLearningData
+from cycler import cycler
 from envs.wrappers import RecordData
 from itertools import product
 from matplotlib.collections import LineCollection
 from matplotlib.figure import Figure
 from matplotlib.ticker import MaxNLocator, PercentFormatter
 from mpl_toolkits.mplot3d.art3d import Line3DCollection, Poly3DCollection
-from util.util import MATLAB_COLORS
+from typing import Union
 
 
 LINEWIDTHS = (0.05, 1.5)
+
+MATLAB_COLORS = [
+    '#0072BD', '#D95319', '#EDB120', '#7E2F8E', '#77AC30', '#4DBEEE', '#A2142F'
+]
+
+
+def spy(H: Union[cs.SX, cs.MX, cs.DM, np.ndarray], **original_kwargs) -> None:
+    '''See Matplotlib.pyplot.spy.'''
+    # try convert to numerical; if it fails, then use symbolic method from cs
+    try:
+        H = np.array(H)
+    except Exception:
+        import io
+        from contextlib import redirect_stdout
+        f = io.StringIO()
+        with redirect_stdout(f):
+            H.sparsity().spy()
+        out = f.getvalue()
+        H = np.array([list(line) for line in
+                      out.replace('.', '0').replace('*', '1').splitlines()],
+                     dtype=int)
+
+    # plot looks nicer
+    if 'markersize' not in original_kwargs:
+        original_kwargs['markersize'] = 1
+
+    # do plotting
+    plt.spy(H, **original_kwargs)
+    nz = np.count_nonzero(H)
+    plt.xlabel(f'nz = {nz} ({nz / H.size * 100:.2f}%)')
+    plt.show(block=False)
+
+
+def set_mpl_defaults() -> None:
+    '''Sets the default options for Matplotlib.'''
+    np.set_printoptions(precision=4)
+    mpl.style.use('seaborn-darkgrid')
+    mpl.rcParams['axes.prop_cycle'] = cycler('color', MATLAB_COLORS)
+    mpl.rcParams['lines.linewidth'] = 1
+    mpl.rcParams["savefig.dpi"] = 900
+    # mpl.rcParams['font.family'] = 'serif'
+    # mpl.rcParams['text.usetex'] = True
+    # mpl.rcParams['pgf.rcfonts'] = False
 
 
 def _set_axes3d_equal(ax):

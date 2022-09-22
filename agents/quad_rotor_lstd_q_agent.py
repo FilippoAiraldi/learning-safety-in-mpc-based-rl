@@ -9,7 +9,7 @@ from itertools import chain
 from mpc import Solution, MPCSolverError, QuadRotorMPCConfig
 from scipy.linalg import cho_solve
 from typing import Union
-from util import cholesky_added_multiple_identities
+from util.math import cholesky_added_multiple_identities
 
 
 @dataclass(frozen=True)
