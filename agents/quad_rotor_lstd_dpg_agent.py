@@ -2,7 +2,6 @@ import logging
 import numpy as np
 import casadi as cs
 from agents.quad_rotor_base_learning_agent import QuadRotorBaseLearningAgent
-from agents.replay_memory import ReplayMemory
 from dataclasses import dataclass
 from envs import QuadRotorEnv
 from mpc import Solution, MPCSolverError, QuadRotorMPCConfig
@@ -10,6 +9,7 @@ from scipy.linalg import lstsq
 from typing import Union
 from util.casadi import prod
 from util.math import monomial_powers
+from util.rl import ReplayMemory
 
 
 @dataclass(frozen=True)

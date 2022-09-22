@@ -2,7 +2,6 @@ import logging
 import numpy as np
 import casadi as cs
 from agents.quad_rotor_base_learning_agent import QuadRotorBaseLearningAgent
-from agents.replay_memory import ReplayMemory
 from dataclasses import dataclass
 from envs import QuadRotorEnv
 from itertools import chain
@@ -10,6 +9,7 @@ from mpc import Solution, MPCSolverError, QuadRotorMPCConfig
 from scipy.linalg import cho_solve
 from typing import Union
 from util.math import cholesky_added_multiple_identities
+from util.rl import ReplayMemory
 
 
 @dataclass(frozen=True)

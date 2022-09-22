@@ -1,12 +1,12 @@
 import numpy as np
 from abc import ABC
-from agents import RLParameter, RLParameterCollection
 from envs import QuadRotorEnv
 from gym import Env
 from gym.utils.seeding import np_random
 from itertools import count
 from mpc import QuadRotorMPC, QuadRotorMPCConfig, Solution
 from typing import Any, Union
+from util.rl import RLParameter, RLParameterCollection
 
 
 class QuadRotorBaseAgent(ABC):

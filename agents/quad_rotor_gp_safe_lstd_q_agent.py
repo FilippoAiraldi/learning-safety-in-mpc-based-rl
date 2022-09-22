@@ -2,15 +2,8 @@ import casadi as cs
 import logging
 import numpy as np
 import time
-from agents.quad_rotor_lstd_q_agent import (
-    QuadRotorLSTDQAgent,
-    QuadRotorLSTDQAgentConfig,
-)
-from agents.safety import (
-    constraint_violation,
-    MultitGaussianProcessRegressor,
-    MultiGaussianProcessRegressorCallback
-)
+from agents.quad_rotor_lstd_q_agent import QuadRotorLSTDQAgent, \
+    QuadRotorLSTDQAgentConfig
 from dataclasses import dataclass
 from itertools import chain
 from mpc import MPCSolverError
@@ -18,7 +11,9 @@ from scipy.linalg import cho_solve
 from sklearn.gaussian_process import kernels
 from typing import Union
 from util.casadi import norm_ppf
-from util.math import cholesky_added_multiple_identities
+from util.math import cholesky_added_multiple_identities, constraint_violation
+from util.gp import MultitGaussianProcessRegressor, \
+    MultiGaussianProcessRegressorCallback
 
 
 @dataclass(frozen=True)
@@ -149,6 +144,31 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
             returns
         )
 
+    def _compute_constraint_violation(
+        self,
+        states: list[np.ndarray],
+        actions: list[np.ndarray],
+    ) -> np.ndarray:
+        x_bnd, u_bnd = self.env.config.x_bounds, self.env.config.u_bounds
+        x, u = np.stack(states, axis=-1), np.stack(actions, axis=-1)
+
+        # compute state and action constraints violations and apply 2
+        # reductions: first merge lb and ub in a single constraint (since both
+        # cannot be active at the same time) (max axis=1); then reduce each
+        # trajectory's violations to scalar by picking max violation (max
+        # axis=2)
+        x_cv, u_cv = (
+            cv.max(axis=(1, 2))
+            for cv in constraint_violation((x, x_bnd), (u, u_bnd))
+        )
+
+        # egress only over finite data
+        cv = np.concatenate((x_cv, u_cv))
+        cv = cv[np.isfinite(cv)]
+        assert self._n_constraints == cv.size, \
+            'Constraint violation has invalid size.'
+        return cv
+
     def _init_gpr(self, n: int, n_constraints: int) -> None:
         self._gpr_data: list[tuple[np.ndarray, np.ndarray]] = []
         self._gpr = MultitGaussianProcessRegressor(
@@ -205,28 +225,3 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
             }
         }
         self._solver = cs.nlpsol(f'ipopt_{self.name}', 'ipopt', qp, opts)
-
-    def _compute_constraint_violation(
-        self,
-        states: list[np.ndarray],
-        actions: list[np.ndarray],
-    ) -> np.ndarray:
-        x_bnd, u_bnd = self.env.config.x_bounds, self.env.config.u_bounds
-        x, u = np.stack(states, axis=-1), np.stack(actions, axis=-1)
-
-        # compute state and action constraints violations and apply 2
-        # reductions: first merge lb and ub in a single constraint (since both
-        # cannot be active at the same time) (max axis=1); then reduce each
-        # trajectory's violations to scalar by picking max violation (max
-        # axis=2)
-        x_cv, u_cv = (
-            cv.max(axis=(1, 2))
-            for cv in constraint_violation((x, x_bnd), (u, u_bnd))
-        )
-
-        # egress only over finite data
-        cv = np.concatenate((x_cv, u_cv))
-        cv = cv[np.isfinite(cv)]
-        assert self._n_constraints == cv.size, \
-            'Constraint violation has invalid size.'
-        return cv

@@ -3,7 +3,6 @@ import matplotlib as mpl
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import numpy as np
-from agents.safety import constraint_violation as cv_
 from agents.wrappers import RecordLearningData
 from cycler import cycler
 from envs.wrappers import RecordData
@@ -13,6 +12,7 @@ from matplotlib.figure import Figure
 from matplotlib.ticker import MaxNLocator, PercentFormatter
 from mpl_toolkits.mplot3d.art3d import Line3DCollection, Poly3DCollection
 from typing import Union
+from util.math import constraint_violation as cv_
 
 
 LINEWIDTHS = (0.05, 1.5)

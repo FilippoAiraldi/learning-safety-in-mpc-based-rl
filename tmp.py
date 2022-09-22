@@ -1,53 +1,16 @@
 import casadi as cs
 import matplotlib.pyplot as plt
 import numpy as np
-from agents.safety import (
-    MultitGaussianProcessRegressor,
-    MultiGaussianProcessRegressorCallback
-)
 from mpc.generic_mpc import subsevalf
 from sklearn.gaussian_process import GaussianProcessRegressor, kernels
 from sklearn.model_selection import train_test_split
 from typing import Union
+from util.gp import MultitGaussianProcessRegressor, \
+    MultiGaussianProcessRegressorCallback, kernel_const, kernel_rbf
 
 
 # from scipy.stats import norm
 # 1.96 = norm.ppf((0.95 + 1) / 2) # because of abs value, but we need the tail
-
-
-def cs_kernel_const(
-    val: float,
-    X: Union[np.ndarray, cs.SX, cs.MX, cs.DM],
-    Y: Union[np.ndarray, cs.SX, cs.MX, cs.DM] = None,
-    diag: bool = False
-) -> np.ndarray:
-    if not diag:
-        if Y is None:
-            Y = X
-        return np.full((X.shape[0], Y.shape[0]), val)
-    else:
-        assert Y is None
-        return np.full((X.shape[0], 1), val)
-
-
-def cs_kernel_rbf(
-    length_scale: float,
-    X: Union[np.ndarray, cs.SX, cs.MX, cs.DM],
-    Y: Union[np.ndarray, cs.SX, cs.MX, cs.DM] = None,
-    diag: bool = False
-) -> Union[cs.SX, cs.MX, cs.DM, np.ndarray]:
-    if not diag:
-        if Y is None:
-            Y = X
-        n, m = X.shape[0], Y.shape[0]
-        dists = cs.horzcat(
-            *(cs.sum2((X - cs.repmat(Y[i, :].reshape((1, -1)), n, 1))**2)
-              for i in range(m))
-        )
-        return np.exp(-0.5 * dists / (length_scale**2))
-    else:
-        assert Y is None
-        return np.ones((X.shape[0], 1))
 
 
 def reproducing_gp_in_casadi():
@@ -109,11 +72,11 @@ def reproducing_gp_in_casadi():
 
     # perform symbolical prediction (changes if the kernel is modified)
     cs_kernel = lambda X, Y = None: \
-        cs_kernel_const(gpr.kernel_.k1.constant_value, X, Y) * \
-        cs_kernel_rbf(gpr.kernel_.k2.length_scale, X, Y)
+        kernel_const(gpr.kernel_.k1.constant_value, X, Y) * \
+        kernel_rbf(gpr.kernel_.k2.length_scale, X, Y)
     cs_kernel_diag = lambda X: \
-        cs_kernel_const(gpr.kernel_.k1.constant_value, X, diag=True) * \
-        cs_kernel_rbf(gpr.kernel_.k2.length_scale, X, diag=True)
+        kernel_const(gpr.kernel_.k1.constant_value, X, diag=True) * \
+        kernel_rbf(gpr.kernel_.k2.length_scale, X, diag=True)
     Xsym = cs.SX.sym('X', *X.shape)
     k = cs_kernel(gpr.X_train_, Xsym)
     y_mean_sym = k.T @ gpr.alpha_
@@ -164,7 +127,7 @@ def gp_as_casadi_callback():
     gprcb = MultiGaussianProcessRegressorCallback(
         gpr=gpr,
         n_theta=data.shape[1], n_features=value.shape[1],
-        opts={'enable_fd': True}) # required
+        opts={'enable_fd': True})  # required
     print(gprcb)
 
     # Find the minimum of the regression model

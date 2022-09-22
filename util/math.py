@@ -1,7 +1,7 @@
 import numpy as np
 from itertools import combinations
 from scipy.special import comb
-from typing import Any, Iterable, Union
+from typing import Any, Iterable, Iterator, Union
 
 
 def nchoosek(n: Union[int, Iterable[Any]],
@@ -41,3 +41,31 @@ def cholesky_added_multiple_identities(
         except np.linalg.LinAlgError:
             tau = max(1.1 * tau, beta)
     raise ValueError('Maximum iterations reached.')
+
+
+def constraint_violation(
+    *arrays_and_bounds: tuple[np.ndarray, np.ndarray]
+) -> Iterator[np.ndarray]:
+    '''Computes constraint violations.
+
+    Parameters
+    ----------
+    arrays_and_bounds : *tuple[array_like, array_like]
+        Any number of `(array, bounds)` for which to compute the constraint 
+        violations.
+        For each tuple, `bounds` is an array of shape `(N, 2)`, where `N` is 
+        the number of features, and the first and second columns are lower and
+        upper bounds, respectively. `array` is an array of shape `(N, ...)`.
+        A violation is defined as `x <= bound`.
+
+    Returns
+    -------
+    cv : iterator[array_like]
+        For each tuple provided, yields an array of lower and upper bound 
+        violations of shape `(N, 2, ...)`. 
+    '''
+    for a, bnd in arrays_and_bounds:
+        a = np.asarray(a)
+        lb = np.expand_dims(bnd[:, 0], tuple(range(1, a.ndim)))
+        ub = np.expand_dims(bnd[:, 1], tuple(range(1, a.ndim)))
+        yield np.stack((lb - a, a - ub), axis=1)

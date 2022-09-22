@@ -5,7 +5,42 @@ from sklearn.gaussian_process import GaussianProcessRegressor, kernels
 from sklearn.multioutput import MultiOutputRegressor
 from sklearn.utils.fixes import delayed
 from sklearn.utils.validation import check_is_fitted
-from typing import Any, Iterator
+from typing import Any, Union
+
+
+def kernel_const(
+    val: float,
+    X: Union[np.ndarray, cs.SX, cs.MX, cs.DM],
+    Y: Union[np.ndarray, cs.SX, cs.MX, cs.DM] = None,
+    diag: bool = False
+) -> np.ndarray:
+    if not diag:
+        if Y is None:
+            Y = X
+        return np.full((X.shape[0], Y.shape[0]), val)
+    else:
+        assert Y is None
+        return np.full((X.shape[0], 1), val)
+
+
+def kernel_rbf(
+    length_scale: float,
+    X: Union[np.ndarray, cs.SX, cs.MX, cs.DM],
+    Y: Union[np.ndarray, cs.SX, cs.MX, cs.DM] = None,
+    diag: bool = False
+) -> Union[cs.SX, cs.MX, cs.DM, np.ndarray]:
+    if not diag:
+        if Y is None:
+            Y = X
+        n, m = X.shape[0], Y.shape[0]
+        dists = cs.horzcat(
+            *(cs.sum2((X - cs.repmat(Y[i, :].reshape((1, -1)), n, 1))**2)
+              for i in range(m))
+        )
+        return np.exp(-0.5 * dists / (length_scale**2))
+    else:
+        assert Y is None
+        return np.ones((X.shape[0], 1))
 
 
 class MultitGaussianProcessRegressor(MultiOutputRegressor):
@@ -97,31 +132,3 @@ class MultiGaussianProcessRegressorCallback(cs.Callback):
             theta = theta.T
         mean, std = self._gpr.predict(theta, return_std=True)
         return mean.T, std.T
-
-
-def constraint_violation(
-    *arrays_and_bounds: tuple[np.ndarray, np.ndarray]
-) -> Iterator[np.ndarray]:
-    '''Computes constraint violations.
-
-    Parameters
-    ----------
-    arrays_and_bounds : *tuple[array_like, array_like]
-        Any number of `(array, bounds)` for which to compute the constraint 
-        violations.
-        For each tuple, `bounds` is an array of shape `(N, 2)`, where `N` is 
-        the number of features, and the first and second columns are lower and
-        upper bounds, respectively. `array` is an array of shape `(N, ...)`.
-        A violation is defined as `x <= bound`.
-
-    Returns
-    -------
-    cv : iterator[array_like]
-        For each tuple provided, yields an array of lower and upper bound 
-        violations of shape `(N, 2, ...)`. 
-    '''
-    for a, bnd in arrays_and_bounds:
-        a = np.asarray(a)
-        lb = np.expand_dims(bnd[:, 0], tuple(range(1, a.ndim)))
-        ub = np.expand_dims(bnd[:, 1], tuple(range(1, a.ndim)))
-        yield np.stack((lb - a, a - ub), axis=1)
