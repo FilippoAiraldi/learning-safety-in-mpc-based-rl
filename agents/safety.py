@@ -1,7 +1,6 @@
 import casadi as cs
 import numpy as np
 from joblib import Parallel
-from scipy.stats import norm
 from sklearn.gaussian_process import GaussianProcessRegressor, kernels
 from sklearn.multioutput import MultiOutputRegressor
 from sklearn.utils.fixes import delayed

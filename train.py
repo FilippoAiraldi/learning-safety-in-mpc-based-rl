@@ -95,13 +95,15 @@ def train_lstdq_agent(
         normalize_observation=False,
         normalize_reward=False
     )
-    cl = agents.QuadRotorSafeLSTDQAgent if safe else agents.QuadRotorLSTDQAgent
-    agent = agents.wrappers.RecordLearningData(cl(
-        env=env,
-        agentname=f'LSTDQ_{agent_n}',
-        agent_config=agent_config,
-        seed=seed
-    ))
+    agent = agents.wrappers.RecordLearningData(
+        (agents.QuadRotorGPSafeLSTDQAgent
+         if safe else
+         agents.QuadRotorLSTDQAgent)(
+            env=env,
+            agentname=f'LSTDQ_{agent_n}',
+            agent_config=agent_config,
+            seed=seed
+        ))
     agent.learn(
         n_train_epochs=epochs,
         n_train_episodes=train_episodes,
