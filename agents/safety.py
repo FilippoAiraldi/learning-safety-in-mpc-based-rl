@@ -9,47 +9,8 @@ from sklearn.utils.validation import check_is_fitted
 from typing import Any
 
 
-# useful links:
-# https://scikit-learn.org/stable/modules/gaussian_process.html
-# http://gaussianprocess.org/gpml/chapters/RW.pdf
-# https://web.casadi.org/blog/tensorflow/
-# https://groups.google.com/g/casadi-users/c/gLJNzajFM6w
-
-
-class GaussianProcessRegressorConstraintCallback(cs.Callback):
-    def __init__(
-        self,
-        name: str,
-        gpr: GaussianProcessRegressor,
-        beta: float,
-        center: float = 0.0,
-        opts: dict[str, Any] = None
-    ) -> None:
-        if opts is None:
-            opts = {}
-        self._gpr = gpr
-        self.beta = beta
-        self._C = center
-        cs.Callback.__init__(self)
-        self.construct(name, opts)
-
-    @property
-    def beta(self) -> float:
-        return self._beta
-
-    @beta.setter
-    def beta(self, value: float) -> None:
-        assert 0.0 <= value <= 1.0, 'beta must be in range [0, 1].'
-        self._beta = value
-        self._beta_ppf = norm.ppf(value)
-
-    def eval(self, arg: Any) -> Any:
-        mean, std = self._gpr.predict(np.array(arg[0]), return_std=True)
-        return (mean - self._C) + self._beta_ppf * std
-
-
 class MultitGaussianProcessRegressor(MultiOutputRegressor):
-    '''Custom multioutput regressor adapted to GP regression.'''
+    '''Custom multi-regressor adapted to GP regression.'''
 
     def __init__(
         self,
@@ -85,6 +46,58 @@ class MultitGaussianProcessRegressor(MultiOutputRegressor):
         if return_std or return_cov:
             return tuple(np.array(o).T for o in zip(*y))
         return np.asarray(y).T
+
+
+class MultiGaussianProcessRegressorCallback(cs.Callback):
+    '''
+    Custom callback to call the multi-GP regressor from CasADi.
+
+    Useful links:
+    - https://scikit-learn.org/stable/modules/gaussian_process.html
+    - http://gaussianprocess.org/gpml/chapters/RW.pdf
+    - https://web.casadi.org/blog/tensorflow/
+    - https://groups.google.com/g/casadi-users/c/gLJNzajFM6w
+    '''
+
+    def __init__(
+        self,
+        gpr: MultitGaussianProcessRegressor,
+        n_theta: int,
+        n_features: int,
+        opts: dict[str, Any] = None
+    ) -> None:
+        cs.Callback.__init__(self)
+        self._gpr = gpr
+        self._n_theta = n_theta
+        self._n_features = n_features
+        if opts is None:
+            opts = {}
+        self.construct('MGPRCB', opts)
+
+    def get_n_in(self) -> int:
+        return 1  # theta
+
+    def get_n_out(self) -> int:
+        return 2  # mean, std
+
+    def get_name_in(self, i: int) -> str:
+        return 'theta'
+
+    def get_name_out(self, i: int) -> str:
+        return 'mean' if i == 0 else 'std'
+
+    def get_sparsity_in(self, i: int) -> cs.Sparsity:
+        return cs.Sparsity.dense(self._n_theta, 1)
+
+    def get_sparsity_out(self, i: int) -> cs.Sparsity:
+        return cs.Sparsity.dense(self._n_features, 1)
+
+    def eval(self, arg: Any) -> Any:
+        theta = np.array(arg[0])
+        if theta.shape[0] == self._n_theta:
+            theta = theta.T
+        mean, std = self._gpr.predict(theta, return_std=True)
+        return mean.T, std.T
 
 
 def constraint_violation(

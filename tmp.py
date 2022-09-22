@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from agents.safety import (
     MultitGaussianProcessRegressor,
-    GaussianProcessRegressorConstraintCallback
+    MultiGaussianProcessRegressorCallback
 )
 from mpc.generic_mpc import subsevalf
 from sklearn.gaussian_process import GaussianProcessRegressor, kernels
@@ -131,7 +131,7 @@ def reproducing_gp_in_casadi():
 
 def gp_as_casadi_callback():
     # Create data points: a noisy sine wave
-    N = 20
+    N = 10
     np.random.seed(0)
     data = np.linspace(0, 10, N).reshape((N, 1))
     value = 0.2 * data + np.sin(data) + np.random.normal(0, 0.1, (N, 1))
@@ -149,10 +149,11 @@ def gp_as_casadi_callback():
     # Sample the resulting regression finely for plotting
     xf = np.linspace(0, 10, 10 * N).reshape((-1, 1))
     mean, sigma = gpr.predict(xf, return_std=True)
+    beta = 4
 
     # Plotting
-    plt.fill_between(xf.squeeze(), mean - 3 * sigma, mean + 3 * sigma,
-                     color='#aaaaff', label='fit 3 sigma bounds')
+    plt.fill_between(xf.squeeze(), mean - 3 * sigma, mean + beta * sigma,
+                     color='#aaaaff', label=f'fit {beta} sigma bounds')
     plt.plot(data, value, 'ro', label='data')
     plt.plot(xf, mean, 'k-', label='fit')
     plt.xlabel('independant variable')
@@ -160,19 +161,32 @@ def gp_as_casadi_callback():
     plt.legend()
 
     # Instantiate the Callback (make sure to keep a reference to it!)
-    gprcb = GaussianProcessRegressorConstraintCallback(
-        'GPR', gpr, {'enable_fd': True})
+    gprcb = MultiGaussianProcessRegressorCallback(
+        gpr=gpr,
+        n_theta=data.shape[1], n_features=value.shape[1],
+        opts={'enable_fd': True}) # required
     print(gprcb)
 
     # Find the minimum of the regression model
     x = cs.MX.sym('x')
-    mean = gprcb(x)
-    std = 0
-    solver = cs.nlpsol(
-        'solver', 'ipopt', {'x': x, 'f': mean + 3 * std})
-    res = solver(x0=7, lbg=-np.inf, ubg=0)
+    mean, std = gprcb(x)
+    f = mean + beta * std
+    opts = {
+        'expand': False,  # required (or just omit)
+        'print_time': True,
+        'ipopt': {
+            'max_iter': 100,
+            'sb': 'yes',
+            # debug
+            'print_level': 5,
+            'print_user_options': 'no',
+            'print_options_documentation': 'no'
+        }}
+    solver = cs.nlpsol('solver', 'ipopt', {'x': x, 'f': -f}, opts)
+    res = solver(x0=7)
 
-    plt.plot(float(res['x']), float(gprcb(res['x'])), 'k*', markersize=10,
+    f_opt = np.squeeze(cs.evalf(cs.substitute(f, x, res['x'])))
+    plt.plot(np.squeeze(res['x']), f_opt, 'k*', markersize=10,
              label='Function minimum by CasADi/Ipopt')
     plt.legend()
     plt.show()
