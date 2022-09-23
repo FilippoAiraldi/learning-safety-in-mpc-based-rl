@@ -17,8 +17,6 @@ class RecordLearningData(Generic[AgentType]):
             The agent instance to wrap.
         '''
         self.agent = agent
-        if hasattr(agent, 'config'):
-            self.agent_config = agent.config # just for saving it
 
         # initialize storages
         self.weights_history: dict[str, list[np.ndarray]] = {
@@ -49,6 +47,12 @@ class RecordLearningData(Generic[AgentType]):
     def __getstate__(self) -> dict[str, Any]:
         '''Returns the instance's state to be pickled.'''
         state = self.__dict__.copy()
+        # here, save additional information from the agent before deleting it
+        if hasattr(self.agent, 'config'):
+            state['config'] = self.agent.config
+        for k, v in self.agent.__dict__.items():
+            if k.endswith('_history'):
+                state[k] = v
         del state['agent']
         return state
 

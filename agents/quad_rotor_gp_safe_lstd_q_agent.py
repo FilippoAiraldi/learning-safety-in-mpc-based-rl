@@ -28,7 +28,7 @@ class QuadRotorGPSafeLSTDQAgentConfig(QuadRotorLSTDQAgentConfig):
 class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
     config_cls: type = QuadRotorGPSafeLSTDQAgentConfig
 
-    def update(self) -> tuple[np.ndarray, float, float]:
+    def update(self) -> tuple[np.ndarray, tuple[float, float], float]:
         cfg: QuadRotorGPSafeLSTDQAgentConfig = self.config
         self._solver, gp_fit_time = self._init_qp_solver()
 
@@ -60,7 +60,7 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
                 if beta < 1 / 10 or mu0 > 0.5:
                     raise RuntimeError('RL update failed.')
                 pars[-2:] = (mu0, beta)
-        return p, beta, gp_fit_time
+        return p, (mu0, beta), gp_fit_time
 
     def learn_one_epoch(
         self,
@@ -121,14 +121,15 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
 
         # when all m episodes are done, perform RL update and reduce
         # exploration strength and chance
-        update_grad, backtracked_beta, gp_fit_time = self.update()
+        update_grad, backtracked_gp_pars, gp_fit_time = self.update()
+        self.backtracked_gp_pars_history.append(backtracked_gp_pars)
         self.perturbation_strength *= perturbation_decay
         self.perturbation_chance *= perturbation_decay
 
         # log training outcomes and return cumulative returns
         logger.debug(f'{self.name}|{epoch_n}: J_mean={returns.mean():,.3f}; '
                      f'||p||={np.linalg.norm(update_grad):.3e}; ' +
-                     f'beta={backtracked_beta * 100:.1f}%' +
+                     f'beta={backtracked_gp_pars[1] * 100:.1f}%' +
                      f'GP fit time={gp_fit_time:.2}s' +
                      self.weights.values2str())
         return (
@@ -204,6 +205,7 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
                     }
                 }
             }
+            self.backtracked_gp_pars_history: list[tuple[float, float]] = []
         else:
             # regressor initialization (other branch) has been done, so we can
             # move to fitting the GP and creating the QP constraints

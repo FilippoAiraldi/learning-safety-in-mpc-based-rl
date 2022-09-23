@@ -89,7 +89,7 @@ def train_lstdq_agent(
     dict[str, Any]
         Data resulting from the simulation.
     '''
-    logger = log.create_logger(run_name, to_file=False)
+    logger = None  # log.create_logger(run_name, to_file=False)
     env = envs.QuadRotorEnv.get_wrapped(
         max_episode_steps=max_ep_steps,
         normalize_observation=False,
