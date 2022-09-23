@@ -352,6 +352,5 @@ def subsevalf(
         expr = cs.substitute(expr, old, new)
 
     if eval:
-        # expr = _np.squeeze(_np.array(cs.evalf(expr))) # original
-        expr = cs.DM(expr).full().squeeze()  # faster, does not work with cs.MX
+        expr = cs.evalf(expr).full().squeeze()
     return expr

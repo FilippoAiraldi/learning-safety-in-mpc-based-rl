@@ -79,6 +79,7 @@ class QuadRotorBaseAgent(ABC):
                 self.fixed_pars[p] = default
 
         # set RNG and disturbances
+        self.seed = seed
         self.np_random, _ = np_random(seed)
         self.perturbation_chance = 0.2
         self.perturbation_strength = 0.05
