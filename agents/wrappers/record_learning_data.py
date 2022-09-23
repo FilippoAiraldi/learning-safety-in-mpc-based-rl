@@ -24,6 +24,12 @@ class RecordLearningData(Generic[AgentType]):
         }
         self.update_gradient: list[np.ndarray] = []
 
+        # save additional references from the agent
+        for key, value in agent.__dict__.items():
+            if key.endswith('_history') or key == '_config':
+                attr = ('agent' if key.startswith('_') else 'agent_') + key
+                self.__setattr__(attr, value)
+
     def learn_one_epoch(self, *args, **kwargs) -> Any:
         returns, grad, weights = self.agent.learn_one_epoch(*args, **kwargs)
         self._save(grad, weights)
@@ -47,12 +53,6 @@ class RecordLearningData(Generic[AgentType]):
     def __getstate__(self) -> dict[str, Any]:
         '''Returns the instance's state to be pickled.'''
         state = self.__dict__.copy()
-        # here, save additional information from the agent before deleting it
-        if hasattr(self.agent, 'config'):
-            state['config'] = self.agent.config
-        for k, v in self.agent.__dict__.items():
-            if k.endswith('_history'):
-                state[k] = v
         del state['agent']
         return state
 
