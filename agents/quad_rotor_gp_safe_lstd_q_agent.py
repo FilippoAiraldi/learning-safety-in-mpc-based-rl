@@ -57,8 +57,9 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
             else:
                 beta *= cfg.beta_backtracking
                 mu0 += cfg.mu0_backtracking
-                if beta < 1 / 10 or mu0 > 0.5:
-                    raise RuntimeError('RL update failed.')
+                if beta < 1 / 3 or mu0 > 0.5:
+                    # raise RuntimeError('RL update failed.')
+                    self.weights.update_values(sol['x'].full().flatten())
                 pars[-2:] = (mu0, beta)
         return p, (mu0, beta), gp_fit_time
 
