@@ -8,9 +8,21 @@ from sklearn.utils.validation import check_is_fitted
 from typing import Any, Callable, Optional, Union
 
 
+KERNEL_PARAMS_DICT = {
+    kernels.RBF: 'length_scale',
+    kernels.ConstantKernel: 'constant_value',
+    kernels.WhiteKernel: 'noise_level'
+}
+
+
 class CasadiKernels:
+    '''
+    Static class implementing in CasADi the GP kernels avaiable in sklearn.
+    Each kernel type retains the same nomenclature.
+    '''
+
     @staticmethod
-    def const(
+    def ConstantKernel(
         val: float,
         X: Union[np.ndarray, cs.SX, cs.MX, cs.DM],
         Y: Union[np.ndarray, cs.SX, cs.MX, cs.DM] = None,
@@ -25,12 +37,12 @@ class CasadiKernels:
             return np.full((X.shape[0], 1), val)
 
     @staticmethod
-    def rbf(
-        length_scale: Union[float, np.ndarray, cs.SX, cs.MX, cs.DM],
+    def RBF(
+        length_scale: Union[float, np.ndarray],
         X: Union[np.ndarray, cs.SX, cs.MX, cs.DM],
         Y: Union[np.ndarray, cs.SX, cs.MX, cs.DM] = None,
         diag: bool = False
-    ) -> Union[cs.SX, cs.MX, cs.DM, np.ndarray]:
+    ) -> Union[np.ndarray, cs.SX, cs.MX, cs.DM]:
         if not diag:
             if Y is None:
                 Y = X
@@ -45,12 +57,12 @@ class CasadiKernels:
             return np.ones((X.shape[0], 1))
 
     @staticmethod
-    def white(
+    def WhiteKernel(
         noise_level: float,
         X: Union[np.ndarray, cs.SX, cs.MX, cs.DM],
         Y: Union[np.ndarray, cs.SX, cs.MX, cs.DM] = None,
         diag: bool = False
-    ) -> Union[cs.SX, cs.MX, cs.DM, np.ndarray]:
+    ) -> np.ndarray:
         if not diag:
             return (
                 (noise_level * np.eye(X.shape[0]))
@@ -61,48 +73,13 @@ class CasadiKernels:
         return np.full((X.shape[0], 1), noise_level)
 
     @staticmethod
-    def sklearn2casadi(
-        kernel: Union[kernels.Kernel, kernels.KernelOperator],
-        Xshape: tuple[int, int],
-        Yshape: tuple[int, int],
-        diag: bool = True
-    ) -> tuple[cs.Function, cs.Function]:
-        X, Y = cs.SX.sym('X', *Xshape), cs.SX.sym('X', *Yshape)
-
-        def _recursive(_kernel):
-            if isinstance(_kernel, kernels.KernelOperator):
-                k1, k1_auto = _recursive(_kernel.k1)
-                k2, k2_auto = _recursive(_kernel.k2)
-                if isinstance(_kernel, kernels.Sum):
-                    return k1 + k2, k1_auto + k2_auto
-                if isinstance(_kernel, kernels.Product):
-                    return k1 * k2, k1_auto * k2_auto
-                raise TypeError('Unrecognized kernel operator.')
-
-            if isinstance(_kernel, kernels.RBF):
-                func, p = CasadiKernels.rbf, _kernel.length_scale
-            elif isinstance(_kernel, kernels.ConstantKernel):
-                func, p = CasadiKernels.const, _kernel.constant_value
-            elif isinstance(_kernel, kernels.WhiteKernel):
-                func, p = CasadiKernels.white, _kernel.noise_level
-            else:
-                raise TypeError('Unsupported kernel type.')
-            return func(p, X, Y, diag=False), func(p, X, diag=True)
-
-        out, out_auto = _recursive(kernel)
-
-        return (
-            cs.Function('Kernel', (X, Y), (out,), ('X', 'Y'), ('K(X,Y)',)),
-            cs.Function('Kernel', (X,), (out_auto,), ('X',),
-                        (f'K(X,diag={diag})',))
-        )
-
-    @staticmethod
     def sklearn2func(
         kernel: Union[kernels.Kernel, kernels.KernelOperator]
-    ) -> Callable[
-        [Union[np.ndarray, cs.SX, cs.MX, cs.DM],
-         Optional[Union[np.ndarray, cs.SX, cs.MX, cs.DM]], Optional[bool]],
+    ) -> Callable[[
+        Union[np.ndarray, cs.SX, cs.MX, cs.DM],
+        Optional[Union[np.ndarray, cs.SX, cs.MX, cs.DM]],
+        Optional[bool]
+    ],
         Union[np.ndarray, cs.SX, cs.MX, cs.DM]
     ]:
         def _recursive(_kernel):
@@ -115,14 +92,8 @@ class CasadiKernels:
                     return lambda X, Y, diag: k1(X, Y, diag) * k2(X, Y, diag)
                 raise TypeError('Unrecognized kernel operator.')
 
-            if isinstance(_kernel, kernels.RBF):
-                func, p = CasadiKernels.rbf, _kernel.length_scale
-            elif isinstance(_kernel, kernels.ConstantKernel):
-                func, p = CasadiKernels.const, _kernel.constant_value
-            elif isinstance(_kernel, kernels.WhiteKernel):
-                func, p = CasadiKernels.white, _kernel.noise_level
-            else:
-                raise TypeError('Unsupported kernel type.')
+            func = getattr(CasadiKernels, type(_kernel).__name__)
+            p = getattr(_kernel, KERNEL_PARAMS_DICT[type(_kernel)])
             return lambda X, Y, diag: func(p, X, Y, diag)
 
         out = _recursive(kernel)

@@ -16,6 +16,11 @@ def reproducing_gp_in_casadi():
     # create data
     X = np.linspace(start=0, stop=10, num=1_000).reshape(-1, 1)
     y = np.squeeze(X * np.sin(X))
+    # X = np.stack((
+    #     np.linspace(start=0, stop=10, num=1000),
+    #     np.linspace(start=-5, stop=5, num=1000)
+    # ), axis=-1)
+    # y = (X * np.sin(X)).sum(axis=-1)
 
     # create training data
     rng = np.random.RandomState(np.random.randint(0, 1000))
@@ -26,9 +31,22 @@ def reproducing_gp_in_casadi():
         loc=0.0, scale=noise_std, size=y_train.shape)
 
     # create kernel and GP and fit it
-    kernel = 1 * \
-        kernels.RBF(length_scale=1.0, length_scale_bounds=(1e-2, 1e2)) + \
-        kernels.WhiteKernel()
+    kernel = 1 * kernels.RBF(
+        length_scale=np.ones((X.shape[-1],)),
+        length_scale_bounds=(1e-2, 1e2)) + kernels.WhiteKernel()
+    # kernel = (
+    #     (
+    #         kernels.ConstantKernel()
+    #         *
+    #         (
+    #             kernels.RBF()
+    #             +
+    #             kernels.RBF()
+    #         )
+    #     )
+    #     +
+    #     kernels.WhiteKernel()
+    # )
     gpr = GaussianProcessRegressor(
         kernel=kernel, n_restarts_optimizer=9, alpha=noise_std**2,
     )
@@ -119,7 +137,7 @@ def gp_as_casadi_callback():
     # Instantiate the Callback (make sure to keep a reference to it!)
     gprcb = MultiGaussianProcessRegressorCallback(
         gpr=gpr,
-        n_theta=data.shape[1], n_features=value.shape[1],
+        n=data.shape[1], n_features=value.shape[1],
         opts={'enable_fd': True})  # required
     print(gprcb)
 
