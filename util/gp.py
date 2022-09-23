@@ -182,13 +182,13 @@ class MultiGaussianProcessRegressorCallback(cs.Callback):
     def __init__(
         self,
         gpr: MultitGaussianProcessRegressor,
-        n_theta: int,
+        n: int,
         n_features: int,
         opts: dict[str, Any] = None
     ) -> None:
         cs.Callback.__init__(self)
         self._gpr = gpr
-        self._n_theta = n_theta
+        self._n = n
         self._n_features = n_features
         if opts is None:
             opts = {}
@@ -207,14 +207,14 @@ class MultiGaussianProcessRegressorCallback(cs.Callback):
         return 'mean' if i == 0 else 'std'
 
     def get_sparsity_in(self, i: int) -> cs.Sparsity:
-        return cs.Sparsity.dense(self._n_theta, 1)
+        return cs.Sparsity.dense(self._n, 1)
 
     def get_sparsity_out(self, i: int) -> cs.Sparsity:
         return cs.Sparsity.dense(self._n_features, 1)
 
     def eval(self, arg: Any) -> Any:
         theta = np.array(arg[0])
-        if theta.shape[0] == self._n_theta:
+        if theta.shape[0] == self._n:
             theta = theta.T
         mean, std = self._gpr.predict(theta, return_std=True)
         return mean.T, std.T
