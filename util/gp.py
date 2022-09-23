@@ -44,14 +44,20 @@ class CasadiKernels:
         diag: bool = False
     ) -> Union[np.ndarray, cs.SX, cs.MX, cs.DM]:
         if not diag:
+            l = np.asarray(length_scale).reshape(1, -1)
+            n = X.shape[0]
+            X = X / np.tile(l, (n, 1))
             if Y is None:
+                m = n
                 Y = X
-            n, m = X.shape[0], Y.shape[0]
+            else:
+                m = Y.shape[0]
+                Y = Y / np.tile(l, (m, 1))
             dists = cs.horzcat(*(
                 cs.sum2((X - cs.repmat(Y[i, :].reshape((1, -1)), n, 1))**2)
                 for i in range(m)
             ))
-            return np.exp(-0.5 * dists / (length_scale**2))
+            return np.exp(-0.5 * dists)
         else:
             assert Y is None
             return np.ones((X.shape[0], 1))
