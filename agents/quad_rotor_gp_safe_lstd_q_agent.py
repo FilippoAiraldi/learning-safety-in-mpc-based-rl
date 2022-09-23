@@ -19,6 +19,7 @@ from util.gp import MultitGaussianProcessRegressor, CasadiKernels
 @dataclass(frozen=True)
 class QuadRotorGPSafeLSTDQAgentConfig(QuadRotorLSTDQAgentConfig):
     mu0: float = 0.0    # target constraint violation
+    mu0_backtracking: float = 0.0
     beta: float = 0.9   # probability of target violation satisfaction
     beta_backtracking: float = 0.9
     n_restarts_optimizer: int = 9
@@ -43,8 +44,8 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
         # run QP solver (backtrack on beta if necessary) and update weights
         theta = self.weights.values()
         x0 = theta - cfg.lr * p
-        beta = cfg.beta
-        pars = np.block([theta, p, cfg.lr, cfg.mu0, beta])
+        beta, mu0 = cfg.beta, cfg.mu0
+        pars = np.block([theta, p, cfg.lr, mu0, beta])
         lb, ub = self._get_percentage_bounds(
             theta, self.weights.bounds(), cfg.max_perc_update)
         while True:
@@ -55,9 +56,10 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
                 break
             else:
                 beta *= cfg.beta_backtracking
-                if beta < 1 / 10:
+                mu0 += cfg.mu0_backtracking
+                if beta < 1 / 10 or mu0 > 0.5:
                     raise RuntimeError('RL update failed.')
-                p[-1] = beta
+                pars[-2:] = (mu0, beta)
         return p, beta, gp_fit_time
 
     def learn_one_epoch(
