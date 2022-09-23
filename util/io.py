@@ -38,6 +38,8 @@ def load_results(filename: str) -> dict:
     data : dict
         The saved data in the shape of a dictionary.
     '''
+    if not filename.endswith('.pkl'):
+        filename = f'{filename}.pkl'
     with open(filename, 'rb') as f:
         data = cloudpickle.load(f)
     if isinstance(data, dict) and len(data.keys()) == 1:

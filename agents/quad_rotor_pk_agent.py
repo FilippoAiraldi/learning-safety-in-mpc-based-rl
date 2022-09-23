@@ -25,8 +25,8 @@ class QuadRotorPKAgent(QuadRotorBaseAgent):
             # set no random perturbation for this agent
             'perturbation': 0,
             # environment parameters - copied from true values
-            # stage cost weights - arbitrary numbers
             **{n: env_config_dict[n] for n in env_pars},
+            # stage cost weights - arbitrary numbers
             'w_x': 1e1,  # 8
             'w_u': 1e0,
             'w_s': 1e2,  # 120
