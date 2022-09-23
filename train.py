@@ -4,8 +4,13 @@ import envs
 import joblib as jl
 import time
 from datetime import datetime
+from sklearn.exceptions import ConvergenceWarning
 from typing import Any
 from util import io, log
+import warnings
+
+
+warnings.simplefilter('ignore', ConvergenceWarning)
 
 
 def eval_pk_agent(
