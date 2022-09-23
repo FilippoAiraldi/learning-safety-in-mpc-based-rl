@@ -160,6 +160,9 @@ if __name__ == '__main__':
     }
     if args.agents == 1:
         args.n_jobs = 1  # don't parallelize
+    if args.safe and (args.n_jobs == -1 or args.n_jobs > 1):
+        import os
+        os.environ['PYTHONWARNINGS'] = 'ignore'  # ignore warnings
     tot_episodes = args.epochs * args.episodes
 
     # launch training/evaluation

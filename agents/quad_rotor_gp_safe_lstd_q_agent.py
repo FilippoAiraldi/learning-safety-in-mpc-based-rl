@@ -14,7 +14,6 @@ from typing import Optional, Union
 from util.casadi import norm_ppf
 from util.math import cholesky_added_multiple_identities, constraint_violation
 from util.gp import MultitGaussianProcessRegressor, CasadiKernels
-import warnings
 
 
 @dataclass(frozen=True)
@@ -212,8 +211,7 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
             # move to fitting the GP and creating the QP constraints
             theta, cv = (np.stack(o, axis=0) for o in zip(*self._gpr_dataset))
             start = time.perf_counter()
-            with warnings.catch_warnings():
-                self._gpr.fit(theta, cv)
+            self._gpr.fit(theta, cv)
             fit_time = time.perf_counter() - start
             for gpr in self._gpr.estimators_:
                 gpr.kernel = gpr.kernel_
