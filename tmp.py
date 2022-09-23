@@ -2,12 +2,11 @@ import casadi as cs
 import matplotlib.pyplot as plt
 import numpy as np
 from mpc.generic_mpc import subsevalf
+from scipy.linalg.lapack import dtrtri
 from sklearn.gaussian_process import GaussianProcessRegressor, kernels
 from sklearn.model_selection import train_test_split
-from typing import Union
 from util.gp import MultitGaussianProcessRegressor, \
-    MultiGaussianProcessRegressorCallback, kernel_const, kernel_rbf
-
+    MultiGaussianProcessRegressorCallback, CasadiKernels
 
 # from scipy.stats import norm
 # 1.96 = norm.ppf((0.95 + 1) / 2) # because of abs value, but we need the tail
@@ -19,7 +18,7 @@ def reproducing_gp_in_casadi():
     y = np.squeeze(X * np.sin(X))
 
     # create training data
-    rng = np.random.RandomState(1)
+    rng = np.random.RandomState(np.random.randint(0, 1000))
     training_indices = rng.choice(np.arange(y.shape[0]), size=6, replace=False)
     X_train, y_train = X[training_indices], y[training_indices]
     noise_std = 0.75
@@ -27,8 +26,9 @@ def reproducing_gp_in_casadi():
         loc=0.0, scale=noise_std, size=y_train.shape)
 
     # create kernel and GP and fit it
-    kernel = 1 * kernels.RBF(
-        length_scale=1.0, length_scale_bounds=(1e-2, 1e2))
+    kernel = 1 * \
+        kernels.RBF(length_scale=1.0, length_scale_bounds=(1e-2, 1e2)) + \
+        kernels.WhiteKernel()
     gpr = GaussianProcessRegressor(
         kernel=kernel, n_restarts_optimizer=9, alpha=noise_std**2,
     )
@@ -37,59 +37,52 @@ def reproducing_gp_in_casadi():
     # perform numerical prediction
     y_mean0, y_std0 = gpr.predict(X, return_std=True)
 
-    # plt.plot(X, y, label=r"$f(x) = x \sin(x)$", linestyle="dotted")
-    # plt.errorbar(
-    #     X_train,
-    #     y_train_noisy,
-    #     noise_std,
-    #     linestyle="None",
-    #     color="tab:blue",
-    #     marker=".",
-    #     markersize=10,
-    #     label="Observations",
-    # )
-    # plt.plot(X, y_mean0, label="Mean prediction")
-    # plt.fill_between(
-    #     X.ravel(),
-    #     y_mean0 - 1.96 * y_std0,
-    #     y_mean0 + 1.96 * y_std0,
-    #     color="tab:orange",
-    #     alpha=0.5,
-    #     label=r"95% confidence interval",
-    # )
-    # plt.legend()
-    # plt.xlabel("$x$")
-    # plt.ylabel("$f(x)$")
-    # plt.title("Gaussian process regression on a noisy dataset")
-    # plt.show()
-
     # perform numerical prediction manually
     k = gpr.kernel_(gpr.X_train_, X)
-    K = gpr.kernel_(gpr.X_train_) + gpr.alpha * np.eye(gpr.X_train_.shape[0])
-    K_inv = np.linalg.inv(K)
+    L_inv = dtrtri(gpr.L_, lower=True)[0]
+    K_inv = L_inv.T @ L_inv
     y_mean1 = 0 + k.T @ K_inv @ (gpr.y_train_ - 0)
     y_std1 = np.sqrt(gpr.kernel_.diag(X) - np.diag(k.T @ K_inv @ k))
 
     # perform symbolical prediction (changes if the kernel is modified)
-    cs_kernel = lambda X, Y = None: \
-        kernel_const(gpr.kernel_.k1.constant_value, X, Y) * \
-        kernel_rbf(gpr.kernel_.k2.length_scale, X, Y)
-    cs_kernel_diag = lambda X: \
-        kernel_const(gpr.kernel_.k1.constant_value, X, diag=True) * \
-        kernel_rbf(gpr.kernel_.k2.length_scale, X, diag=True)
     Xsym = cs.SX.sym('X', *X.shape)
-    k = cs_kernel(gpr.X_train_, Xsym)
+    kernel_func = CasadiKernels.sklearn2func(gpr.kernel_)
+    k = kernel_func(gpr.X_train_, Xsym)
+    V = L_inv @ k
     y_mean_sym = k.T @ gpr.alpha_
-    y_std_sym = cs.sqrt(
-        cs_kernel_diag(Xsym) -
-        cs.vertcat(*(k[:, i].T @ K_inv @ k[:, i] for i in range(k.shape[1])))
-    )
+    y_std_sym = cs.sqrt(kernel_func(Xsym, diag=True) - cs.sum1(V**2).T)
     y_mean2 = subsevalf(y_mean_sym, Xsym, X)
     y_std2 = subsevalf(y_std_sym, Xsym, X)
 
     print(*(np.allclose(*o) for o in [
         (y_mean0, y_mean1), (y_mean1, y_mean2),
         (y_std0, y_std1), (y_std1, y_std2)]))
+
+    plt.plot(X, y, label=r"$f(x) = x \sin(x)$", linestyle="dotted")
+    plt.errorbar(
+        X_train,
+        y_train_noisy,
+        noise_std,
+        linestyle="None",
+        color="tab:blue",
+        marker=".",
+        markersize=10,
+        label="Observations",
+    )
+    plt.plot(X, y_mean0, label="Mean prediction")
+    plt.fill_between(
+        X.ravel(),
+        y_mean0 - 1.96 * y_std0,
+        y_mean0 + 1.96 * y_std0,
+        color="tab:orange",
+        alpha=0.5,
+        label=r"95% confidence interval",
+    )
+    plt.legend()
+    plt.xlabel("$x$")
+    plt.ylabel("$f(x)$")
+    plt.title("Gaussian process regression on a noisy dataset")
+    plt.show()
 
 
 def gp_as_casadi_callback():
@@ -195,6 +188,6 @@ def multioutput_gp():
 
 
 if __name__ == '__main__':
-    # reproducing_gp_in_casadi()
-    gp_as_casadi_callback()
+    reproducing_gp_in_casadi()
+    # gp_as_casadi_callback()
     # multioutput_gp()
