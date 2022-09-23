@@ -8,17 +8,17 @@ from dataclasses import dataclass
 from itertools import chain
 from mpc import MPCSolverError
 from scipy.linalg import cho_solve
+from scipy.linalg.lapack import dtrtri
 from sklearn.gaussian_process import kernels
-from typing import Union
+from typing import Optional, Union
 from util.casadi import norm_ppf
 from util.math import cholesky_added_multiple_identities, constraint_violation
-from util.gp import MultitGaussianProcessRegressor, \
-    MultiGaussianProcessRegressorCallback
+from util.gp import MultitGaussianProcessRegressor, CasadiKernels
 
 
 @dataclass(frozen=True)
 class QuadRotorGPSafeLSTDQAgentConfig(QuadRotorLSTDQAgentConfig):
-    alpha: float = 0.0  # target constraint violation
+    mu0: float = 0.0    # target constraint violation
     beta: float = 0.9   # probability of target violation satisfaction
     beta_backtracking: float = 0.9
     n_restarts_optimizer: int = 9
@@ -29,13 +29,7 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
 
     def update(self) -> tuple[np.ndarray, float, float]:
         cfg: QuadRotorGPSafeLSTDQAgentConfig = self.config
-
-        # fit the gp to the data
-        theta, cv = (np.stack(o, axis=0) for o in zip(*self._gpr_data))
-        start = time.perf_counter()
-        self._gpr.fit(theta, cv)
-        fit_time = time.perf_counter() - start
-        alpha, beta, beta_bt = cfg.alpha, cfg.beta, cfg.beta_backtracking
+        self._solver, gp_fit_time = self._init_qp_solver()
 
         # sample the memory
         sample = self.replay_memory.sample(
@@ -45,29 +39,26 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
         g, H = [sum(o) for o in zip(*chain.from_iterable(sample))]
         R = cholesky_added_multiple_identities(H)
         p = cho_solve((R, True), g).flatten()
-        c = cfg.lr * p
 
         # run QP solver (backtrack on beta if necessary) and update weights
         theta = self.weights.values()
-        x0 = theta - c
-        p = np.block([theta, c, alpha, beta])
+        x0 = theta - cfg.lr * p
+        beta = cfg.beta
+        pars = np.block([theta, p, cfg.lr, cfg.mu0, beta])
         lb, ub = self._get_percentage_bounds(
             theta, self.weights.bounds(), cfg.max_perc_update)
         while True:
-            sol = self._solver(lbx=lb, ubx=ub, lbg=-np.inf, ubg=0, x0=x0, p=p)
+            sol = self._solver(
+                lbx=lb, ubx=ub, lbg=-np.inf, ubg=0, x0=x0, p=pars)
             if self._solver.stats()['success']:
                 self.weights.update_values(sol['x'].full().flatten())
                 break
             else:
-                beta *= beta_bt
-                if beta < 1 / 3:
+                beta *= cfg.beta_backtracking
+                if beta < 1 / 10:
                     raise RuntimeError('RL update failed.')
                 p[-1] = beta
-
-        # save the new kernel to warmstart next fitting
-        for gpr in self._gpr.estimators_:
-            gpr.kernel = gpr.kernel_
-        return p, p[-1], fit_time
+        return p, beta, gp_fit_time
 
     def learn_one_epoch(
         self,
@@ -121,7 +112,7 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
             # compute its trajectories' constraint violations
             self.consolidate_episode_experience()
             logger.debug(f'{name}|{epoch_n}|{e}: J={returns[e]:,.3f}')
-            self._gpr_data.append((
+            self._gpr_dataset.append((
                 self.weights.values(),
                 self._compute_constraint_violation(states, actions)
             ))
@@ -164,64 +155,88 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
 
         # egress only over finite data
         cv = np.concatenate((x_cv, u_cv))
-        cv = cv[np.isfinite(cv)]
-        assert self._n_constraints == cv.size, \
-            'Constraint violation has invalid size.'
-        return cv
+        return cv[np.isfinite(cv)]
 
-    def _init_gpr(self, n: int, n_constraints: int) -> None:
-        self._gpr_data: list[tuple[np.ndarray, np.ndarray]] = []
-        self._gpr = MultitGaussianProcessRegressor(
-            kernel=(
-                1**2 * kernels.RBF(length_scale=np.ones(n)) +
-                kernels.WhiteKernel()  # use only if not averaging
-            ),
-            alpha=1e-6,
-            n_restarts_optimizer=self.config.n_restarts_optimizer
-        )
-        self._cs_gpr = MultiGaussianProcessRegressorCallback(
-            gpr=self._gpr,
-            n_theta=n,
-            n_features=n_constraints,
-            opts={'enable_fd': True}
-        )
+    def _init_qp_solver(self) -> Optional[tuple[cs.Function, float]]:
+        if not hasattr(self, '_gpr'):
+            # this is the first time the initilization gets called, so only the
+            # GP regressor is initialized and the QP symbols with fixed size
+            n_theta = sum(self.weights.sizes())
 
-    def _init_qp_solver(self) -> None:
-        # initialize GP constraints
-        n = sum(self.weights.sizes())
-        self._n_constraints = \
-            (np.isfinite(self.env.config.x_bounds).sum(axis=1) > 0).sum() + \
-            (np.isfinite(self.env.config.u_bounds).sum(axis=1) > 0).sum()
-        self._init_gpr(n, self._n_constraints)
+            self._gpr_dataset: list[tuple[np.ndarray, np.ndarray]] = []
+            self._gpr = MultitGaussianProcessRegressor(
+                kernel=(
+                    1**2 * kernels.RBF(length_scale=np.ones(n_theta)) +
+                    kernels.WhiteKernel()  # use only if not averaging
+                ),
+                alpha=1e-6,
+                n_restarts_optimizer=self.config.n_restarts_optimizer,
+                random_state=self.seed
+            )
 
-        # prepare symbols
-        theta: cs.MX = cs.MX.sym('theta', n, 1)
-        theta_new: cs.MX = cs.MX.sym('theta+', n, 1)
-        c: cs.MX = cs.MX.sym('c', n, 1)
-        alpha: cs.MX = cs.MX.sym('alpha', 1, 1)
-        beta: cs.MX = cs.MX.sym('beta', 1, 1)
+            theta: cs.MX = cs.MX.sym('theta', n_theta, 1)
+            theta_new: cs.MX = cs.MX.sym('theta+', n_theta, 1)
+            dtheta = theta_new - theta
+            p: cs.MX = cs.MX.sym('p', n_theta, 1)
+            lr: cs.MX = cs.MX.sym('lr', 1, 1)
+            mu0: cs.MX = cs.MX.sym('mu0', 1, 1)
+            beta: cs.MX = cs.MX.sym('beta', 1, 1)
 
-        # compute objective
-        dtheta = theta_new - theta
-        f = 0.5 * dtheta.T @ dtheta + c.T @ dtheta
-
-        # compute GP safety constraints (in canonical form: g(theta) <= 0)
-        gp_mean, gp_std = self._cs_gpr(theta)
-        g = gp_mean - alpha + norm_ppf(beta) * gp_std
-
-        # prepare solver
-        p = cs.vertcat(theta, c, alpha, beta)
-        qp = {'x': theta_new, 'p': p, 'f': f, 'g': g}
-        opts = {
-            'expand': False,  # required (or just omit)
-            'print_time': True,
-            'ipopt': {
-                'max_iter': 100,
-                'sb': 'yes',
-                # debug
-                'print_level': 5,
-                'print_user_options': 'no',
-                'print_options_documentation': 'no'
+            self._qp = {
+                'theta_new': theta_new,
+                'mu0': mu0,
+                'beta': beta,
+                'f': 0.5 * dtheta.T @ dtheta + (lr * p).T @ dtheta,
+                'p': cs.vertcat(theta, p, lr, mu0, beta),
+                'g': None,
+                'opts': {
+                    'expand': True,  # False when using callback
+                    'print_time': False,
+                    'ipopt': {
+                        'max_iter': 500,
+                        'sb': 'yes',
+                        # debug
+                        'print_level': 0,
+                        'print_user_options': 'no',
+                        'print_options_documentation': 'no'
+                    }
+                }
             }
-        }
-        self._solver = cs.nlpsol(f'ipopt_{self.name}', 'ipopt', qp, opts)
+        else:
+            # regressor initialization (other branch) has been done, so we can
+            # move to fitting the GP and creating the QP constraints
+            theta, cv = (np.stack(o, axis=0) for o in zip(*self._gpr_dataset))
+            start = time.perf_counter()
+            self._gpr.fit(theta, cv)
+            fit_time = time.perf_counter() - start
+            for gpr in self._gpr.estimators_:
+                gpr.kernel = gpr.kernel_
+
+            # compute the symbolic posterior mean and std of the GP
+            theta_new = self._qp['theta_new'].T
+            mean, std = [], []
+            for gpr in self._gpr.estimators_:
+                kernel_func = CasadiKernels.sklearn2func(gpr.kernel_)
+                L_inv = dtrtri(gpr.L_, lower=True)[0]
+                k = kernel_func(gpr.X_train_, theta_new)  # X_train_==theta
+                V = L_inv @ k
+                mean.append(k.T @ gpr.alpha_)
+                std.append(kernel_func(theta_new, diag=True) - cs.sum1(V**2).T)
+            mean, std = cs.vertcat(*mean), cs.sqrt(cs.vertcat(*std))
+
+            # compute the constraint function for the new theta
+            mu0, beta = self._qp['mu0'], self._qp['beta']
+            g = mean - mu0 + norm_ppf(beta) * std
+            self._qp['g'] = g
+
+            # create QP solver
+            solver = cs.nlpsol(
+                f'QP_ipopt_{self.name}',
+                'ipopt', {
+                    'x': theta_new,
+                    'f': self._qp['f'],
+                    'p': self._qp['p'],
+                    'g': g
+                },
+                self._qp['opts'])
+            return solver, fit_time

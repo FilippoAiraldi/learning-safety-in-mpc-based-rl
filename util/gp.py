@@ -107,7 +107,15 @@ class CasadiKernels:
 
 
 class MultitGaussianProcessRegressor(MultiOutputRegressor):
-    '''Custom multi-regressor adapted to GP regression.'''
+    '''
+    Custom multi-regressor adapted to GP regression.
+
+    Useful links:
+    - https://scikit-learn.org/stable/modules/gaussian_process.html
+    - http://gaussianprocess.org/gpml/chapters/RW.pdf
+    '''
+
+    estimators_: list[GaussianProcessRegressor]
 
     def __init__(
         self,
@@ -143,55 +151,3 @@ class MultitGaussianProcessRegressor(MultiOutputRegressor):
         if return_std or return_cov:
             return tuple(np.array(o).T for o in zip(*y))
         return np.asarray(y).T
-
-
-class MultiGaussianProcessRegressorCallback(cs.Callback):
-    '''
-    Custom callback to call the multi-GP regressor from CasADi.
-
-    Useful links:
-    - https://scikit-learn.org/stable/modules/gaussian_process.html
-    - http://gaussianprocess.org/gpml/chapters/RW.pdf
-    - https://web.casadi.org/blog/tensorflow/
-    - https://groups.google.com/g/casadi-users/c/gLJNzajFM6w
-    '''
-
-    def __init__(
-        self,
-        gpr: MultitGaussianProcessRegressor,
-        n: int,
-        n_features: int,
-        opts: dict[str, Any] = None
-    ) -> None:
-        cs.Callback.__init__(self)
-        self._gpr = gpr
-        self._n = n
-        self._n_features = n_features
-        if opts is None:
-            opts = {}
-        self.construct('MGPRCB', opts)
-
-    def get_n_in(self) -> int:
-        return 1  # theta
-
-    def get_n_out(self) -> int:
-        return 2  # mean, std
-
-    def get_name_in(self, i: int) -> str:
-        return 'theta'
-
-    def get_name_out(self, i: int) -> str:
-        return 'mean' if i == 0 else 'std'
-
-    def get_sparsity_in(self, i: int) -> cs.Sparsity:
-        return cs.Sparsity.dense(self._n, 1)
-
-    def get_sparsity_out(self, i: int) -> cs.Sparsity:
-        return cs.Sparsity.dense(self._n_features, 1)
-
-    def eval(self, arg: Any) -> Any:
-        theta = np.array(arg[0])
-        if theta.shape[0] == self._n:
-            theta = theta.T
-        mean, std = self._gpr.predict(theta, return_std=True)
-        return mean.T, std.T
