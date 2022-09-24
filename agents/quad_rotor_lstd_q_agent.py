@@ -183,7 +183,6 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
         perturbation_decay: float = 0.75,
         seed: Union[int, list[int]] = None,
         logger: logging.Logger = None,
-        raises: bool = True,
         return_info: bool = False
     ) -> Union[
         np.ndarray,
@@ -217,9 +216,8 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
                 if solQ.success and solV.success:
                     self.save_transition(r, solQ, solV)
                 else:
-                    logger.warning(f'{name}|{epoch_n}|{e}|{t}: MPC failed.')
-                    if raises:
-                        raise MPCSolverError('MPC failed.')
+                    raise MPCSolverError(
+                        f'{name}|{epoch_n}|{e}|{t}: MPC failed.')
                 t += 1
 
             # when episode is done, consolidate its experience into memory

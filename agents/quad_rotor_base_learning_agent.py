@@ -2,9 +2,14 @@ import logging
 import numpy as np
 from abc import ABC, abstractmethod
 from agents.quad_rotor_base_agent import QuadRotorBaseAgent
-from mpc.quad_rotor_mpc import QuadRotorMPC
+from mpc import MPCSolverError, QuadRotorMPC
 from mpc.wrappers import DifferentiableMPC
 from typing import Union
+
+
+class UpdateError(RuntimeError):
+    '''Exception class to raise an error when the agent's update fails.'''
+    ...
 
 
 class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
@@ -47,7 +52,6 @@ class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
         perturbation_decay: float = 0.75,
         seed: Union[int, list[int]] = None,
         logger: logging.Logger = None,
-        raises: bool = True,
         return_info: bool = False
     ) -> Union[
         np.ndarray,
@@ -66,8 +70,6 @@ class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
             RNG seed.
         logger : logging.Logger, optional
             For logging purposes.
-        raises : bool, optional
-            Whether to raise an exception when the MPC solver fails.
         return_info : bool, optional
             Whether to return additional information for this epoch update:
                 - update gradient
@@ -87,12 +89,12 @@ class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
 
     def learn(
         self,
-        n_train_epochs: int,
-        n_train_episodes: int,
+        n_epochs: int,
+        n_episodes: int,
         perturbation_decay: float = 0.75,
         seed: Union[int, list[int]] = None,
+        throw_on_exception: bool = False,
         logger: logging.Logger = None,
-        raises: bool = True,
         return_info: bool = True
     ) -> Union[
         np.ndarray,
@@ -103,9 +105,9 @@ class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
 
         Parameters
         ----------
-        n_train_epochs : int
+        n_epochs : int
             Number of training epochs.
-        n_train_episodes : int
+        n_episodes : int
             Number of training episodes per epoch.
         perturbation_decay : float, optional
             Decay factor of the exploration perturbation, after each epoch.
@@ -113,8 +115,11 @@ class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
             RNG seed.
         logger : logging.Logger, optional
             For logging purposes.
-        raises : bool, optional
-            Whether to raise an exception when the MPC solver fails.
+
+        throw_on_exception : bool, optional
+            When a training exception occurs, if `throw_on_exception=True`,
+            then the exception is fired again and training fails. Otherwise; 
+            the training is prematurely stopped and returned.
         return_info : bool, optional
             Whether to return additional information for each epoch update:
                 - a list of update gradients
@@ -133,18 +138,22 @@ class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
         logger = logger or logging.getLogger('dummy')
         results = []
 
-        for e in range(n_train_epochs):
+        for e in range(n_epochs):
             self._epoch_n = e  # just for logging
-
-            results.append(
-                self.learn_one_epoch(
-                    n_episodes=n_train_episodes,
-                    perturbation_decay=perturbation_decay,
-                    seed=None if seed is None else seed + n_train_episodes * e,
-                    logger=logger,
-                    raises=raises,
-                    return_info=return_info)
-            )
+            try:
+                results.append(
+                    self.learn_one_epoch(
+                        n_episodes=n_episodes,
+                        perturbation_decay=perturbation_decay,
+                        seed=None if seed is None else seed + n_episodes * e,
+                        logger=logger,
+                        return_info=return_info)
+                )
+            except (MPCSolverError, UpdateError) as ex:
+                if throw_on_exception:
+                    raise ex
+                logger.error(f'Suppressing agent \'{self.name}\': {ex}')
+                break
 
         if not return_info:
             return np.stack(results, axis=0)

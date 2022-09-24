@@ -202,15 +202,6 @@ class QuadRotorLSTDDPGAgent(QuadRotorBaseLearningAgent):
         self._episode_buffer.clear()
 
     def update(self) -> np.ndarray:
-        '''
-        Updates the MPC function approximation's weights based on the 
-        information stored in the replay memory.
-
-        Returns
-        -------
-        gradient : array_like
-            Gradient of the update.
-        '''
         # sample the memory. Each item in the sample comes from one episode
         cfg = self.config
         sample = list(self.replay_memory.sample(
@@ -257,7 +248,6 @@ class QuadRotorLSTDDPGAgent(QuadRotorBaseLearningAgent):
         perturbation_decay: float = 0.75,
         seed: Union[int, list[int]] = None,
         logger: logging.Logger = None,
-        raises: bool = True,
         return_info: bool = False
     ) -> Union[
         np.ndarray,
@@ -286,9 +276,8 @@ class QuadRotorLSTDDPGAgent(QuadRotorBaseLearningAgent):
                     self.save_transition(
                         state, action, action_opt, r, new_state, sol)
                 else:
-                    logger.warning(f'{name}|{epoch_n}|{e}|{t}: MPC failed.')
-                    if raises:
-                        raise MPCSolverError('MPC failed.')
+                    raise MPCSolverError(
+                        f'{name}|{epoch_n}|{e}|{t}: MPC failed.')
                 state = new_state
                 t += 1
 

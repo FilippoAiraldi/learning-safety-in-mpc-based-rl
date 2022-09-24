@@ -36,8 +36,8 @@ class Solution:
 
 
 class MPCSolverError(RuntimeError):
+    '''Exception class to raise an error when the MPC solver fails.'''
     ...
-
 
 class GenericMPC:
     '''

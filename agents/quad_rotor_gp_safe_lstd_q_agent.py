@@ -2,6 +2,7 @@ import casadi as cs
 import logging
 import numpy as np
 import time
+from agents.quad_rotor_base_learning_agent import UpdateError
 from agents.quad_rotor_lstd_q_agent import QuadRotorLSTDQAgent, \
     QuadRotorLSTDQAgentConfig
 from dataclasses import dataclass
@@ -58,8 +59,8 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
                 beta *= cfg.beta_backtracking
                 mu0 += cfg.mu0_backtracking
                 if beta < 1 / 3 or mu0 > 0.5:
-                    # raise RuntimeError('RL update failed.')
-                    self.weights.update_values(sol['x'].full().flatten())
+                    raise UpdateError('RL update failed.')
+                    # self.weights.update_values(sol['x'].full().flatten())
                 pars[-2:] = (mu0, beta)
         return p, (mu0, beta), gp_fit_time
 
@@ -69,7 +70,6 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
         perturbation_decay: float = 0.75,
         seed: Union[int, list[int]] = None,
         logger: logging.Logger = None,
-        raises: bool = True,
         return_info: bool = False
     ) -> Union[
         np.ndarray,
@@ -106,9 +106,8 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
                 if solQ.success and solV.success:
                     self.save_transition(r, solQ, solV)
                 else:
-                    logger.warning(f'{name}|{epoch_n}|{e}|{t}: MPC failed.')
-                    if raises:
-                        raise MPCSolverError('MPC failed.')
+                    raise MPCSolverError(
+                        f'{name}|{epoch_n}|{e}|{t}: MPC failed.')
                 t += 1
 
             # when episode is done, consolidate its experience into memory, and
