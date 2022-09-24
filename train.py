@@ -105,8 +105,8 @@ def train_lstdq_agent(
             seed=seed
         ))
     agent.learn(
-        n_train_epochs=epochs,
-        n_train_episodes=train_episodes,
+        n_epochs=epochs,
+        n_episodes=train_episodes,
         seed=seed + 1,
         perturbation_decay=perturbation_decay,
         logger=logger
