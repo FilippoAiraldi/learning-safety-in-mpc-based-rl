@@ -170,7 +170,9 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
             self._gpr_dataset: list[tuple[np.ndarray, np.ndarray]] = []
             self._gpr = MultitGaussianProcessRegressor(
                 kernel=(
-                    1**2 * kernels.RBF(length_scale=np.ones(n_theta)) +
+                    1**2 * kernels.RBF(
+                        length_scale=np.ones(n_theta),
+                        length_scale_bounds=(1e-5, 1e6)) +
                     kernels.WhiteKernel()  # use only if not averaging
                 ),
                 alpha=1e-6,
