@@ -244,6 +244,8 @@ def performance(
         color=color, label=label)
     ax.set_xlabel('Episode')
     ax.set_ylabel('Cumulative cost')
+    if label is not None:
+        ax.legend()
     ax.xaxis.set_major_locator(MaxNLocator(integer=True))
     return fig
 
@@ -274,9 +276,9 @@ def constraint_violation(
         axs = fig.axes
 
     # [nx(nu), max_ep_len, Nep, Nenv]
-    observations = np.transpose(np.stack(
+    observations = np.transpose(jaggedstack(
         [jaggedstack(env.observations) for env in envs]))
-    actions = np.transpose(np.stack(
+    actions = np.transpose(jaggedstack(
         [jaggedstack(env.actions) for env in envs]))
     episodes = np.arange(observations.shape[2]) + 1
 
@@ -298,6 +300,8 @@ def constraint_violation(
                     linewidth=LINEWIDTHS[1], color=color, label=label)
             ax.set_xlabel('Episode')
             ax.set_ylabel(f'Violation of ${n}_{i}$')
+            if label is not None:
+                ax.legend()
             ax.xaxis.set_major_locator(MaxNLocator(integer=True))
     for ax in axs:
         ax.set_axis_off()
@@ -361,6 +365,8 @@ def learned_weights(
                 linewidth=LINEWIDTHS[1], color=color, label=label)
         ax.set_xlabel('Update')
         ax.set_ylabel(lbl)
+        if label is not None:
+            ax.legend()
         ax.xaxis.set_major_locator(MaxNLocator(integer=True))
     for ax in axs:
         ax.set_axis_off()

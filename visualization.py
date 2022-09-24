@@ -21,14 +21,18 @@ if __name__ == '__main__':
 
     if len(args.filenames) == 0:
         args.filenames = [
-            'results/lstdq_baseline.pkl',
-            'results/pk_baseline.pkl'
+            ('results/lstdq_baseline', 'LSTD Q'),
+            ('results/pk_baseline', 'PK')
         ]
     if args.plots is None:
         args.plots = range(3)
 
     figs, colors = [None, None, None], cycle(plot.MATLAB_COLORS)
     for filename, color in zip(args.filenames, colors):
+        filename, label = \
+            filename if isinstance(filename, tuple) else (filename, None)
+        label = None
+
         # load data
         results = io.load_results(filename)
         data: dict[str, Any] = results.pop('data')
@@ -40,12 +44,15 @@ if __name__ == '__main__':
 
         # plot
         if 0 in args.plots and envs is not None:
-            figs[0] = plot.performance(envs, fig=figs[0], color=color)
+            figs[0] = plot.performance(
+                envs, fig=figs[0], color=color, label=label)
         if 1 in args.plots and envs is not None:
-            figs[1] = plot.constraint_violation(envs, fig=figs[1], color=color)
+            figs[1] = plot.constraint_violation(
+                envs, fig=figs[1], color=color, label=label)
         if 2 in args.plots and agents is not None and \
                 all(a is not None for a in agents):
-            figs[2] = plot.learned_weights(agents, fig=figs[2], color=color)
+            figs[2] = plot.learned_weights(
+                agents, fig=figs[2], color=color, label=label)
     plt.show()
 
 
