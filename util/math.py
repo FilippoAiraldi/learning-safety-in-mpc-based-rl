@@ -69,3 +69,44 @@ def constraint_violation(
         lb = np.expand_dims(bnd[:, 0], tuple(range(1, a.ndim)))
         ub = np.expand_dims(bnd[:, 1], tuple(range(1, a.ndim)))
         yield np.stack((lb - a, a - ub), axis=1)
+
+
+def jaggedstack(
+    arrays,
+    axis: int = 0,
+    out: np.ndarray = None,
+    constant_values: Union[float, np.ndarray] = np.nan
+) -> np.ndarray:
+    '''
+    Join a sequence of arrays with different shapes along a new axis. To do 
+    so, each array is padded with `constant_values` (see `numpy.pad`) to the 
+    right to even out the shapes. Then, `numpy.stack` is called.
+
+    Parameters
+    ----------
+    arrays, axis, out
+        See `numpy.stack`.
+    constant_values
+        See `numpy.pad`.
+
+    Returns
+    -------
+    stacked : ndarray
+        The stacked array has one more dimension than the input arrays.
+    '''
+    arrays = [np.asanyarray(arr) for arr in arrays]
+    if not arrays:
+        raise ValueError('need at least one array to stack')
+    maxshape = arrays[0].shape
+    for a in arrays:
+        maxshape = np.maximum(maxshape, a.shape)
+    arrays = [
+        np.pad(
+            a,
+            [(0, d_max - d) for d, d_max in zip(a.shape, maxshape)],
+            mode='constant',
+            constant_values=constant_values
+        )
+        for a in arrays
+    ]
+    return np.stack(arrays, axis, out)

@@ -12,7 +12,7 @@ from matplotlib.figure import Figure
 from matplotlib.ticker import MaxNLocator, PercentFormatter
 from mpl_toolkits.mplot3d.art3d import Line3DCollection, Poly3DCollection
 from typing import Union
-from util.math import constraint_violation as cv_
+from util.math import constraint_violation as cv_, jaggedstack
 
 
 LINEWIDTHS = (0.05, 1.5)
@@ -234,8 +234,8 @@ def performance(
         ax = fig.axes[0]
 
     episodes = np.arange(len(envs[0].cum_rewards)) + 1
-    rewards: np.ndarray = np.stack([env.cum_rewards for env in envs])
-    mean_reward: np.ndarray = rewards.mean(axis=0)
+    rewards: np.ndarray = jaggedstack([env.cum_rewards for env in envs])
+    mean_reward: np.ndarray = np.nanmean(rewards, axis=0)
 
     color = color or MATLAB_COLORS[0]
     ax.plot(episodes, rewards.T, linewidth=LINEWIDTHS[0], color=color)
@@ -273,25 +273,11 @@ def constraint_violation(
     else:
         axs = fig.axes
 
-    max_ep_len = max(max(env.episode_lengths) for env in envs)
-    observations, actions = [], []
-    for env in envs:
-        obs, act = [], []
-        for ep in range(len(env.episode_lengths)):
-            x = env.observations[ep][1:, :]
-            x = np.pad(x, ((0, max_ep_len - x.shape[0]), (0, 0)),
-                       constant_values=np.nan)
-            u = env.actions[ep]
-            u = np.pad(u, ((0, max_ep_len - u.shape[0]), (0, 0)),
-                       constant_values=np.nan)
-            obs.append(x)
-            act.append(u)
-        observations.append(obs)
-        actions.append(act)
-    observations, actions = [
-        np.transpose(np.array(a), (3, 2, 1, 0))
-        for a in (observations, actions)  # [nx(nu), max_ep_len, Nep, Nenv]
-    ]
+    # [nx(nu), max_ep_len, Nep, Nenv]
+    observations = np.transpose(np.stack(
+        [jaggedstack(env.observations) for env in envs]))
+    actions = np.transpose(np.stack(
+        [jaggedstack(env.actions) for env in envs]))
     episodes = np.arange(observations.shape[2]) + 1
 
     # apply 2 reductions: first merge lb and ub in a single constraint (since
@@ -346,8 +332,9 @@ def learned_weights(
     axs = iter(axs)
     ax = next(axs)
     color = color or MATLAB_COLORS[0]
-    norms: np.ndarray = np.linalg.norm(
-        np.stack([agent.update_gradient for agent in agents]), axis=-1)
+    norms = np.sqrt(np.square(np.ma.masked_invalid(
+        jaggedstack([agent.update_gradient for agent in agents]))).sum(axis=-1)
+    )
     log10_mean_norm = 10**(np.log10(norms).mean(axis=0))
     ax.semilogy(updates[:-1], norms.T,
                 linewidth=LINEWIDTHS[0], color=color)
@@ -360,13 +347,13 @@ def learned_weights(
     # plot each weight's history
     for ax, name in zip(axs, weightnames):
         # get history and average it
-        weights: np.ndarray = np.stack(
+        weights = jaggedstack(
             [np.squeeze(agent.weights_history[name]) for agent in agents])
         lbl = f'Parameter ${name}$'
         if weights.ndim > 2:
-            weights = weights.mean(axis=-1)
+            weights = np.nanmean(weights, axis=-1)
             lbl += ' (mean)'
-        mean_weight = weights.mean(axis=0)  # average over agents
+        mean_weight = np.nanmean(weights, axis=0)  # average over agents
 
         # plot
         ax.plot(updates, weights.T, linewidth=LINEWIDTHS[0], color=color)

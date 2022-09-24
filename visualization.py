@@ -21,8 +21,8 @@ if __name__ == '__main__':
 
     if len(args.filenames) == 0:
         args.filenames = [
-            'results/lstdq_1_baseline.pkl',
-            'results/pi_0_baseline.pkl'
+            'results/lstdq_baseline.pkl',
+            'results/pk_baseline.pkl'
         ]
     if args.plots is None:
         args.plots = range(3)
