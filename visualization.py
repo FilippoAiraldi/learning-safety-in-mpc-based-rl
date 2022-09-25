@@ -13,25 +13,34 @@ if __name__ == '__main__':
     # parse arguments
     parser = argparse.ArgumentParser(description='Visualization script')
     parser.add_argument(
-        'filenames', type=str, nargs='*',
-        help='The pickle data to be visualized.')
+        'filenames', type=str, nargs='*', help='Data to be visualized.')
     parser.add_argument(
         '-p', '--plots', type=int, nargs='*', help='Enables the i-th plot.')
     args = parser.parse_args()
 
+    # prepare args and plot functions
     if len(args.filenames) == 0:
         args.filenames = [
             ('results/lstdq_baseline', 'LSTD Q'),
-            ('results/pk_baseline', 'PK')
+            ('results/gp_safe_lstdq', 'GPsafe LSTD Q'),
+            # ('results/pk_baseline', 'PK'),
         ]
+    funcs = [
+        plot.performance,
+        plot.constraint_violation,
+        plot.learned_weights,
+        plot.gp_safe_parameters
+    ]
+    figs = [None] * len(funcs)
+    colors = cycle(plot.MATLAB_COLORS)
     if args.plots is None:
-        args.plots = range(3)
+        args.plots = range(len(funcs))
 
-    figs, colors = [None, None, None], cycle(plot.MATLAB_COLORS)
+    # plot each data
     for filename, color in zip(args.filenames, colors):
+        # if label is not passed, set it to None
         filename, label = \
             filename if isinstance(filename, tuple) else (filename, None)
-        label = None
 
         # load data
         results = io.load_results(filename)
@@ -43,16 +52,15 @@ if __name__ == '__main__':
         print(filename, '\n', *(f' -{k}: {v}\n' for k, v in results.items()))
 
         # plot
-        if 0 in args.plots and envs is not None:
-            figs[0] = plot.performance(
-                envs, fig=figs[0], color=color, label=label)
-        if 1 in args.plots and envs is not None:
-            figs[1] = plot.constraint_violation(
-                envs, fig=figs[1], color=color, label=label)
-        if 2 in args.plots and agents is not None and \
-                all(a is not None for a in agents):
-            figs[2] = plot.learned_weights(
-                agents, fig=figs[2], color=color, label=label)
+        for i, func in enumerate(funcs):
+            if i in args.plots:
+                figs[i] = func(
+                    envs=envs,
+                    agents=agents,
+                    fig=figs[i],
+                    color=color,
+                    label=label
+                )
     plt.show()
 
 
