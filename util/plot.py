@@ -228,13 +228,25 @@ def _plot_population(
     color: str = None,
     linestyle: str = None,
     label: str = None,
+    xlabel: str = None,
+    ylabel: str = None,
     method: str = 'plot'
 ) -> None:
     func = getattr(ax, method)
     y_mean = y_mean if y_mean is not None else np.nanmean(y, axis=0)
+
     func(x, y.T, linewidth=LINEWIDTHS[0], color=color, linestyle=linestyle)
     func(x, y_mean, linewidth=LINEWIDTHS[1], color=color, linestyle=linestyle,
          label=label)
+
+    if xlabel is not None and len(ax.get_xlabel()) == 0:
+        ax.set_xlabel(xlabel)
+    if ylabel is not None and len(ax.get_ylabel()) == 0:
+        ax.set_ylabel(ylabel)
+    if label is not None:
+        ax.legend(loc='upper right')
+    if not isinstance(ax.xaxis.get_major_locator(), MaxNLocator):
+        ax.xaxis.set_major_locator(MaxNLocator(integer=True))
 
 
 def performance(
@@ -248,7 +260,7 @@ def performance(
     Plots the performance in each environment and the average performance.
     '''
     if envs is None:
-        return 
+        return
 
     if fig is None:
         fig, ax = plt.subplots(1, 1, constrained_layout=True)
@@ -258,12 +270,8 @@ def performance(
     episodes = np.arange(len(envs[0].cum_rewards)) + 1
     rewards: np.ndarray = jaggedstack([env.cum_rewards for env in envs])
 
-    _plot_population(ax, episodes, rewards, color=color, label=label)
-    ax.set_xlabel('Episode')
-    ax.set_ylabel('Cumulative cost')
-    if label is not None:
-        ax.legend(loc='upper right')
-    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+    _plot_population(ax, episodes, rewards, color=color, label=label,
+                     xlabel='Episode', ylabel='Cumulative cost')
     return fig
 
 
@@ -283,7 +291,7 @@ def constraint_violation(
 
     x_bnd, u_bnd = envs[0].config.x_bounds, envs[0].config.u_bounds
     N = (np.isfinite(x_bnd).sum(axis=1) > 0).sum() + \
-        (np.isfinite(u_bnd).sum(axis=1) > 0).sum()
+        (np.isfinite(u_bnd).sum(axis=1) > 0).sum() + 1
     ncols = int(np.round(np.sqrt(N)))
     nrows = int(np.ceil(N / ncols))
     if fig is None:
@@ -316,12 +324,17 @@ def constraint_violation(
             if not np.isfinite(bnd[i]).any():
                 continue
             ax = next(axs)
-            _plot_population(ax, episodes, cv[i].T, color=color, label=label)
-            ax.set_xlabel('Episode')
-            ax.set_ylabel(f'Violation of ${n}_{i}$')
-            if label is not None:
-                ax.legend(loc='upper right')
-            ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+            _plot_population(ax, episodes, cv[i].T, color=color, label=label,
+                             xlabel='Episode', ylabel=f'${n}_{i}$ violation')
+
+    # plot also the overall constraint violation
+    cv_all = np.concatenate((cv_obs, cv_act), axis=0)
+    cv_all[~np.isfinite(cv_all)] = 0.0
+    # cv_all = np.maximum(cv_all, 0).sum(axis=0)
+    cv_all = cv_all.sum(axis=0)
+    ax = next(axs)
+    _plot_population(ax, episodes, cv_all.T, color=color, label=label,
+                     xlabel='Episode', ylabel='Overall violation')
     for ax in axs:
         ax.set_axis_off()
     return fig
@@ -336,7 +349,7 @@ def learned_weights(
 ) -> Figure:
     '''Plots the learning curves of the MPC parameters.'''
     if agents is None or any(a is None for a in agents):
-        return 
+        return
 
     Nupdates = len(agents[0].update_gradient)
     weightnames = agents[0].weights_history.keys()
@@ -364,12 +377,8 @@ def learned_weights(
     )
     log10_mean_norm = 10**(np.log10(norms).mean(axis=0))
     _plot_population(ax, updates[:-1], norms, log10_mean_norm, color=color,
-                     label=label, method='semilogy')
-    ax.set_xlabel('Update')
-    ax.set_ylabel('||p||')
-    if label is not None:
-        ax.legend(loc='upper right')
-    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+                     label=label, xlabel='Update', ylabel='||p||',
+                     method='semilogy')
 
     # plot each weight's history
     for ax, name in zip(axs, weightnames):
@@ -382,12 +391,8 @@ def learned_weights(
             lbl += ' (mean)'
 
         # plot
-        _plot_population(ax, updates, weights, color=color, label=label)
-        ax.set_xlabel('Update')
-        ax.set_ylabel(lbl)
-        if label is not None:
-            ax.legend(loc='upper right')
-        ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+        _plot_population(ax, updates, weights, color=color, label=label,
+                         xlabel='Update', ylabel=lbl)
     for ax in axs:
         ax.set_axis_off()
     return fig
@@ -402,8 +407,8 @@ def gp_safe_parameters(
 ) -> Figure:
     attr = 'agent_backtracked_gp_pars_history'
     if agents is None or any(
-        a is None or not hasattr(a, attr) for a in agents):
-        return 
+            a is None or not hasattr(a, attr) for a in agents):
+        return
 
     if fig is None:
         fig, ax = plt.subplots(1, 1, constrained_layout=True)
@@ -415,9 +420,6 @@ def gp_safe_parameters(
 
     for i, (name, ls) in enumerate(zip(['$\\mu_0$', '$\\beta$'], ['--', '-'])):
         name = name if label is None else f'{label}: {name}'
-        _plot_population(
-            ax, updates, pars[..., i], color=color, linestyle=ls, label=name)
-    ax.set_xlabel('Updates')
-    ax.set_ylabel('GP parameters')
-    ax.legend(loc='upper right')
+        _plot_population(ax, updates, pars[..., i], color=color, linestyle=ls,
+                         label=name, xlabel='Updates', ylabel='GP parameters')
     return fig
