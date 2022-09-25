@@ -225,6 +225,7 @@ def _plot_population(
     x: np.ndarray,
     y: np.ndarray,
     y_mean: np.ndarray = None,
+    y_std: np.ndarray = None,
     color: str = None,
     linestyle: str = None,
     label: str = None,
@@ -234,10 +235,15 @@ def _plot_population(
 ) -> None:
     func = getattr(ax, method)
     y_mean = y_mean if y_mean is not None else np.nanmean(y, axis=0)
-
-    func(x, y.T, linewidth=LINEWIDTHS[0], color=color, linestyle=linestyle)
-    func(x, y_mean, linewidth=LINEWIDTHS[1], color=color, linestyle=linestyle,
-         label=label)
+    if method != 'errorbar':
+        func(x, y.T, linewidth=LINEWIDTHS[0], color=color, linestyle=linestyle)
+        func(x, y_mean, linewidth=LINEWIDTHS[1], color=color,
+             linestyle=linestyle, label=label)
+    else:
+        y_std = y_std if y_std is not None else np.nanstd(y, axis=0)
+        func(x, y_mean, yerr=y_std, linewidth=LINEWIDTHS[1], color=color,
+             linestyle=linestyle, label=label, errorevery=x.size // 10,
+             capsize=5)
 
     if xlabel is not None and len(ax.get_xlabel()) == 0:
         ax.set_xlabel(xlabel)
