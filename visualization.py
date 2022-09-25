@@ -29,7 +29,7 @@ if __name__ == '__main__':
         plot.performance,
         plot.constraint_violation,
         plot.learned_weights,
-        plot.gp_safe_parameters
+        plot.safety
     ]
     figs = [None] * len(funcs)
     colors = cycle(plot.MATLAB_COLORS)

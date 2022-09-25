@@ -12,11 +12,11 @@ from matplotlib.collections import LineCollection
 from matplotlib.figure import Figure
 from matplotlib.ticker import MaxNLocator, PercentFormatter
 from mpl_toolkits.mplot3d.art3d import Line3DCollection, Poly3DCollection
-from typing import Union
+from typing import Optional, Iterable, Union
 from util.math import constraint_violation as cv_, jaggedstack
 
 
-LINEWIDTHS = (0.05, 1.5)
+LINEWIDTHS = (0.05, 2.0)
 
 MATLAB_COLORS = [
     '#0072BD', '#D95319', '#EDB120', '#7E2F8E', '#77AC30', '#4DBEEE', '#A2142F'
@@ -54,12 +54,12 @@ def set_mpl_defaults() -> None:
     '''Sets the default options for Matplotlib.'''
     np.set_printoptions(precision=4)
     mpl.style.use('seaborn-darkgrid')
-    mpl.rcParams['axes.prop_cycle'] = cycler('color', MATLAB_COLORS)
-    mpl.rcParams['lines.linewidth'] = 1
-    mpl.rcParams["savefig.dpi"] = 900
     # mpl.rcParams['font.family'] = 'serif'
     # mpl.rcParams['text.usetex'] = True
     # mpl.rcParams['pgf.rcfonts'] = False
+    mpl.rcParams['axes.prop_cycle'] = cycler('color', MATLAB_COLORS)
+    mpl.rcParams['lines.linewidth'] = 1
+    mpl.rcParams["savefig.dpi"] = 900
 
 
 def _set_axes3d_equal(ax):
@@ -249,13 +249,17 @@ def _plot_population(
         ax.xaxis.set_major_locator(MaxNLocator(integer=True))
 
 
+def _set_empty_axis_off(axs: Iterable[Axes]) -> None:
+    (ax.set_axis_off() for ax in axs if len(ax.get_lines()) == 0)
+
+
 def performance(
     envs: list[RecordData],
     fig: Figure = None,
     color: str = None,
     label: str = None,
     **_
-) -> Figure:
+) -> Optional[Figure]:
     '''
     Plots the performance in each environment and the average performance.
     '''
@@ -281,7 +285,7 @@ def constraint_violation(
     color: str = None,
     label: str = None,
     **_
-) -> Figure:
+) -> Optional[Figure]:
     '''
     Plots the constraint violations in each environment and the average 
     violation.
@@ -291,7 +295,7 @@ def constraint_violation(
 
     x_bnd, u_bnd = envs[0].config.x_bounds, envs[0].config.u_bounds
     N = (np.isfinite(x_bnd).sum(axis=1) > 0).sum() + \
-        (np.isfinite(u_bnd).sum(axis=1) > 0).sum() + 1
+        (np.isfinite(u_bnd).sum(axis=1) > 0).sum()
     ncols = int(np.round(np.sqrt(N)))
     nrows = int(np.ceil(N / ncols))
     if fig is None:
@@ -326,17 +330,7 @@ def constraint_violation(
             ax = next(axs)
             _plot_population(ax, episodes, cv[i].T, color=color, label=label,
                              xlabel='Episode', ylabel=f'${n}_{i}$ violation')
-
-    # plot also the overall constraint violation
-    cv_all = np.concatenate((cv_obs, cv_act), axis=0)
-    cv_all[~np.isfinite(cv_all)] = 0.0
-    # cv_all = np.maximum(cv_all, 0).sum(axis=0)
-    cv_all = cv_all.sum(axis=0)
-    ax = next(axs)
-    _plot_population(ax, episodes, cv_all.T, color=color, label=label,
-                     xlabel='Episode', ylabel='Overall violation')
-    for ax in axs:
-        ax.set_axis_off()
+    _set_empty_axis_off(axs)
     return fig
 
 
@@ -346,7 +340,7 @@ def learned_weights(
     color: str = None,
     label: str = None,
     **_
-) -> Figure:
+) -> Optional[Figure]:
     '''Plots the learning curves of the MPC parameters.'''
     if agents is None or any(a is None for a in agents):
         return
@@ -393,33 +387,72 @@ def learned_weights(
         # plot
         _plot_population(ax, updates, weights, color=color, label=label,
                          xlabel='Update', ylabel=lbl)
-    for ax in axs:
-        ax.set_axis_off()
+    _set_empty_axis_off(axs)
     return fig
 
 
-def gp_safe_parameters(
+def safety(
+    envs: list[RecordData],
     agents: list[RecordLearningData],
     fig: Figure = None,
     color: str = None,
     label: str = None,
     **_
-) -> Figure:
-    attr = 'agent_backtracked_gp_pars_history'
-    if agents is None or any(
-            a is None or not hasattr(a, attr) for a in agents):
+) -> Optional[Figure]:
+    if envs is None and agents is None:
         return
 
     if fig is None:
-        fig, ax = plt.subplots(1, 1, constrained_layout=True)
+        fig, axs = plt.subplots(1, 2, constrained_layout=True)
     else:
-        ax = fig.axes[0]
+        axs = fig.axes
 
-    pars = jaggedstack([getattr(a, attr) for a in agents])
-    updates = np.arange(pars.shape[1]) + 1
+    axs = iter(axs)
+    if envs is not None:
+        # [nx(nu), max_ep_len, Nep, Nenv]
+        observations = np.transpose(jaggedstack(
+            [jaggedstack(env.observations) for env in envs]))
+        actions = np.transpose(jaggedstack(
+            [jaggedstack(env.actions) for env in envs]))
+        episodes = np.arange(observations.shape[2]) + 1
 
-    for i, (name, ls) in enumerate(zip(['$\\mu_0$', '$\\beta$'], ['--', '-'])):
-        name = name if label is None else f'{label}: {name}'
-        _plot_population(ax, updates, pars[..., i], color=color, linestyle=ls,
-                         label=name, xlabel='Updates', ylabel='GP parameters')
+        # apply 2 reductions: first merge lb and ub in a single constraint
+        # (since both cannot be active at the same time) (max axis=1); then
+        # reduce each trajectory's violations to scalar by picking max
+        # violation (max axis=2)
+        x_bnd, u_bnd = envs[0].config.x_bounds, envs[0].config.u_bounds
+        cv_obs, cv_act = (
+            np.nanmax(cv, axis=(1, 2))
+            for cv in cv_((observations, x_bnd),
+                          (actions, u_bnd)))
+
+        # plot cumulative number of unsafe episodes
+        cv_all = np.concatenate((cv_obs, cv_act), axis=0)
+        cnt = np.nancumsum((np.nanmax(cv_all, axis=0) > 0.0), axis=0)
+        _plot_population(next(axs), episodes, cnt.T, color=color, label=label,
+                         xlabel='Episode', ylabel='Number of snsafe episodes')
+
+        # # plot also the overall constraint violation
+        # cv_all[~np.isfinite(cv_all)] = 0.0
+        # # cv_all = np.maximum(cv_all, 0).sum(axis=0)
+        # cv_all = cv_all.sum(axis=0)
+        # ax = next(axs)
+        # _plot_population(ax, episodes, cv_all.T, color=color, label=label,
+        #                  xlabel='Episode', ylabel='Overall violation')
+
+    attr = 'agent_backtracked_gp_pars_history'
+    if agents is not None and all(
+            a is not None and hasattr(a, attr) for a in agents):
+        pars = jaggedstack([getattr(a, attr) for a in agents])
+        updates = np.arange(pars.shape[1]) + 1
+
+        parnames = ['$\\mu_0$', '$\\beta$']
+        ax = next(axs)
+        ax.set_axis_on()
+        for i, (name, ls) in enumerate(zip(parnames, ['--', '-'])):
+            name = name if label is None else f'{label}: {name}'
+            _plot_population(ax, updates, pars[..., i], color=color,
+                             linestyle=ls, label=name,
+                             xlabel='Update', ylabel='GP parameters')
+    _set_empty_axis_off(axs)
     return fig
