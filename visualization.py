@@ -28,9 +28,9 @@ if __name__ == '__main__':
             # ('results/pk_baseline', 'PK'),
         ]
     funcs = [
-        plot.performance,
-        plot.constraint_violation,
-        plot.learned_weights,
+        # plot.performance,
+        # plot.constraint_violation,
+        # plot.learned_weights,
         plot.safety
     ]
     figs = [None] * len(funcs)
@@ -51,7 +51,8 @@ if __name__ == '__main__':
         agents: list[RecordLearningData] = data.get('agents')
 
         # print summary
-        print(filename, '\n', *(f' -{k}: {v}\n' for k, v in results.items()))
+        print(f'{n}) {filename}\n',
+              *(f' -{k}: {v}\n' for k, v in results.items()))
 
         # plot
         for i, func in enumerate(funcs):
