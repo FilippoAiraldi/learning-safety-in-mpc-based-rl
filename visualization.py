@@ -39,10 +39,10 @@ if __name__ == '__main__':
         args.plots = range(len(funcs))
 
     # plot each data
-    for filename, color in zip(args.filenames, colors):
+    for n, (filename, color) in enumerate(zip(args.filenames, colors)):
         # if label is not passed, set it to None
         filename, label = \
-            filename if isinstance(filename, tuple) else (filename, None)
+            filename if isinstance(filename, tuple) else (filename, f'p{n}')
 
         # load data
         results = io.load_results(filename)
