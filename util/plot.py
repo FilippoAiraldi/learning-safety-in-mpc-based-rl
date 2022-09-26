@@ -231,7 +231,8 @@ def _plot_population(
     label: str = None,
     xlabel: str = None,
     ylabel: str = None,
-    method: str = 'plot'
+    method: str = 'plot',
+    legendloc: str = 'upper right'
 ) -> None:
     func = getattr(ax, method)
     if y_mean is None and y is not None:
@@ -254,7 +255,7 @@ def _plot_population(
     if ylabel is not None and len(ax.get_ylabel()) == 0:
         ax.set_ylabel(ylabel)
     if label is not None:
-        ax.legend(loc='upper right')
+        ax.legend(loc=legendloc)
     if not isinstance(ax.xaxis.get_major_locator(), MaxNLocator):
         ax.xaxis.set_major_locator(MaxNLocator(integer=True))
 
@@ -450,7 +451,8 @@ def safety(
         cv_all = np.concatenate((cv_obs, cv_act), axis=0)
         cnt = np.nancumsum((np.nanmax(cv_all, axis=0) > 0.0), axis=0)
         _plot_population(next(axs), episodes, cnt.T, color=color, label=label,
-                         xlabel='Episode', ylabel='Number of unsafe episodes')
+                         xlabel='Episode', ylabel='Number of unsafe episodes',
+                         legendloc='upper left')
 
         # # plot also the overall constraint violation
         # cv_all[~np.isfinite(cv_all)] = 0.0

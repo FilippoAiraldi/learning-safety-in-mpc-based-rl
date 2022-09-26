@@ -84,7 +84,7 @@ if __name__ == '__main__':
 # axs[1].set_ylim(top=10)
 
 
-# # shorten results
+# # shorten plot
 # target_epochs = 13
 # ep_per_epoch = args.train_episodes
 # for datum in data:
