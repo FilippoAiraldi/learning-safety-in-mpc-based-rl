@@ -59,7 +59,7 @@ def set_mpl_defaults() -> None:
     # mpl.rcParams['pgf.rcfonts'] = False
     mpl.rcParams['axes.prop_cycle'] = cycler('color', MATLAB_COLORS)
     mpl.rcParams['lines.linewidth'] = 1
-    mpl.rcParams["savefig.dpi"] = 900
+    mpl.rcParams['savefig.dpi'] = 900
 
 
 def _set_axes3d_equal(ax):

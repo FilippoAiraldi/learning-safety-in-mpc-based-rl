@@ -1,7 +1,8 @@
 import argparse
+import matplotlib as mpl
 import matplotlib.pyplot as plt
+import warnings
 from agents.wrappers import RecordLearningData
-from itertools import cycle
 from envs.wrappers import RecordData
 from typing import Any
 from util import io, plot
@@ -9,6 +10,7 @@ from util import io, plot
 
 if __name__ == '__main__':
     plot.set_mpl_defaults()
+    warnings.filterwarnings('ignore', category=RuntimeWarning)
 
     # parse arguments
     parser = argparse.ArgumentParser(description='Visualization script')
@@ -23,7 +25,7 @@ if __name__ == '__main__':
         args.filenames = [
             ('results/lstdq_baseline', 'LSTD Q'),
             ('results/gp_safe_lstdq', 'GPsafe LSTD Q'),
-            # ('results/pk_baseline', 'PK'),
+            ('results/pk_baseline', 'PK'),
         ]
     funcs = [
         plot.performance,
@@ -32,7 +34,7 @@ if __name__ == '__main__':
         plot.safety
     ]
     figs = [None] * len(funcs)
-    colors = cycle(plot.MATLAB_COLORS)
+    colors = mpl.rcParams['axes.prop_cycle']
     if args.plots is None:
         args.plots = range(len(funcs))
 
@@ -58,7 +60,7 @@ if __name__ == '__main__':
                     envs=envs,
                     agents=agents,
                     fig=figs[i],
-                    color=color,
+                    color=color['color'],
                     label=label
                 )
     plt.show()
