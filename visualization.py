@@ -28,9 +28,9 @@ if __name__ == '__main__':
             # ('results/pk_baseline', 'PK'),
         ]
     funcs = [
-        # plot.performance,
-        # plot.constraint_violation,
-        # plot.learned_weights,
+        plot.performance,
+        plot.constraint_violation,
+        plot.learned_weights,
         plot.safety
     ]
     figs = [None] * len(funcs)
