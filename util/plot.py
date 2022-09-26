@@ -281,8 +281,8 @@ def performance(
     else:
         ax = fig.axes[0]
 
-    episodes = np.arange(len(envs[0].cum_rewards)) + 1
     rewards: np.ndarray = jaggedstack([env.cum_rewards for env in envs])
+    episodes = np.arange(rewards.shape[1]) + 1
 
     _plot_population(ax, episodes, rewards, color=color, label=label,
                      xlabel='Episode', ylabel='Cumulative cost')
@@ -355,10 +355,8 @@ def learned_weights(
     if agents is None or any(a is None for a in agents):
         return
 
-    Nupdates = len(agents[0].update_gradient)
     weightnames = agents[0].weights_history.keys()
     Nweights = len(weightnames)
-    updates = np.arange(Nupdates + 1) + 1
 
     # create figure and grid
     ncols = int(np.round(np.sqrt(Nweights + 1)))
@@ -380,6 +378,7 @@ def learned_weights(
         jaggedstack([agent.update_gradient for agent in agents]))).sum(axis=-1)
     )
     log10_mean_norm = 10**(np.log10(norms).mean(axis=0))
+    updates = np.arange(norms.shape[1] + 1) + 1
     _plot_population(ax, updates[:-1], norms, log10_mean_norm, color=color,
                      label=label, xlabel='Update', ylabel='||p||',
                      method='semilogy')

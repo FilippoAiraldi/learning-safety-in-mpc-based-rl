@@ -25,7 +25,7 @@ if __name__ == '__main__':
         args.filenames = [
             ('results/lstdq_baseline', 'LSTD Q'),
             ('results/gp_safe_lstdq', 'GPsafe LSTD Q'),
-            ('results/pk_baseline', 'PK'),
+            # ('results/pk_baseline', 'PK'),
         ]
     funcs = [
         plot.performance,
