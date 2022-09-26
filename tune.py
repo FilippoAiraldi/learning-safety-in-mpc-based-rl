@@ -1,6 +1,7 @@
 import argparse
 import numpy as np
 import optuna
+import os
 from agents import (
     QuadRotorLSTDQAgent,
     QuadRotorLSTDDPGAgent,
@@ -16,6 +17,7 @@ from util import io
 from typing import Type, TypeVar
 
 
+os.environ['PYTHONWARNINGS'] = 'ignore'
 AgentType = TypeVar('AgentType', bound=QuadRotorBaseLearningAgent)
 
 
