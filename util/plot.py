@@ -234,11 +234,15 @@ def _plot_population(
     method: str = 'plot'
 ) -> None:
     func = getattr(ax, method)
-    y_mean = y_mean if y_mean is not None else np.nanmean(y, axis=0)
+    if y_mean is None and y is not None:
+        y_mean = np.nanmean(y, axis=0)
     if method != 'errorbar':
-        func(x, y.T, linewidth=LINEWIDTHS[0], color=color, linestyle=linestyle)
-        func(x, y_mean, linewidth=LINEWIDTHS[1], color=color,
-             linestyle=linestyle, label=label)
+        if y is not None:
+            func(x, y.T, linewidth=LINEWIDTHS[0], color=color,
+                 linestyle=linestyle)
+        if y_mean is not None:
+            func(x, y_mean, linewidth=LINEWIDTHS[1], color=color,
+                 linestyle=linestyle, label=label)
     else:
         y_std = y_std if y_std is not None else np.nanstd(y, axis=0)
         func(x, y_mean, yerr=y_std, linewidth=LINEWIDTHS[1], color=color,
@@ -405,11 +409,12 @@ def safety(
     label: str = None,
     **_
 ) -> Optional[Figure]:
+    '''Plots safety related quantities for the simulation.'''
     if envs is None and agents is None:
         return
 
     if fig is None:
-        fig, axs = plt.subplots(1, 2, constrained_layout=True)
+        fig, axs = plt.subplots(1, 3, constrained_layout=True)
     else:
         axs = fig.axes
 
@@ -422,21 +427,31 @@ def safety(
             [jaggedstack(env.actions) for env in envs]))
         episodes = np.arange(observations.shape[2]) + 1
 
-        # apply 2 reductions: first merge lb and ub in a single constraint
-        # (since both cannot be active at the same time) (max axis=1); then
-        # reduce each trajectory's violations to scalar by picking max
-        # violation (max axis=2)
+        # plot percentage of failed agents
+        failed: np.ndarray = np.stack(
+            [episodes > len(env.episode_lengths) for env in envs])
+        ax = next(axs)
+        _plot_population(ax, episodes, y=None, y_mean=failed.sum(axis=0),
+                         color=color, label=label, xlabel='Episode',
+                         ylabel='Failed agents')
+        ax.set_ylim(0, failed.shape[0])
+        ax.yaxis.set_major_formatter(PercentFormatter(xmax=failed.shape[0]))
+
+        # compute constraint violations and apply 2 reductions: first merge lb
+        # and ub in a single constraint (since both cannot be active at the
+        # same time) (max axis=1); then reduce each trajectory's violations to
+        # scalar by picking max violation (max axis=2)
         x_bnd, u_bnd = envs[0].config.x_bounds, envs[0].config.u_bounds
         cv_obs, cv_act = (
             np.nanmax(cv, axis=(1, 2))
-            for cv in cv_((observations, x_bnd),
-                          (actions, u_bnd)))
+            for cv in cv_((observations, x_bnd), (actions, u_bnd))
+        )
 
         # plot cumulative number of unsafe episodes
         cv_all = np.concatenate((cv_obs, cv_act), axis=0)
         cnt = np.nancumsum((np.nanmax(cv_all, axis=0) > 0.0), axis=0)
         _plot_population(next(axs), episodes, cnt.T, color=color, label=label,
-                         xlabel='Episode', ylabel='Number of snsafe episodes')
+                         xlabel='Episode', ylabel='Number of unsafe episodes')
 
         # # plot also the overall constraint violation
         # cv_all[~np.isfinite(cv_all)] = 0.0
