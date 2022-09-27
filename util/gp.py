@@ -1,4 +1,5 @@
 import casadi as cs
+import math
 import numpy as np
 from joblib import Parallel
 from sklearn.gaussian_process import GaussianProcessRegressor, kernels
@@ -9,9 +10,10 @@ from typing import Callable, Optional, Union
 
 
 KERNEL_PARAMS_DICT = {
-    kernels.RBF: 'length_scale',
-    kernels.ConstantKernel: 'constant_value',
-    kernels.WhiteKernel: 'noise_level'
+    kernels.RBF: ('length_scale',),
+    kernels.Matern: ('nu', 'length_scale',),
+    kernels.ConstantKernel: ('constant_value',),
+    kernels.WhiteKernel: ('noise_level',)
 }
 
 
@@ -23,11 +25,12 @@ class CasadiKernels:
 
     @staticmethod
     def ConstantKernel(
-        val: float,
+        pars: tuple[float],
         X: Union[np.ndarray, cs.SX, cs.MX, cs.DM],
         Y: Union[np.ndarray, cs.SX, cs.MX, cs.DM] = None,
         diag: bool = False
     ) -> np.ndarray:
+        val, = pars
         if not diag:
             if Y is None:
                 Y = X
@@ -38,11 +41,12 @@ class CasadiKernels:
 
     @staticmethod
     def RBF(
-        length_scale: Union[float, np.ndarray],
+        pars: tuple[Union[float, np.ndarray]],
         X: Union[np.ndarray, cs.SX, cs.MX, cs.DM],
         Y: Union[np.ndarray, cs.SX, cs.MX, cs.DM] = None,
         diag: bool = False
     ) -> Union[np.ndarray, cs.SX, cs.MX, cs.DM]:
+        length_scale, = pars
         if not diag:
             l = np.asarray(length_scale).reshape(1, -1)
             n = X.shape[0]
@@ -63,12 +67,54 @@ class CasadiKernels:
             return np.ones((X.shape[0], 1))
 
     @staticmethod
+    def Matern(
+        pars: tuple[float, Union[float, np.ndarray]],
+        X: Union[np.ndarray, cs.SX, cs.MX, cs.DM],
+        Y: Union[np.ndarray, cs.SX, cs.MX, cs.DM] = None,
+        diag: bool = False
+    ) -> Union[np.ndarray, cs.SX, cs.MX, cs.DM]:
+        nu, length_scale = pars
+        if not diag:
+            l = np.asarray(length_scale).reshape(1, -1)
+            n = X.shape[0]
+            X = X / np.tile(l, (n, 1))
+            if Y is None:
+                m = n
+                Y = X
+            else:
+                m = Y.shape[0]
+                Y = Y / np.tile(l, (m, 1))
+            dists = cs.horzcat(*(cs.sqrt(cs.sum2(
+                    (X - cs.repmat(Y[i, :].reshape((1, -1)), n, 1))**2))
+                for i in range(m)
+            ))
+
+            if nu == 0.5:
+                K = np.exp(-dists)
+            elif nu == 1.5:
+                K = dists * math.sqrt(3)
+                K = (1.0 + K) * np.exp(-K)
+            elif nu == 2.5:
+                K = dists * math.sqrt(5)
+                K = (1.0 + K + K**2 / 3.0) * np.exp(-K)
+            elif nu == np.inf:
+                K = np.exp(-(dists**2) / 2.0)
+            else:  # general case; expensive to evaluate
+                raise ValueError('Invalud nu.')
+
+            return K
+        else:
+            assert Y is None
+            return np.ones((X.shape[0], 1))
+
+    @staticmethod
     def WhiteKernel(
-        noise_level: float,
+        pars: tuple[float],
         X: Union[np.ndarray, cs.SX, cs.MX, cs.DM],
         Y: Union[np.ndarray, cs.SX, cs.MX, cs.DM] = None,
         diag: bool = False
     ) -> np.ndarray:
+        noise_level, = pars
         if not diag:
             return (
                 (noise_level * np.eye(X.shape[0]))
@@ -88,18 +134,18 @@ class CasadiKernels:
     ],
         Union[np.ndarray, cs.SX, cs.MX, cs.DM]
     ]:
-        def _recursive(_kernel):
-            if isinstance(_kernel, kernels.KernelOperator):
-                k1 = _recursive(_kernel.k1)
-                k2 = _recursive(_kernel.k2)
-                if isinstance(_kernel, kernels.Sum):
+        def _recursive(_krl):
+            if isinstance(_krl, kernels.KernelOperator):
+                k1 = _recursive(_krl.k1)
+                k2 = _recursive(_krl.k2)
+                if isinstance(_krl, kernels.Sum):
                     return lambda X, Y, diag: k1(X, Y, diag) + k2(X, Y, diag)
-                if isinstance(_kernel, kernels.Product):
+                if isinstance(_krl, kernels.Product):
                     return lambda X, Y, diag: k1(X, Y, diag) * k2(X, Y, diag)
                 raise TypeError('Unrecognized kernel operator.')
 
-            func = getattr(CasadiKernels, type(_kernel).__name__)
-            p = getattr(_kernel, KERNEL_PARAMS_DICT[type(_kernel)])
+            func = getattr(CasadiKernels, type(_krl).__name__)
+            p = [getattr(_krl, a) for a in KERNEL_PARAMS_DICT[type(_krl)]]
             return lambda X, Y, diag: func(p, X, Y, diag)
 
         out = _recursive(kernel)

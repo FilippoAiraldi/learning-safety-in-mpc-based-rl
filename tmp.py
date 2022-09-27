@@ -6,7 +6,7 @@ from scipy.linalg.lapack import dtrtri
 from sklearn.gaussian_process import GaussianProcessRegressor, kernels
 from sklearn.model_selection import train_test_split
 from util.gp import MultitGaussianProcessRegressor, \
-    MultiGaussianProcessRegressorCallback, CasadiKernels
+    CasadiKernels
 
 # from scipy.stats import norm
 # 1.96 = norm.ppf((0.95 + 1) / 2) # because of abs value, but we need the tail
@@ -31,7 +31,8 @@ def reproducing_gp_in_casadi():
         loc=0.0, scale=noise_std, size=y_train.shape)
 
     # create kernel and GP and fit it
-    kernel = 1 * kernels.RBF(
+    kernel = 1 * kernels.Matern(
+        nu=1.5,
         length_scale=np.ones((X.shape[-1],)),
         length_scale_bounds=(1e-2, 1e2)) + kernels.WhiteKernel()
     # kernel = (
@@ -72,9 +73,9 @@ def reproducing_gp_in_casadi():
     y_mean2 = subsevalf(y_mean_sym, Xsym, X)
     y_std2 = subsevalf(y_std_sym, Xsym, X)
 
-    print(*(np.allclose(*o) for o in [
+    assert all(np.allclose(*o) for o in [
         (y_mean0, y_mean1), (y_mean1, y_mean2),
-        (y_std0, y_std1), (y_std1, y_std2)]))
+        (y_std0, y_std1), (y_std1, y_std2)])
 
     plt.plot(X, y, label=r"$f(x) = x \sin(x)$", linestyle="dotted")
     plt.errorbar(
