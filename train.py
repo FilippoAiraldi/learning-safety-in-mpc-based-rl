@@ -143,7 +143,7 @@ if __name__ == '__main__':
     parser.add_argument('--n_jobs', type=int, default=-1,
                         help='Joblib\'s parallel jobs.')
     # only relevant for safe variant of algorithm
-    parser.add_argument('--safe', action='store_true',
+    parser.add_argument('--safe', type=bool, default=True,
                         help='If passed, trains the agent\'s safe variant.')
     parser.add_argument('--gp_alpha', type=float, default=1e-10,
                         help='Measurement noise of the GP data.')
