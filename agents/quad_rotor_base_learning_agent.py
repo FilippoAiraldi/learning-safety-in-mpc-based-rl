@@ -155,6 +155,8 @@ class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
                 logger.error(f'Suppressing agent \'{self.name}\': {ex}')
                 break
 
+        if not results:
+            return (np.nan, [], []) if return_info else np.nan
         if not return_info:
             return np.stack(results, axis=0)
         returns, grads, weightss = list(zip(*results))
