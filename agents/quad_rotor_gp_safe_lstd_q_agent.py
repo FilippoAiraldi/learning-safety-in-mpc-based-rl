@@ -3,8 +3,8 @@ import logging
 import numpy as np
 import time
 from agents.quad_rotor_base_learning_agent import UpdateError
-from agents.quad_rotor_lstd_q_agent import QuadRotorLSTDQAgent, \
-    QuadRotorLSTDQAgentConfig
+from agents.quad_rotor_lstd_q_agent import \
+    QuadRotorLSTDQAgent, QuadRotorLSTDQAgentConfig
 from dataclasses import dataclass
 from itertools import chain
 from mpc import MPCSolverError
@@ -19,11 +19,20 @@ from util.gp import MultitGaussianProcessRegressor, CasadiKernels
 
 @dataclass(frozen=True)
 class QuadRotorGPSafeLSTDQAgentConfig(QuadRotorLSTDQAgentConfig):
+    alpha: float = 1e-10
+    kernel_cls: type = kernels.RBF # kernels.Matern
+    average_violation: bool = True
+    
     mu0: float = 0.0    # target constraint violation
     mu0_backtracking: float = 0.0
     beta: float = 0.9   # probability of target violation satisfaction
     beta_backtracking: float = 0.9
     n_restarts_optimizer: int = 9
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.kernel_cls, str):
+            return
+        self.__dict__['kernel_cls'] = getattr(kernels, self.kernel_cls)
 
 
 class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
@@ -80,6 +89,7 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
         env, name, epoch_n = self.env, self.name, self._epoch_n
         returns = np.zeros(n_episodes)
         seeds = self._make_seed_list(seed, n_episodes)
+        violations: list[np.ndarray] = []
 
         for e in range(n_episodes):
             state = env.reset(seed=seeds[e])
@@ -114,13 +124,15 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
             # compute its trajectories' constraint violations
             self.consolidate_episode_experience()
             logger.debug(f'{name}|{epoch_n}|{e}: J={returns[e]:,.3f}')
-            self._gpr_dataset.append((
-                self.weights.values(),
-                self._compute_constraint_violation(states, actions)
-            ))
+            violations.append(self._compute_violation(states, actions))
 
-        # when all m episodes are done, perform RL update and reduce
-        # exploration strength and chance
+        # when all m episodes are done, append the violations for the GP to fit
+        # and perform RL update and reduce exploration strength and chance
+        theta = self.weights.values()
+        if self.config.average_violation:
+            self._gpr_dataset.append((theta, np.mean(violations, axis=0)))
+        else:
+            self._gpr_dataset.extend(((theta, v) for v in violations))
         update_grad, backtracked_gp_pars, gp_fit_time = self.update()
         self.backtracked_gp_pars_history.append(backtracked_gp_pars)
         self.perturbation_strength *= perturbation_decay
@@ -138,7 +150,7 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
             returns
         )
 
-    def _compute_constraint_violation(
+    def _compute_violation(
         self,
         states: list[np.ndarray],
         actions: list[np.ndarray],
@@ -162,22 +174,25 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
 
     def _init_qp_solver(self) -> Optional[tuple[cs.Function, float]]:
         if not hasattr(self, '_gpr'):
+            cfg: QuadRotorGPSafeLSTDQAgentConfig = self.config
+
             # this is the first time the initilization gets called, so only the
             # GP regressor is initialized and the QP symbols with fixed size
             n_theta = sum(self.weights.sizes())
 
-            self._gpr_dataset: list[tuple[np.ndarray, np.ndarray]] = []
+            kernel = (
+                1**2 * cfg.kernel_cls(
+                    length_scale=np.ones(n_theta),
+                    length_scale_bounds=(1e-5, 1e6)) +
+                kernels.WhiteKernel()
+            )
             self._gpr = MultitGaussianProcessRegressor(
-                kernel=(
-                    1**2 * kernels.RBF(
-                        length_scale=np.ones(n_theta),
-                        length_scale_bounds=(1e-5, 1e6)) +
-                    kernels.WhiteKernel()  # use only if not averaging
-                ),
-                alpha=1e-6,
-                n_restarts_optimizer=self.config.n_restarts_optimizer,
+                kernel=kernel,
+                alpha=cfg.alpha,
+                n_restarts_optimizer=cfg.n_restarts_optimizer,
                 random_state=self.seed
             )
+            self._gpr_dataset: list[tuple[np.ndarray, np.ndarray]] = []
 
             theta: cs.MX = cs.MX.sym('theta', n_theta, 1)
             theta_new: cs.MX = cs.MX.sym('theta+', n_theta, 1)

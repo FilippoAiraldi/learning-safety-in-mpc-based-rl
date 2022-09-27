@@ -140,10 +140,17 @@ if __name__ == '__main__':
     parser.add_argument('--seed', type=int, default=1909, help='RNG seed.')
     parser.add_argument('--eval_pk', action='store_true',
                         help='If passed, evaluates a PK agent.')
-    parser.add_argument('--safe', action='store_true',
-                        help='If passed, trains the agent\'s safe variant.')
     parser.add_argument('--n_jobs', type=int, default=-1,
                         help='Joblib\'s parallel jobs.')
+    # only relevant for safe variant of algorithm
+    parser.add_argument('--safe', action='store_true',
+                        help='If passed, trains the agent\'s safe variant.')
+    parser.add_argument('--gp_alpha', type=float, default=1e-10,
+                        help='Measurement noise of the GP data.')
+    parser.add_argument('--gp_kernel_type', choices=('RBF', 'Matern'),
+                        default='RBF', help='Kernel core of GP function.')
+    parser.add_argument('--average_violation', type=bool, default=True,
+                        help='Reduce GP data by averaging violations.')
     args = parser.parse_args()
 
     # prepare to launch
@@ -156,7 +163,10 @@ if __name__ == '__main__':
         'max_perc_update': args.max_perc_update,
         'replay_maxlen': args.episodes * args.replay_mem_maxlen_factor,
         'replay_sample_size': args.replay_mem_sample_size,
-        'replay_include_last': args.episodes
+        'replay_include_last': args.episodes,
+        'alpha': args.gp_alpha,
+        'kernel_cls': args.gp_kernel_type,
+        'average_violation': args.average_violation,
     }
     if args.agents == 1:
         args.n_jobs = 1  # don't parallelize
