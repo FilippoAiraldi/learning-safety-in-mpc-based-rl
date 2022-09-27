@@ -20,10 +20,10 @@ from util.gp import MultitGaussianProcessRegressor, CasadiKernels
 @dataclass(frozen=True)
 class QuadRotorGPSafeLSTDQAgentConfig(QuadRotorLSTDQAgentConfig):
     alpha: float = 1e-10
-    kernel_cls: type = kernels.RBF # kernels.Matern
+    kernel_cls: type = kernels.RBF  # kernels.Matern
     average_violation: bool = True
-    
-    mu0: float = 0.0    # target constraint violation
+
+    mu0: float = np.nan  # target constraint violation
     mu0_backtracking: float = 0.0
     beta: float = 0.9   # probability of target violation satisfaction
     beta_backtracking: float = 0.9
@@ -174,12 +174,12 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
 
     def _init_qp_solver(self) -> Optional[tuple[cs.Function, float]]:
         if not hasattr(self, '_gpr'):
-            cfg: QuadRotorGPSafeLSTDQAgentConfig = self.config
-
             # this is the first time the initilization gets called, so only the
             # GP regressor is initialized and the QP symbols with fixed size
+            cfg: QuadRotorGPSafeLSTDQAgentConfig = self.config
             n_theta = sum(self.weights.sizes())
 
+            # create regressor
             kernel = (
                 1**2 * cfg.kernel_cls(
                     length_scale=np.ones(n_theta),
@@ -192,8 +192,14 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
                 n_restarts_optimizer=cfg.n_restarts_optimizer,
                 random_state=self.seed
             )
-            self._gpr_dataset: list[tuple[np.ndarray, np.ndarray]] = []
+            if np.isnan(cfg.mu0):
+                # initiliaze GP prior so that all thetas are safe at start
+                prior_mu, prior_std = 0, np.sqrt(
+                    CasadiKernels.sklearn2func(kernel)(np.zeros(1), diag=True)
+                ).item()
+                cfg.__dict__['mu0'] = prior_mu + norm_ppf(cfg.beta) * prior_std
 
+            # compute symbols that do not depend on GP
             theta: cs.MX = cs.MX.sym('theta', n_theta, 1)
             theta_new: cs.MX = cs.MX.sym('theta+', n_theta, 1)
             dtheta = theta_new - theta
@@ -201,7 +207,6 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
             lr: cs.MX = cs.MX.sym('lr', 1, 1)
             mu0: cs.MX = cs.MX.sym('mu0', 1, 1)
             beta: cs.MX = cs.MX.sym('beta', 1, 1)
-
             self._qp = {
                 'theta_new': theta_new,
                 'mu0': mu0,
@@ -222,6 +227,9 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
                     }
                 }
             }
+
+            # initialize storages
+            self._gpr_dataset: list[tuple[np.ndarray, np.ndarray]] = []
             self.backtracked_gp_pars_history: list[tuple[float, float]] = []
         else:
             # regressor initialization (other branch) has been done, so we can
@@ -235,15 +243,15 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
 
             # compute the symbolic posterior mean and std of the GP
             theta_new = self._qp['theta_new'].T
-            mean, std = [], []
+            mean, var = [], []
             for gpr in self._gpr.estimators_:
                 kernel_func = CasadiKernels.sklearn2func(gpr.kernel_)
                 L_inv = dtrtri(gpr.L_, lower=True)[0]
                 k = kernel_func(gpr.X_train_, theta_new)  # X_train_==theta
                 V = L_inv @ k
                 mean.append(k.T @ gpr.alpha_)
-                std.append(kernel_func(theta_new, diag=True) - cs.sum1(V**2).T)
-            mean, std = cs.vertcat(*mean), cs.sqrt(cs.vertcat(*std))
+                var.append(kernel_func(theta_new, diag=True) - cs.sum1(V**2).T)
+            mean, std = cs.vertcat(*mean), cs.sqrt(cs.vertcat(*var))
 
             # compute the constraint function for the new theta
             mu0, beta = self._qp['mu0'], self._qp['beta']

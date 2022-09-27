@@ -3,9 +3,6 @@ import math
 from typing import Union
 
 
-SQRT2 = math.sqrt(2)
-
-
 def prod(
     x: Union[cs.SX, cs.MX, cs.DM], axis: int = 0
 ) -> Union[cs.SX, cs.MX, cs.DM]:
@@ -31,7 +28,7 @@ def norm_cdf(
     scale: Union[cs.SX, cs.MX, cs.DM] = 1
 ) -> Union[cs.SX, cs.MX, cs.DM]:
     '''CasADi version of `scipy.stats.norm.cdf`.'''
-    return 0.5 * (1 + cs.erf((x - loc) / SQRT2 / scale))
+    return 0.5 * (1 + cs.erf((x - loc) / math.sqrt(2) / scale))
 
 
 def norm_ppf(
@@ -40,4 +37,4 @@ def norm_ppf(
     scale: Union[cs.SX, cs.MX, cs.DM] = 1
 ) -> Union[cs.SX, cs.MX, cs.DM]:
     '''CasADi version of `scipy.stats.norm.ppf`.'''
-    return SQRT2 * scale * cs.erfinv(2 * p - 1) + loc
+    return math.sqrt(2) * scale * cs.erfinv(2 * p - 1) + loc
