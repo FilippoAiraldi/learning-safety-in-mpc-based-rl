@@ -1,7 +1,8 @@
 import logging
 import numpy as np
 import casadi as cs
-from agents.quad_rotor_base_learning_agent import QuadRotorBaseLearningAgent
+from agents.quad_rotor_base_learning_agent import \
+    QuadRotorBaseLearningAgent, UpdateError
 from dataclasses import dataclass
 from envs import QuadRotorEnv
 from itertools import chain
@@ -173,7 +174,8 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
             theta, self.weights.bounds(), cfg.max_perc_update)
         sol = self._solver(lbx=lb, ubx=ub, x0=theta - c,
                            p=np.concatenate((theta, c)))
-        assert self._solver.stats()['success'], 'RL update failed.'
+        if not self._solver.stats()['success']:
+            raise UpdateError('RL update failed.')
         self.weights.update_values(sol['x'].full().flatten())
         return p
 

@@ -143,13 +143,13 @@ if __name__ == '__main__':
     parser.add_argument('--n_jobs', type=int, default=-1,
                         help='Joblib\'s parallel jobs.')
     # only relevant for safe variant of algorithm
-    parser.add_argument('--safe', type=bool, default=True,
+    parser.add_argument('--safe', action='store_true',
                         help='If passed, trains the agent\'s safe variant.')
     parser.add_argument('--gp_alpha', type=float, default=1e-10,
                         help='Measurement noise of the GP data.')
     parser.add_argument('--gp_kernel_type', choices=('RBF', 'Matern'),
                         default='RBF', help='Kernel core of GP function.')
-    parser.add_argument('--average_violation', type=bool, default=True,
+    parser.add_argument('--average_violation', action='store_true',
                         help='Reduce GP data by averaging violations.')
     args = parser.parse_args()
 
