@@ -27,7 +27,7 @@ class QuadRotorGPSafeLSTDQAgentConfig(QuadRotorLSTDQAgentConfig):
     beta: float = 0.9   # probability of target violation satisfaction
     C: float = 1e3  # GP constraints weights in objective
     C_backtracking: float = 0.9
-    n_restarts_optimizer: int = 9
+    n_opti: int = 9  # number of multistart for nonlinear optimization
 
     def __post_init__(self) -> None:
         if not isinstance(self.kernel_cls, str):
@@ -53,15 +53,22 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
 
         # run QP solver (backtrack on beta if necessary) and update weights
         theta = self.weights.values()
-        x0 = theta - cfg.lr * p
+        candidates = np.linspace(theta, theta - cfg.lr * p, cfg.n_opti)
         pars = np.block([theta, p, cfg.lr, cfg.mu0, cfg.beta, cfg.C])
         lb, ub = self._get_percentage_bounds(
             theta, self.weights.bounds(), cfg.max_perc_update)
         while True:
-            sol = self._solver(
-                lbx=lb, ubx=ub, lbg=-np.inf, ubg=0, x0=x0, p=pars)
-            if self._solver.stats()['success']:
-                self.weights.update_values(sol['x'].full().flatten())
+            # run the solver for each candidate
+            best_sol = None
+            for i in range(cfg.n_opti):
+                sol = self._solver(p=pars, lbx=lb, ubx=ub, x0=candidates[i])
+                if self._solver.stats()['success'] and \
+                        (best_sol is None or sol['f'] < best_sol['f']):
+                    best_sol = sol
+
+            # either apply the successful update or backtrack
+            if best_sol is not None:
+                self.weights.update_values(best_sol['x'].full().flatten())
                 break
             else:
                 pars[-1] *= cfg.C_backtracking
@@ -182,7 +189,7 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
             self._gpr = MultitGaussianProcessRegressor(
                 kernel=kernel,
                 alpha=cfg.alpha,
-                n_restarts_optimizer=cfg.n_restarts_optimizer,
+                n_restarts_optimizer=cfg.n_opti,
                 random_state=self.seed
             )
 
@@ -207,7 +214,7 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
                     'expand': True,  # False when using callback
                     'print_time': False,
                     'ipopt': {
-                        'max_iter': 1000,
+                        'max_iter': 500,
                         'sb': 'yes',
                         # debug
                         'print_level': 0,
@@ -245,15 +252,14 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
             # compute the constraint function for the new theta
             mu0, beta = self._qp['mu0'], self._qp['beta']
             g = mean - mu0 + norm_ppf(beta) * std
-            self._qp['g'] = self._qp['C'] * (g.T @ g)
+            self._qp['g'] = self._qp['C'] * cs.sum1(cs.fmax(0, g)**2)
 
             # create QP solver
+            qp = {
+                'x': theta_new,
+                'f': self._qp['f'] + self._qp['g'],
+                'p': self._qp['p'],
+            }
             solver = cs.nlpsol(
-                f'QP_ipopt_{self.name}',
-                'ipopt', {
-                    'x': theta_new,
-                    'f': self._qp['f'] + self._qp['g'],
-                    'p': self._qp['p'],
-                },
-                self._qp['opts'])
+                f'QP_ipopt_{self.name}', 'ipopt', qp, self._qp['opts'])
             return solver, fit_time
