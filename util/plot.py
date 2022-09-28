@@ -468,10 +468,11 @@ def safety(
         pars = jaggedstack([getattr(a, attr) for a in agents])
         updates = np.arange(pars.shape[1]) + 1
 
-        parnames = ['$\\mu_0$', '$\\beta$']
+        parnames = ['C', '$\\mu_0$', '$\\beta$']
         ax = next(axs)
         ax.set_axis_on()
-        for i, (name, ls) in enumerate(zip(parnames, ['--', '-'])):
+        for i, name, ls in zip(
+            range(pars.shape[-1]), parnames, [':', '--', '-']):
             name = name if label is None else f'{label}: {name}'
             _plot_population(ax, updates, pars[..., i], color=color,
                              linestyle=ls, label=name,
