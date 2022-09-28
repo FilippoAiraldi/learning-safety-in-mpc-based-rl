@@ -175,7 +175,7 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
         sol = self._solver(lbx=lb, ubx=ub, x0=theta - c,
                            p=np.concatenate((theta, c)))
         if not self._solver.stats()['success']:
-            raise UpdateError('RL update failed.')
+            raise UpdateError(f'RL update failed in epoch {self._epoch_n}.')
         self.weights.update_values(sol['x'].full().flatten())
         return p
 

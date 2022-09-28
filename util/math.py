@@ -94,19 +94,25 @@ def jaggedstack(
     stacked : ndarray
         The stacked array has one more dimension than the input arrays.
     '''
-    arrays = [np.asanyarray(arr) for arr in arrays]
+    arrays: list[np.ndarray] = [np.asanyarray(a) for a in arrays]
     if not arrays:
         raise ValueError('need at least one array to stack')
-    maxshape = arrays[0].shape
+    maxndim = max(map(lambda a: a.ndim, arrays))
+    newarrays = []
+    maxshape = None
     for a in arrays:
-        maxshape = np.maximum(maxshape, a.shape)
-    arrays = [
+        if a.ndim < maxndim:
+            a = np.expand_dims(a, tuple(range(a.ndim, maxndim)))
+        maxshape = \
+            a.shape if maxshape is None else np.maximum(maxshape, a.shape)
+        newarrays.append(a)
+    newarrays = [
         np.pad(
             a,
             [(0, d_max - d) for d, d_max in zip(a.shape, maxshape)],
             mode='constant',
             constant_values=constant_values
         )
-        for a in arrays
+        for a in newarrays
     ]
-    return np.stack(arrays, axis, out)
+    return np.stack(newarrays, axis, out)

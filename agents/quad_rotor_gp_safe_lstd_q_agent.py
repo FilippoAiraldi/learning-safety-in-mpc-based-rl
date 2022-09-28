@@ -52,14 +52,13 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
         # run QP solver (backtrack on beta if necessary) and update weights
         theta = self.weights.values()
         x0 = theta - cfg.lr * p
-        beta, mu0 = cfg.beta, cfg.mu0
-        pars = np.block([theta, p, cfg.lr, mu0, beta])
+        pars = np.block([theta, p, cfg.lr, cfg.mu0, cfg.beta])
         lb, ub = self._get_percentage_bounds(
             theta, self.weights.bounds(), cfg.max_perc_update)
         sol = self._solver(
             lbx=lb, ubx=ub, lbg=-np.inf, ubg=0, x0=x0, p=pars)
         if not self._solver.stats()['success']:
-            raise UpdateError('RL update failed.')
+            raise UpdateError(f'RL update failed in epoch {self._epoch_n}.')
         self.weights.update_values(sol['x'].full().flatten())
         return p, gp_fit_time
 
@@ -201,7 +200,7 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
                     'expand': True,  # False when using callback
                     'print_time': False,
                     'ipopt': {
-                        'max_iter': 500,
+                        'max_iter': 1000,
                         'sb': 'yes',
                         # debug
                         'print_level': 0,
