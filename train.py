@@ -30,7 +30,7 @@ def eval_pk_agent(
     dict[str, Any]
         Data resulting from the simulation.
     '''
-    env = envs.QuadRotorEnv.get_wrapped(
+    env = envs.NormalizedQuadRotorEnv.get_wrapped(
         max_episode_steps=max_ep_steps,
         normalize_observation=False,
         normalize_reward=False
@@ -90,7 +90,7 @@ def train_lstdq_agent(
         Data resulting from the simulation.
     '''
     logger = None  # log.create_logger(run_name, to_file=False)
-    env = envs.QuadRotorEnv.get_wrapped(
+    env = envs.NormalizedQuadRotorEnv.get_wrapped(
         max_episode_steps=max_ep_steps,
         normalize_observation=False,
         normalize_reward=False
