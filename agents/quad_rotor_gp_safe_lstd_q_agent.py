@@ -24,9 +24,9 @@ class QuadRotorGPSafeLSTDQAgentConfig(QuadRotorLSTDQAgentConfig):
     average_violation: bool = True
 
     mu0: float = 0.0  # target constraint violation
+    mu0_backtracking: float = 0.0
     beta: float = 0.9   # probability of target violation satisfaction
-    C: float = 1e3  # GP constraints weights in objective
-    C_backtracking: float = 0.9
+    beta_backtracking: float = 0.9
     n_opti: int = 9  # number of multistart for nonlinear optimization
 
     def __post_init__(self) -> None:
@@ -38,7 +38,7 @@ class QuadRotorGPSafeLSTDQAgentConfig(QuadRotorLSTDQAgentConfig):
 class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
     config_cls: type = QuadRotorGPSafeLSTDQAgentConfig
 
-    def update(self) -> tuple[np.ndarray, tuple[float], float]:
+    def update(self) -> tuple[np.ndarray, tuple[float, float], float]:
         cfg: QuadRotorGPSafeLSTDQAgentConfig = self.config
         self._solver, gp_fit_time = self._init_qp_solver()
 
@@ -54,14 +54,16 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
         # run QP solver (backtrack on beta if necessary) and update weights
         theta = self.weights.values()
         candidates = np.linspace(theta, theta - cfg.lr * p, cfg.n_opti)
-        pars = np.block([theta, p, cfg.lr, cfg.mu0, cfg.beta, cfg.C])
+        mu0, beta = cfg.mu0, cfg.beta
+        pars = np.block([theta, p, cfg.lr, mu0, beta])
         lb, ub = self._get_percentage_bounds(
             theta, self.weights.bounds(), cfg.max_perc_update)
         while True:
             # run the solver for each candidate
             best_sol = None
-            for i in range(cfg.n_opti):
-                sol = self._solver(p=pars, lbx=lb, ubx=ub, x0=candidates[i])
+            for x0 in candidates:
+                sol = self._solver(
+                    p=pars, lbx=lb, ubx=ub, lbg=-np.inf, ubg=0, x0=x0)
                 if self._solver.stats()['success'] and \
                         (best_sol is None or sol['f'] < best_sol['f']):
                     best_sol = sol
@@ -71,8 +73,10 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
                 self.weights.update_values(best_sol['x'].full().flatten())
                 break
             else:
-                pars[-1] *= cfg.C_backtracking
-        return p, (pars[-1],), gp_fit_time
+                mu0 += cfg.mu0_backtracking
+                beta *= cfg.beta_backtracking
+                pars[-2:] = (mu0, beta)
+        return p, (mu0, beta), gp_fit_time
 
     def learn_one_epoch(
         self,
@@ -142,6 +146,7 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
         # log training outcomes and return cumulative returns
         logger.debug(f'{self.name}|{epoch_n}: J_mean={returns.mean():,.3f}; '
                      f'||p||={np.linalg.norm(update_grad):.3e}; ' +
+                     f'beta={backtracked_gp_pars[1] * 100:.1f}%' +
                      f'GP fit time={gp_fit_time:.2}s' +
                      self.weights.values2str())
         return (
@@ -192,6 +197,12 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
                 n_restarts_optimizer=cfg.n_opti,
                 random_state=self.seed
             )
+            # if np.isnan(cfg.mu0):
+            #     # initiliaze GP prior so that all thetas are safe at start
+            #     prior_mu, prior_std = 0, np.sqrt(
+            #         CasadiKernels.sklearn2func(kernel)(np.zeros(1), diag=True)
+            #     ).item()
+            #     cfg.__dict__['mu0'] = prior_mu + norm_ppf(cfg.beta) * prior_std
 
             # compute symbols that do not depend on GP
             theta: cs.SX = cs.SX.sym('theta', n_theta, 1)
@@ -201,14 +212,12 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
             lr: cs.SX = cs.SX.sym('lr', 1, 1)
             mu0: cs.SX = cs.SX.sym('mu0', 1, 1)
             beta: cs.SX = cs.SX.sym('beta', 1, 1)
-            C: cs.SX = cs.SX.sym('C', 1, 1)
             self._qp = {
                 'theta+': theta_new,
                 'mu0': mu0,
                 'beta': beta,
-                'C': C,
                 'f': 0.5 * dtheta.T @ dtheta + (lr * p).T @ dtheta,
-                'p': cs.vertcat(theta, p, lr, mu0, beta, C),
+                'p': cs.vertcat(theta, p, lr, mu0, beta),
                 'g': None,
                 'opts': {
                     'expand': True,  # False when using callback
@@ -226,7 +235,7 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
 
             # initialize storages
             self._gpr_dataset: list[tuple[np.ndarray, np.ndarray]] = []
-            self.backtracked_gp_pars_history: list[tuple[float]] = []
+            self.backtracked_gp_pars_history: list[tuple[float, float]] = []
         else:
             # regressor initialization (other branch) has been done, so we can
             # move to fitting the GP and creating the QP constraints
@@ -251,14 +260,14 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
 
             # compute the constraint function for the new theta
             mu0, beta = self._qp['mu0'], self._qp['beta']
-            g = mean - mu0 + norm_ppf(beta) * std
-            self._qp['g'] = self._qp['C'] * cs.sum1(cs.fmax(0, g)**2)
+            self._qp['g'] = mean - mu0 + norm_ppf(beta) * std
 
             # create QP solver
             qp = {
                 'x': theta_new,
-                'f': self._qp['f'] + self._qp['g'],
                 'p': self._qp['p'],
+                'f': self._qp['f'],
+                'g': self._qp['g']
             }
             solver = cs.nlpsol(
                 f'QP_ipopt_{self.name}', 'ipopt', qp, self._qp['opts'])
