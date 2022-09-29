@@ -5,6 +5,7 @@ from agents.quad_rotor_base_agent import QuadRotorBaseAgent
 from mpc import MPCSolverError, QuadRotorMPC
 from mpc.wrappers import DifferentiableMPC
 from typing import Union
+from util.rl import RLParameter, RLParameterCollection
 
 
 class UpdateError(RuntimeError):
@@ -18,10 +19,26 @@ class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
     `Q` and `V` differentiable, such that their parameters can be learnt. 
     '''
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(
+        self,
+        *args,
+        init_learnable_pars: dict[str, tuple[np.ndarray, np.ndarray]],
+        **kwargs,
+    ) -> None:
+        '''
+        Instantiates a learning agent.
+
+        Parameters
+        ----------
+        init_learnable_pars : dict[str, tuple[array_like, array_like]]
+            Initial values and bounds for each learnable MPC parameter.
+        *args, **kwargs
+            See `envs.QuadRotorBaseAgent`.
+        '''
         super().__init__(*args, **kwargs)
         self._V = DifferentiableMPC[QuadRotorMPC](self._V)
         self._Q = DifferentiableMPC[QuadRotorMPC](self._Q)
+        self._init_learnable_pars(init_learnable_pars)
         self._epoch_n = None  # keeps track of epoch number just for logging
 
     @property
@@ -161,6 +178,21 @@ class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
             return np.stack(results, axis=0)
         returns, grads, weightss = list(zip(*results))
         return np.stack(returns, axis=0), grads, weightss
+
+    def _init_learnable_pars(
+        self, init_pars: dict[str, tuple[np.ndarray, np.ndarray]]
+    ) -> None:
+        '''Initializes the learnable parameters of the MPC.'''
+        required_pars = set(self._Q.pars).intersection(
+            self._V.pars).difference({'x0', 'xf'}).difference(self.fixed_pars)
+        self.weights = RLParameterCollection(
+            *(RLParameter(
+                name, *init_pars[name], self.V.pars[name], self.Q.pars[name])
+              for name in required_pars)
+        )
+
+    def _merge_mpc_pars_callback(self) -> dict[str, np.ndarray]:
+        return self.weights.values(as_dict=True)
 
     @staticmethod
     def _get_percentage_bounds(

@@ -9,18 +9,26 @@ from itertools import chain
 from mpc import Solution, MPCSolverError, QuadRotorMPCConfig
 from scipy.linalg import cho_solve
 from typing import Union
+from util.configurations import init_config
 from util.math import cholesky_added_multiple_identities
 from util.rl import ReplayMemory
 
 
 @dataclass(frozen=True)
 class QuadRotorLSTDQAgentConfig:
-    # initial RL weights
-    init_g: float = 9.81
-    init_thrust_coeff: float = 2.0
-    init_w_x: np.ndarray = 1e1
-    init_w_u: np.ndarray = 1e0
-    init_w_s: np.ndarray = 1e2
+    # initial learnable RL weights and their bounds
+    init_g: float = (9.81, (1, 40))
+    init_thrust_coeff: float = (2.0, (0.1, 4))
+    init_w_x: np.ndarray = (1e1, (1e-3, np.inf))
+    init_w_u: np.ndarray = (1e0, (1e-3, np.inf))
+    init_w_s: np.ndarray = (1e2, (1e-3, np.inf))
+    # fixed non-learnable weights
+    fixed_pitch_d: float = 12
+    fixed_pitch_dd: float = 7
+    fixed_pitch_gain: float = 11
+    fixed_roll_d: float = 10.5
+    fixed_roll_dd: float = 8
+    fixed_roll_gain: float = 9
 
     # experience replay parameters
     replay_maxlen: float = 20
@@ -32,12 +40,14 @@ class QuadRotorLSTDQAgentConfig:
     lr: float = 1e-1
     max_perc_update: float = np.inf
 
-    @property
-    def init_pars(self) -> dict[str, Union[float, np.ndarray]]:
-        '''Groups the initial RL parameters into a dictionary.'''
+    def get_group(
+        self, group: str
+    ) -> dict[str, tuple[np.ndarray, np.ndarray]]:
+        '''Gets a group of parameters.'''
         return {
-            name.removeprefix('init_'): val
-            for name, val in self.__dict__.items() if name.startswith('init_')
+            name.removeprefix(f'{group}_'): val
+            for name, val in self.__dict__.items()
+            if name.startswith(f'{group}_')
         }
 
 
@@ -79,19 +89,33 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
         seed : int, optional
             Seed for the random number generator.
         '''
+        # initialize fixed and learnable parameters. If the environment is
+        # normalized, then apply normalization here
+        agent_config = init_config(agent_config, self.config_cls)
+        init_pars = agent_config.get_group('init')
+        fixed_pars = agent_config.get_group('fixed')
+        if env.normalized:
+            fixed_pars = {
+                name: env.normalize(name, par)
+                for name, par in fixed_pars.items()
+            }
+            init_pars = {
+                name: (
+                    (par, bnd)
+                    if name.startswith('w_') else
+                    (env.normalize(name, par), env.normalize(name, bnd))
+                )
+                for name, (par, bnd) in init_pars.items()
+            }
+        fixed_pars['perturbation'] = np.nan
+
+        # create base agent
         super().__init__(
             env,
             agentname=agentname,
             agent_config=agent_config,
-            fixed_pars={
-                'pitch_d': 12,
-                'pitch_dd': 7,
-                'pitch_gain': 11,
-                'roll_d': 10.5,
-                'roll_dd': 8,
-                'roll_gain': 9,
-                'perturbation': np.nan
-            },
+            fixed_pars=fixed_pars,
+            init_learnable_pars=init_pars,
             mpc_config=mpc_config,
             seed=seed
         )
@@ -108,7 +132,7 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
 
         # initialize symbols for derivatives to be used later. Also initialize
         # the QP solver used to compute updates
-        self._init_symbols()
+        self._init_derivative_symbols()
         self._init_qp_solver()
 
     def save_transition(
@@ -242,7 +266,7 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
             returns
         )
 
-    def _init_symbols(self) -> None:
+    def _init_derivative_symbols(self) -> None:
         '''Computes symbolical derivatives needed for Q learning.'''
         theta = self.weights.symQ()
         lagr = self.Q.lagrangian

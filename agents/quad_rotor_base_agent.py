@@ -7,7 +7,6 @@ from itertools import count
 from mpc import QuadRotorMPC, QuadRotorMPCConfig, Solution
 from typing import Any, Optional, Union
 from util.configurations import init_config
-from util.rl import RLParameter, RLParameterCollection
 
 
 class QuadRotorBaseAgent(ABC):
@@ -22,7 +21,6 @@ class QuadRotorBaseAgent(ABC):
         env: QuadRotorEnv,
         agentname: str = None,
         agent_config: Union[dict, Any] = None,
-        init_pars: dict[str, np.ndarray] = None,
         fixed_pars: dict[str, np.ndarray] = None,
         mpc_config: Union[dict, QuadRotorMPCConfig] = None,
         seed: int = None
@@ -74,10 +72,6 @@ class QuadRotorBaseAgent(ABC):
         self.last_solution: Solution = None
         self._Q = QuadRotorMPC(env, config=mpc_config, type='Q')
         self._V = QuadRotorMPC(env, config=mpc_config, type='V')
-
-        # initialize learnable weights/parameters
-        init_pars = getattr(self._config, 'init_pars', None)
-        self._init_mpc_parameters(init_pars=init_pars)
 
     @property
     def V(self) -> QuadRotorMPC:
@@ -135,18 +129,18 @@ class QuadRotorBaseAgent(ABC):
             state = self.env.x
 
         # merge all parameters in a single dict
-        pars = (self.weights.values(as_dict=True) |
-                self.fixed_pars | {'x0': state})
+        pars = self.fixed_pars | {'x0': state}
+        pars |= self._merge_mpc_pars_callback()
 
         # if provided, use vals0 to warmstart the MPC. If not provided,
         # use the last_sol field. If the latter is not available yet,
         # just use some default values
         if sol0 is None:
             if self.last_solution is None:
+                g = float(pars.get('g', 0))
                 sol0 = {
                     'x': np.tile(state, (mpc.vars['x'].shape[1], 1)).T,
-                    'u': np.tile([0, 0, self.weights['g'].value.item()],
-                                 (mpc.vars['u'].shape[1], 1)).T,
+                    'u': np.tile([0, 0, g], (mpc.vars['u'].shape[1], 1)).T,
                     'slack': 0
                 }
             else:
@@ -268,41 +262,12 @@ class QuadRotorBaseAgent(ABC):
 
         return returns
 
-    def _init_mpc_parameters(
-            self, init_pars: dict[str, np.ndarray] = None) -> None:
+    def _merge_mpc_pars_callback(self) -> dict[str, np.ndarray]:
         '''
-        Initializes the learnable parameters of the MPC.
-
-        Parameters
-        ----------
-        init_pars : dict[str, array_like]
-            A dict containing, for each learnable parameter in the MPC scheme,
-            its initial value.
+        Callback to allow the merging of additional MPC parameters from 
+        inheriting classes.
         '''
-        # learnable parameters are:
-        #   - model pars: 'g', 'thrust_coeff'
-        #   - cost pars: 'w_x', 'w_u', 'w_s'
-        # NOTE: all these parameters must be column vectors. Cannot deal with
-        # multidimensional matrices!
-        if init_pars is None:
-            init_pars = {}
-
-        # create initial values (nan if not provided), bounds and references to
-        # symbols
-        names_and_bnds = [
-            # model
-            ('g', (1, 40)),
-            ('thrust_coeff', (0.1, 4)),
-            # cost
-            ('w_x', (1e-3, np.inf)),
-            ('w_u', (1e-3, np.inf)),
-            ('w_s', (1e-3, np.inf))
-        ]
-        self.weights = RLParameterCollection(
-            *(RLParameter(name, init_pars.get(name, np.mean(bnd)), bnd,
-                          self.V.pars[name], self.Q.pars[name])
-              for name, bnd in names_and_bnds)
-        )
+        return {}
 
     def __str__(self) -> str:
         '''Returns the agent name.'''
