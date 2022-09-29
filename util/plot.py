@@ -174,9 +174,15 @@ def trajectory_time(env: RecordData, traj_num: int) -> Figure:
     x_bnd, u_bnd = env.config.x_bounds, env.config.u_bounds
     X = env.observations[traj_num]
     U = env.actions[traj_num]
-    R = env.rewards[traj_num]
     t = np.arange(X.shape[0]) * env.config.T  # time
-    error = env.position_error(X)
+
+    # compute contributions to cost (position, control usage, violations)
+    Cx = env.position_error(X[1:])
+    Cu = env.control_usage(U)
+    Cv = env.constraint_violations(X[1:], U)
+    assert np.allclose(Cx + Cu + Cv, env.rewards[traj_num])
+    C = np.stack((Cx, Cu, Cv), axis=1)
+
     items = [
         [X[:, :3], ('x', 'y', 'z'), 'Position [$m$]', xf[:3], x_bnd[:3]],
         [X[:, 3:6], ('x', 'y', 'z'), 'Speed [$m/s$]', xf[3:6], x_bnd[3:6]],
@@ -184,8 +190,9 @@ def trajectory_time(env: RecordData, traj_num: int) -> Figure:
         [X[:, 8:], ('pitch', 'roll'), 'Angular Speed [$rad/s$]', xf[8:], x_bnd[8:]],
         [U[:, :2], ('desired pitch', 'desired roll'), 'Angle [$rad$]', None, u_bnd[:2]],
         [U[:, -1], ('desired z acc.',), 'Acceleration [$m/s^2$]', None, u_bnd[-1]],
-        [error, None, 'Termination error', None, env.config.termination_error],
-        [R, (f'J = {R.sum():.1f}',), 'Reward', None, None],
+        [Cx, None, 'Termination error', None, env.config.termination_error],
+        [C, (f'pos. error ({Cx.sum():,.1f})', f'act. usage ({Cu.sum():,.1f})', 
+         f'violations ({Cv.sum():,.1f})'), f'Cost (J = {C.sum():,.1f})', None, None],
     ]
 
     # create figure and grid
@@ -201,7 +208,10 @@ def trajectory_time(env: RecordData, traj_num: int) -> Figure:
 
         # plot data
         L = x.shape[0]
-        lines = ax.plot(t[:L], x)
+        if i < 7:
+            lines = ax.plot(t[:L], x)
+        else:
+            lines = ax.stackplot(t[:L], x.T)
         if asymptot is not None:
             ax.hlines(asymptot, xmin=t[0], xmax=t[L - 1], linestyles='dotted',
                       colors=[l.get_color() for l in lines], linewidths=0.7)
