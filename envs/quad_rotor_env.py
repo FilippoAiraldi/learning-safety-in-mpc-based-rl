@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 from envs.base_env import BaseEnv
 from gym import spaces
 from typing import Union
+from util.configurations import init_config
 
 
 @dataclass(frozen=True)
@@ -70,28 +71,28 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
     ### Observation Space
     The observation is a `ndarray` with shape `(10,)` where the elements 
     correspond to the following states of the quadrotor:
-    | Num | Observation                          | Min    | Max | Unit          |
-    |-----|--------------------------------------|--------|-----|---------------|
-    | 0   | position along the x-axis            | -0.5   | 3.5 | position (m)  |
-    | 1   | position along the y-axis            | -0.5   | 3.5 | position (m)  |
-    | 2   | position along the z-axis (altitude) | -0.175 | 4   | position (m)  |
-    | 3   | velocity along the x-axis            | -Inf   | Inf | speed (m/s)   |
-    | 4   | velocity along the y-axis            | -Inf   | Inf | speed (m/s)   |
-    | 5   | velocity along the z-axis            | -Inf   | Inf | speed (m/s)   |
-    | 6   | pitch                                | -30°   | 30° | angle (rad)   |
-    | 7   | roll                                 | -30°   | 30° | angle (rad)   |
-    | 8   | pitch rate                           | -Inf   | Inf | speed (rad/s) |
-    | 8   | roll rate                            | -Inf   | Inf | speed (rad/s) |
+    | N | Observation                          | Min    | Max | Unit          |
+    |---|--------------------------------------|--------|-----|---------------|
+    | 0 | position along the x-axis            | -0.5   | 3.5 | position (m)  |
+    | 1 | position along the y-axis            | -0.5   | 3.5 | position (m)  |
+    | 2 | position along the z-axis (altitude) | -0.175 | 4   | position (m)  |
+    | 3 | velocity along the x-axis            | -Inf   | Inf | speed (m/s)   |
+    | 4 | velocity along the y-axis            | -Inf   | Inf | speed (m/s)   |
+    | 5 | velocity along the z-axis            | -Inf   | Inf | speed (m/s)   |
+    | 6 | pitch                                | -30°   | 30° | angle (rad)   |
+    | 7 | roll                                 | -30°   | 30° | angle (rad)   |
+    | 8 | pitch rate                           | -Inf   | Inf | speed (rad/s) |
+    | 8 | roll rate                            | -Inf   | Inf | speed (rad/s) |
     The constraints can be changed, as well as made soft with the appropriate 
     flag. In this case, the observation space becomes unbounded.
 
     ### Action Space
     There are 3 continuous deterministic actions:
-    | Num | Action                               | Min  | Max | Unit          |
-    |-----|--------------------------------------|------|-----|---------------|
-    | 0   | desired pitch                        | -pi  | pi  | angle (rad)   |
-    | 1   | desired roll                         | -pi  | pi  | angle (rad)   |
-    | 2   | desired vertical acceleration        | 0    | 2*g | acc. (m/s^2)  |
+    | N | Action                               | Min    | Max | Unit          |
+    |---|--------------------------------------|--------|-----|---------------|
+    | 0 | desired pitch                        | -pi    | pi  | angle (rad)   |
+    | 1 | desired roll                         | -pi    | pi  | angle (rad)   |
+    | 2 | desired vertical acceleration        | 0      | 2*g | acc. (m/s^2)  |
     Again, these constraints can be changed and made soft.
 
     ### Transition Dynamics:
@@ -138,44 +139,10 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
             not given, the default ones are used.
         '''
         super().__init__()
-        if config is None:
-            config = QuadRotorEnvConfig()
-        elif isinstance(config, dict):
-            keys = QuadRotorEnvConfig.__dataclass_fields__.keys()
-            config = QuadRotorEnvConfig(
-                **{k: config[k] for k in keys if k in config})
-        self.config = config
+        self._config = init_config(config, QuadRotorEnvConfig)
 
         # create dynamics matrices
-        self.nw = len(config.winds)
-        wind_mag = np.array(list(config.winds.values()))
-        self._A = config.T * np.block([
-            [np.zeros((3, 3)), np.eye(3), np.zeros((3, 4))],
-            [np.zeros((2, 6)), np.eye(2) * config.g, np.zeros((2, 2))],
-            [np.zeros((1, 10))],
-            [np.zeros((2, 6)), -np.diag((config.pitch_d, config.roll_d)),
-             np.eye(2)],
-            [np.zeros((2, 6)), -np.diag((config.pitch_dd, config.roll_dd)),
-             np.zeros((2, 2))]
-        ]) + np.eye(10)
-        self._B = config.T * np.block([
-            [np.zeros((5, 3))],
-            [0, 0, config.thrust_coeff],
-            [np.zeros((2, 3))],
-            [config.pitch_gain, 0, 0],
-            [0, config.roll_gain, 0]
-        ])
-        self._C = config.T * np.vstack((
-            wind_mag,
-            wind_mag,
-            wind_mag,
-            np.zeros((3, self.nw)),
-            wind_mag / 5,
-            wind_mag / 5,
-            np.zeros((2, self.nw))
-        ))
-        self._e = np.vstack((
-            np.zeros((5, 1)), - config.T * config.g, np.zeros((4, 1))))
+        self._A, self._B, self._C, self._e = self.get_dynamics(config)
 
         # create spaces
         if config.soft_constraints:
@@ -200,28 +167,33 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
         self.Wu = np.ones((self.nu,))  # np.array([1, 1, 1e-1])
 
     @property
+    def config(self) -> QuadRotorEnvConfig:
+        '''Returns a reference to the environment's configuration.'''
+        return self._config
+
+    @property
     def A(self) -> np.ndarray:
-        '''Returns the dynamics `A` matrix.'''
+        '''Returns a copy of the dynamics `A` matrix.'''
         return self._A.copy()
 
     @property
     def B(self) -> np.ndarray:
-        '''Returns the dynamics `B` matrix.'''
+        '''Returns a copy of the dynamics `B` matrix.'''
         return self._B.copy()
 
     @property
     def C(self) -> np.ndarray:
-        '''Returns the dynamics `C` matrix.'''
+        '''Returns a copy of the dynamics `C` matrix.'''
         return self._C.copy()
 
     @property
     def e(self) -> np.ndarray:
-        '''Returns the dynamics `e` vector.'''
+        '''Returns a copy of the dynamics `e` vector.'''
         return self._e.copy()
 
     @property
     def x(self) -> np.ndarray:
-        '''Gets the current state of the quadrotor.'''
+        '''Gets a copy of the current state of the quadrotor.'''
         return self._x.copy()
 
     @x.setter
@@ -357,3 +329,41 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
 
     def render(self):
         raise NotImplementedError('Render method unavailable.')
+
+    @staticmethod
+    def get_dynamics(
+        config: QuadRotorEnvConfig
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        '''
+        Returns the matrices of the system's dynamics `A`, `B`, `C` and `e`.
+        '''
+        nw = len(config.winds)
+        wind_mag = np.array(list(config.winds.values()))
+        A = config.T * np.block([
+            [np.zeros((3, 3)), np.eye(3), np.zeros((3, 4))],
+            [np.zeros((2, 6)), np.eye(2) * config.g, np.zeros((2, 2))],
+            [np.zeros((1, 10))],
+            [np.zeros((2, 6)), -np.diag((config.pitch_d, config.roll_d)),
+             np.eye(2)],
+            [np.zeros((2, 6)), -np.diag((config.pitch_dd, config.roll_dd)),
+             np.zeros((2, 2))]
+        ]) + np.eye(10)
+        B = config.T * np.block([
+            [np.zeros((5, 3))],
+            [0, 0, config.thrust_coeff],
+            [np.zeros((2, 3))],
+            [config.pitch_gain, 0, 0],
+            [0, config.roll_gain, 0]
+        ])
+        C = config.T * np.vstack((
+            wind_mag,
+            wind_mag,
+            wind_mag,
+            np.zeros((3, nw)),
+            wind_mag / 5,
+            wind_mag / 5,
+            np.zeros((2, nw))
+        ))
+        e = np.vstack((
+            np.zeros((5, 1)), - config.T * config.g, np.zeros((4, 1))))
+        return A, B, C, e

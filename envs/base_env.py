@@ -3,7 +3,7 @@ from abc import ABC
 from gym.wrappers import (
     TimeLimit, OrderEnforcing, NormalizeObservation, NormalizeReward)
 from envs.wrappers import RecordData, ClipActionIfClose
-from typing import TypeVar, Type
+from typing import Optional, TypeVar, Type
 
 
 ObsType = TypeVar('ObsType')
@@ -15,21 +15,26 @@ class BaseEnv(gym.Env[ObsType, ActType], ABC):
     @classmethod
     def get_wrapped(
         cls: Type[SuperEnvType],
-        max_episode_steps: int = 50,
-        record_data: bool = True,
-        deque_size: int = None,
-        normalize_observation: bool = False,
-        normalize_reward: bool = False,
+        max_episode_steps: Optional[int] = 50,
+        normalize_observation: Optional[bool] = False,
+        normalize_reward: Optional[bool] = False,
+        record_data: Optional[bool] = True,
+        deque_size: Optional[int] = None,
+        clip_action: Optional[bool] = False,
+        enforce_order: Optional[bool] = True,
         *env_args, **env_kwargs
     ) -> SuperEnvType:
         '''
-        Returns the environment properly encapsulated in some useful wrappers.
+        Returns the environment properly encapsulated in some useful wrappers. 
+        Passing `None` to an argument disables the corresponding wrapper, aside
+        from `OrderEnforcing` and .
+
         The wrappers are (from in to outward)
             - `OrderEnforcing`
-            - `ClipActionIfClose` (optional)
+            - `ClipActionIfClose`
             - `RecordData`
-            - `NormalizeObservation` (optional)
-            - `NormalizeReward` (optional)
+            - `NormalizeReward`
+            - `NormalizeObservation`
             - `TimeLimit`
 
         Parameters
@@ -45,6 +50,11 @@ class BaseEnv(gym.Env[ObsType, ActType], ABC):
             `NormalizeObservation`).
         normalize_reward : bool, optional
             Whether to apply return normalization (see `NormalizeReward`).
+        clip_action : bool, optional
+            Whether to clip actions that violates the action space
+            (see `ClipActionIfClose`).
+        enforce_order : bool, optional
+            Whether to apply order enforcing or not (see `OrderEnforcing`).
 
         Returns
         -------
@@ -57,17 +67,20 @@ class BaseEnv(gym.Env[ObsType, ActType], ABC):
         # NOTE: RecordData must be done after ClipActionIfClose. TimeLimit must
         # be done after RecordData
         env = cls(*env_args, **env_kwargs)
-        env = TimeLimit(env, max_episode_steps=max_episode_steps)
-        if normalize_observation:
+        if max_episode_steps is not None:
+            env = TimeLimit(env, max_episode_steps=max_episode_steps)
+        if normalize_observation is not None and normalize_observation:
             env = NormalizeObservation(env)
-        if normalize_reward:
+        if normalize_reward is not None and normalize_reward:
             env = NormalizeReward(env)
-        if record_data:
+        if record_data is not None and record_data:
             env = RecordData(env, deque_size=deque_size)
-        if env.action_space.bounded_below.any() or \
-                env.action_space.bounded_above.any():
+        if clip_action is not None and clip_action and (\
+            env.action_space.bounded_below.any() or \
+                env.action_space.bounded_above.any()):
             env = ClipActionIfClose(env)
-        env = OrderEnforcing(env)
+        if enforce_order is not None and enforce_order:
+            env = OrderEnforcing(env)
         return env
 
     def __str__(self) -> str:

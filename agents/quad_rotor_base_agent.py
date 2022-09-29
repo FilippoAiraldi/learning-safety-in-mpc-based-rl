@@ -6,6 +6,7 @@ from gym.utils.seeding import np_random
 from itertools import count
 from mpc import QuadRotorMPC, QuadRotorMPCConfig, Solution
 from typing import Any, Union
+from util.configurations import init_config
 from util.rl import RLParameter, RLParameterCollection
 
 
@@ -50,23 +51,8 @@ class QuadRotorBaseAgent(ABC):
         self.id = next(self._ids)
         self.name = f'Agent{self.id}' if agentname is None else agentname
         self.env = env
-
-        # initialize config - must be a dataclass
-        if hasattr(self, 'config_cls'):
-            if agent_config is None:
-                self._config = self.config_cls()
-            elif isinstance(agent_config, dict):
-                if not hasattr(self.config_cls, '__dataclass_fields__'):
-                    raise ValueError('Agent config must be a dataclass.')
-                keys = self.config_cls.__dataclass_fields__.keys()
-                self._config = self.config_cls(
-                    **{k: agent_config[k] for k in keys if k in agent_config})
-            elif isinstance(agent_config, self.config_cls):
-                self._config = agent_config
-            else:
-                raise TypeError('Invalid agent config type.')
-        else:
-            self._config = None
+        self._config = init_config(agent_config, self.config_cls) \
+            if hasattr(self, 'config_cls') else None
 
         # initialize default MPC parameters
         self.fixed_pars = {} if fixed_pars is None else fixed_pars
