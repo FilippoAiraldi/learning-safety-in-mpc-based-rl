@@ -9,6 +9,8 @@ from util.configurations import init_config
 class NormalizedQuadRotorEnv(QuadRotorEnv):
     '''Normalized version of the quadrotor environment.'''
 
+    normalized: bool = True
+
     ranges: dict[str, np.ndarray] = {
         # model parameters
         'g': np.array([0, 20]),
@@ -55,10 +57,10 @@ class NormalizedQuadRotorEnv(QuadRotorEnv):
                 continue
             r = self.ranges[k]
             c.__dict__[k] = (c.__dict__[k] - r[0]) / (r[1] - r[0])
-        c.__dict__['x_bounds'] = self._normalize('x', c.x_bounds.T).T
-        c.__dict__['u_bounds'] = self._normalize('u', c.u_bounds.T).T
-        c.__dict__['x0'] = self._normalize('x', c.x0)
-        c.__dict__['xf'] = self._normalize('x', c.xf)
+        c.__dict__['x_bounds'] = self.normalize('x', c.x_bounds.T).T
+        c.__dict__['u_bounds'] = self.normalize('u', c.u_bounds.T).T
+        c.__dict__['x0'] = self.normalize('x', c.x0)
+        c.__dict__['xf'] = self.normalize('x', c.xf)
         c.__dict__['termination_error'] = \
             c.termination_error / np.linalg.norm(self._Tx**2) / self.nx
 
@@ -88,14 +90,14 @@ class NormalizedQuadRotorEnv(QuadRotorEnv):
                     for o in [g, thrust_coeff, pitch_d, pitch_dd, pitch_gain,
                               roll_d, roll_dd, roll_gain])
         o = super().get_dynamics(
-            g=self._denormalize('g', g),
-            thrust_coeff=self._denormalize('thrust_coeff', thrust_coeff),
-            pitch_d=self._denormalize('pitch_d', pitch_d),
-            pitch_dd=self._denormalize('pitch_dd', pitch_dd),
-            pitch_gain=self._denormalize('pitch_gain', pitch_gain),
-            roll_d=self._denormalize('roll_d', roll_d),
-            roll_dd=self._denormalize('roll_dd', roll_dd),
-            roll_gain=self._denormalize('roll_gain', roll_gain),
+            g=self.denormalize('g', g),
+            thrust_coeff=self.denormalize('thrust_coeff', thrust_coeff),
+            pitch_d=self.denormalize('pitch_d', pitch_d),
+            pitch_dd=self.denormalize('pitch_dd', pitch_dd),
+            pitch_gain=self.denormalize('pitch_gain', pitch_gain),
+            roll_d=self.denormalize('roll_d', roll_d),
+            roll_dd=self.denormalize('roll_dd', roll_dd),
+            roll_gain=self.denormalize('roll_gain', roll_gain),
             winds=winds
         )
         if is_cs:
@@ -117,18 +119,30 @@ class NormalizedQuadRotorEnv(QuadRotorEnv):
         )
         return (As, Bs, es) if is_cs else (As, Bs, Cs, es)
 
-    def _normalize(
+    def normalize(
         self, name: str, x: Union[float, np.ndarray]
     ) -> Union[float, np.ndarray]:
+        '''Normalizes the value `x` according to the ranges of `name`.'''
         r = self.ranges[name]
         if r.ndim == 1:
             return (x - r[0]) / (r[1] - r[0])
+        if isinstance(x, np.ndarray) and x.shape[-1] != r.shape[0]:
+            raise ValueError('Input with invalid dimensions: '
+                             'normalization would alter shape.')
         return (x - r[:, 0]) / (r[:, 1] - r[:, 0])
 
-    def _denormalize(
+    def denormalize(
         self, name: str, x: Union[float, np.ndarray]
     ) -> Union[float, np.ndarray]:
+        '''Denormalizes the value `x` according to the ranges of `name`.'''
         r = self.ranges[name]
         if r.ndim == 1:
             return (r[1] - r[0]) * x + r[0]
+        if isinstance(x, np.ndarray) and x.shape[-1] != r.shape[0]:
+            raise ValueError('Input with invalid dimensions: '
+                             'denormalization would alter shape.')
         return (r[:, 1] - r[:, 0]) * x + r[:, 0]
+
+    def can_be_normalized(self, name: str) -> bool:
+        '''Whether variable `name` can be normalized.'''
+        return name in self.ranges

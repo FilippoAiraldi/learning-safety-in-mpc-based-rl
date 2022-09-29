@@ -123,6 +123,7 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
     spec: dict = None
     nx: int = 10
     nu: int = 3
+    normalized: bool = False
 
     def __init__(
         self,
