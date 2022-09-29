@@ -97,7 +97,6 @@ class QuadRotorMPC(GenericMPC):
 
         # 2) constraints on dynamics
         A, B, e = env.get_dynamics(
-            T=env.config.T,
             g=self.pars['g'],
             thrust_coeff=self.pars['thrust_coeff'],
             pitch_d=self.pars['pitch_d'],

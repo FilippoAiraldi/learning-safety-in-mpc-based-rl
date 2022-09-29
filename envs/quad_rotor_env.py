@@ -145,7 +145,6 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
 
         # create dynamics matrices
         self._A, self._B, self._C, self._e = self.get_dynamics(
-            T=config.T,
             g=config.g,
             thrust_coeff=config.thrust_coeff,
             pitch_d=config.pitch_d,
@@ -172,12 +171,6 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
                                        high=high_u,
                                        shape=(self.nu,),
                                        dtype=np.float64)
-
-        # create weights for final position and input errors - more or less
-        # similar to the NLP scaling, but with a different purpose
-        self.Wx = np.ones((self.nx,))  # np.array(
-        # [1e-1, 1e-1, 1e-1, 1e-1, 1e-1, 1e-1, 1, 1, 1e-1, 1e-1])
-        self.Wu = np.ones((self.nu,))  # np.array([1, 1, 1e-1])
 
     @property
     def config(self) -> QuadRotorEnvConfig:
@@ -217,11 +210,20 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
 
     def position_error(self, x: np.ndarray) -> float:
         '''Error of the given state w.r.t. the final position.'''
-        return np.square((x - self.config.xf) * self.Wx).sum(axis=-1)
+        return np.square((x - self.config.xf)).sum(axis=-1)
 
     def control_usage(self, u: np.ndarray) -> float:
         '''Error of the given action related to its norm.'''
-        return np.square((u - np.array([0, 0, self.config.g])) * self.Wu).sum()
+        return np.square((u - np.array([0, 0, self.config.g]))).sum()
+
+    def constraint_violations(self, x: np.ndarray, u: np.ndarray) -> float:
+        '''Error of the given state and action w.r.t. constraint violations.'''
+        return (
+            1e2 * np.maximum(0, self.config.x_bounds[:, 0] - x).sum() +
+            1e2 * np.maximum(0, x - self.config.x_bounds[:, 1]).sum() +
+            3e2 * np.maximum(0, self.config.u_bounds[:, 0] - u).sum() +
+            3e2 * np.maximum(0, u - self.config.u_bounds[:, 1]).sum()
+        )
 
     def phi(self, alt: Union[float, np.ndarray]) -> np.ndarray:
         '''
@@ -321,13 +323,8 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
         # compute cost
         error = self.position_error(self.x)
         usage = self.control_usage(u)
-        violation = (
-            1e2 * np.maximum(0, self.config.x_bounds[:, 0] - self.x).sum() +
-            1e2 * np.maximum(0, self.x - self.config.x_bounds[:, 1]).sum() +
-            3e2 * np.maximum(0, self.config.u_bounds[:, 0] - u).sum() +
-            3e2 * np.maximum(0, u - self.config.u_bounds[:, 1]).sum()
-        )
-        cost = float(error + usage + violation)
+        violations = self.constraint_violations(self.x, u)
+        cost = float(error + usage + violations)
 
         # check if terminated
         within_bounds = ((self.config.x_bounds[:, 0] <= self._x) &
@@ -343,9 +340,8 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
     def render(self):
         raise NotImplementedError('Render method unavailable.')
 
-    @staticmethod
     def get_dynamics(
-        T: float,
+        self,
         g: Union[float, cs.SX],
         thrust_coeff: Union[float, cs.SX],
         pitch_d: Union[float, cs.SX],
@@ -364,6 +360,7 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
         dynamics `A`, `B`, `C` and `e`; otherwise, returns the `A`, `B` and `e`
         in symbolical form.
         '''
+        T = self.config.T
         is_cs = any(isinstance(o, (cs.SX, cs.MX, cs.DM))
                     for o in [g, thrust_coeff, pitch_d, pitch_dd, pitch_gain,
                               roll_d, roll_dd, roll_gain])
