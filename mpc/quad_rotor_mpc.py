@@ -96,7 +96,17 @@ class QuadRotorMPC(GenericMPC):
         x_ = cs.horzcat(x0, x)
 
         # 2) constraints on dynamics
-        A, B, e = self._get_dynamics_matrices(env)
+        A, B, e = env.get_dynamics(
+            T=env.config.T,
+            g=self.pars['g'],
+            thrust_coeff=self.pars['thrust_coeff'],
+            pitch_d=self.pars['pitch_d'],
+            pitch_dd=self.pars['pitch_dd'],
+            pitch_gain=self.pars['pitch_gain'],
+            roll_d=self.pars['roll_d'],
+            roll_dd=self.pars['roll_dd'],
+            roll_gain=self.pars['roll_gain']
+        )
         self.add_con('dyn', x_[:, 1:], '==', A @ x_[:, :-1] + B @ u + e)
 
         # 3) constraint on state (soft, backed off, without infinity in g, and
@@ -156,31 +166,3 @@ class QuadRotorMPC(GenericMPC):
 
         # initialize solver
         self.init_solver(config.solver_opts)
-
-    def _get_dynamics_matrices(
-        self, env: QuadRotorEnv
-    ) -> tuple[cs.SX, cs.SX, cs.SX]:
-        T = env.config.T
-        pars = self.pars
-        Ad = cs.diag(cs.vertcat(pars['pitch_d'], pars['roll_d']))
-        Add = cs.diag(cs.vertcat(pars['pitch_dd'], pars['roll_dd']))
-        A = T * cs.blockcat([
-            [np.zeros((3, 3)), np.eye(3), np.zeros((3, 4))],
-            [np.zeros((2, 6)), np.eye(2) * pars['g'], np.zeros((2, 2))],
-            [np.zeros((1, 10))],
-            [np.zeros((2, 6)), -Ad, np.eye(2)],
-            [np.zeros((2, 6)), -Add, np.zeros((2, 2))]
-        ]) + np.eye(10)
-        B = T * cs.blockcat([
-            [np.zeros((5, 3))],
-            [0, 0, pars['thrust_coeff']],
-            [np.zeros((2, 3))],
-            [pars['pitch_gain'], 0, 0],
-            [0, pars['roll_gain'], 0]
-        ])
-        e = cs.vertcat(
-            np.zeros((5, 1)),
-            - T * pars['g'],
-            np.zeros((4, 1))
-        )
-        return A, B, e

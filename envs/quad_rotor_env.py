@@ -1,3 +1,4 @@
+import casadi as cs
 import numpy as np
 from dataclasses import dataclass, field
 from envs.base_env import BaseEnv
@@ -139,10 +140,22 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
             not given, the default ones are used.
         '''
         super().__init__()
-        self._config = init_config(config, QuadRotorEnvConfig)
+        config = init_config(config, QuadRotorEnvConfig)
+        self._config = config
 
         # create dynamics matrices
-        self._A, self._B, self._C, self._e = self.get_dynamics(config)
+        self._A, self._B, self._C, self._e = self.get_dynamics(
+            T=config.T,
+            g=config.g,
+            thrust_coeff=config.thrust_coeff,
+            pitch_d=config.pitch_d,
+            pitch_dd=config.pitch_dd,
+            pitch_gain=config.pitch_gain,
+            roll_d=config.roll_d,
+            roll_dd=config.roll_dd,
+            roll_gain=config.roll_gain,
+            winds=config.winds
+        )
 
         # create spaces
         if config.soft_constraints:
@@ -332,38 +345,67 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
 
     @staticmethod
     def get_dynamics(
-        config: QuadRotorEnvConfig
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        T: float,
+        g: Union[float, cs.SX],
+        thrust_coeff: Union[float, cs.SX],
+        pitch_d: Union[float, cs.SX],
+        pitch_dd: Union[float, cs.SX],
+        pitch_gain: Union[float, cs.SX],
+        roll_d: Union[float, cs.SX],
+        roll_dd: Union[float, cs.SX],
+        roll_gain: Union[float, cs.SX],
+        winds: dict[float, float] = None
+    ) -> Union[
+        tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray],
+        tuple[cs.SX, cs.SX, cs.SX]
+    ]:
         '''
-        Returns the matrices of the system's dynamics `A`, `B`, `C` and `e`.
+        If arguments are all numerical, returns the matrices of the system's 
+        dynamics `A`, `B`, `C` and `e`; otherwise, returns the `A`, `B` and `e`
+        in symbolical form.
         '''
-        nw = len(config.winds)
-        wind_mag = np.array(list(config.winds.values()))
-        A = config.T * np.block([
+        is_cs = any(isinstance(o, (cs.SX, cs.MX, cs.DM))
+                    for o in [g, thrust_coeff, pitch_d, pitch_dd, pitch_gain,
+                              roll_d, roll_dd, roll_gain])
+        if is_cs:
+            diag = lambda o: cs.diag(cs.vertcat(*o))
+            block = cs.blockcat
+        else:
+            diag = np.diag
+            block = np.block
+            assert winds is not None, 'Winds are required to compute matrix C.'
+            nw = len(winds)
+            wind_mag = np.array(list(winds.values()))
+
+        A = T * block([
             [np.zeros((3, 3)), np.eye(3), np.zeros((3, 4))],
-            [np.zeros((2, 6)), np.eye(2) * config.g, np.zeros((2, 2))],
+            [np.zeros((2, 6)), np.eye(2) * g, np.zeros((2, 2))],
             [np.zeros((1, 10))],
-            [np.zeros((2, 6)), -np.diag((config.pitch_d, config.roll_d)),
+            [np.zeros((2, 6)), -diag((pitch_d, roll_d)),
              np.eye(2)],
-            [np.zeros((2, 6)), -np.diag((config.pitch_dd, config.roll_dd)),
+            [np.zeros((2, 6)), -diag((pitch_dd, roll_dd)),
              np.zeros((2, 2))]
         ]) + np.eye(10)
-        B = config.T * np.block([
+        B = T * block([
             [np.zeros((5, 3))],
-            [0, 0, config.thrust_coeff],
+            [0, 0, thrust_coeff],
             [np.zeros((2, 3))],
-            [config.pitch_gain, 0, 0],
-            [0, config.roll_gain, 0]
+            [pitch_gain, 0, 0],
+            [0, roll_gain, 0]
         ])
-        C = config.T * np.vstack((
-            wind_mag,
-            wind_mag,
-            wind_mag,
-            np.zeros((3, nw)),
-            wind_mag / 5,
-            wind_mag / 5,
-            np.zeros((2, nw))
-        ))
-        e = np.vstack((
-            np.zeros((5, 1)), - config.T * config.g, np.zeros((4, 1))))
-        return A, B, C, e
+        if not is_cs:
+            C = T * block([
+                [wind_mag],
+                [wind_mag],
+                [wind_mag],
+                [np.zeros((3, nw))],
+                [wind_mag],
+                [wind_mag],
+                [np.zeros((2, nw))]
+            ])
+        e = block([
+            [np.zeros((5, 1))],
+            [- T * g],
+            [np.zeros((4, 1))]
+        ])
+        return (A, B, e) if is_cs else (A, B, C, e)
