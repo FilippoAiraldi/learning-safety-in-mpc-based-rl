@@ -7,6 +7,8 @@ from util.configurations import init_config
 
 
 class NormalizedQuadRotorEnv(QuadRotorEnv):
+    '''Normalized version of the quadrotor environment.'''
+
     ranges: dict[str, np.ndarray] = {
         # model parameters
         'g': np.array([0, 20]),
@@ -35,8 +37,7 @@ class NormalizedQuadRotorEnv(QuadRotorEnv):
     }
 
     def __init__(
-        self,
-        config: Union[dict, QuadRotorEnvConfig] = None
+        self, config: Union[dict, QuadRotorEnvConfig] = None
     ) -> None:
         # precompute scaling matrices
         rx, ru = self.ranges['x'], self.ranges['u']
@@ -54,8 +55,8 @@ class NormalizedQuadRotorEnv(QuadRotorEnv):
                 continue
             r = self.ranges[k]
             c.__dict__[k] = (c.__dict__[k] - r[0]) / (r[1] - r[0])
-        c.__dict__['x_bounds'] = self._normalize('x', c.x_bounds)
-        c.__dict__['u_bounds'] = self._normalize('u', c.u_bounds)
+        c.__dict__['x_bounds'] = self._normalize('x', c.x_bounds.T).T
+        c.__dict__['u_bounds'] = self._normalize('u', c.u_bounds.T).T
         c.__dict__['x0'] = self._normalize('x', c.x0)
         c.__dict__['xf'] = self._normalize('x', c.xf)
         c.__dict__['termination_error'] = \
@@ -127,10 +128,7 @@ class NormalizedQuadRotorEnv(QuadRotorEnv):
         r = self.ranges[name]
         if r.ndim == 1:
             return (x - r[0]) / (r[1] - r[0])
-        dims = tuple(range(1, x.ndim))
-        min_ = np.expand_dims(r[:, 0], dims)
-        div_ = np.expand_dims(r[:, 1] - r[:, 0], dims)
-        return (x - min_) / div_
+        return (x - r[:, 0]) / (r[:, 1] - r[:, 0])
 
     def _denormalize(
         self, name: str, x: Union[float, np.ndarray]
@@ -138,7 +136,4 @@ class NormalizedQuadRotorEnv(QuadRotorEnv):
         r = self.ranges[name]
         if r.ndim == 1:
             return (r[1] - r[0]) * x + r[0]
-        dims = tuple(range(1, x.ndim))
-        min_ = np.expand_dims(r[:, 0], dims)
-        div_ = np.expand_dims(r[:, 1] - r[:, 0], dims)
-        return div_ * x + min_
+        return (r[:, 1] - r[:, 0]) * x + r[:, 0]
