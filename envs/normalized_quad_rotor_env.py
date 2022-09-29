@@ -65,6 +65,10 @@ class NormalizedQuadRotorEnv(QuadRotorEnv):
         # let the base class do the rest
         super().__init__(c)
 
+        # change the weights of each contribution to the stage cost
+        self._Wu /= 5
+        self._Wv *= 5  # or 10.0
+
     def get_dynamics(
         self,
         g: Union[float, cs.SX],
@@ -112,15 +116,6 @@ class NormalizedQuadRotorEnv(QuadRotorEnv):
             Tx @ B @ Tu_inv @ Mu
         )
         return (As, Bs, es) if is_cs else (As, Bs, Cs, es)
-
-    def position_error(self, x: np.ndarray) -> float:
-        return super().position_error(x)
-
-    def control_usage(self, u: np.ndarray) -> float:
-        return super().control_usage(u)
-
-    def constraint_violations(self, x: np.ndarray, u: np.ndarray) -> float:
-        return super().constraint_violations(x, u)
 
     def _normalize(
         self, name: str, x: Union[float, np.ndarray]

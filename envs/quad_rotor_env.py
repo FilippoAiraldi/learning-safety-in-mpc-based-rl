@@ -172,6 +172,11 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
                                        shape=(self.nu,),
                                        dtype=np.float64)
 
+        # weight for positional, control action usage and violation errors
+        self._Wx = np.ones(self.nx)
+        self._Wu = np.ones(self.nu)
+        self._Wv = np.array([1e2, 1e2, 3e2, 3e2])
+
     @property
     def config(self) -> QuadRotorEnvConfig:
         '''Returns a reference to the environment's configuration.'''
@@ -210,19 +215,20 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
 
     def position_error(self, x: np.ndarray) -> float:
         '''Error of the given state w.r.t. the final position.'''
-        return np.square((x - self.config.xf)).sum(axis=-1)
+        return (np.square((x - self.config.xf)) * self._Wx).sum(axis=-1)
 
     def control_usage(self, u: np.ndarray) -> float:
         '''Error of the given action related to its norm.'''
-        return np.square((u - np.array([0, 0, self.config.g]))).sum()
+        return (np.square(u) * self._Wu).sum(axis=-1)
 
     def constraint_violations(self, x: np.ndarray, u: np.ndarray) -> float:
         '''Error of the given state and action w.r.t. constraint violations.'''
+        W = self._Wv
         return (
-            1e2 * np.maximum(0, self.config.x_bounds[:, 0] - x).sum() +
-            1e2 * np.maximum(0, x - self.config.x_bounds[:, 1]).sum() +
-            3e2 * np.maximum(0, self.config.u_bounds[:, 0] - u).sum() +
-            3e2 * np.maximum(0, u - self.config.u_bounds[:, 1]).sum()
+            W[0] * np.maximum(0, self.config.x_bounds[:, 0] - x).sum(axis=-1) +
+            W[1] * np.maximum(0, x - self.config.x_bounds[:, 1]).sum(axis=-1) +
+            W[2] * np.maximum(0, self.config.u_bounds[:, 0] - u).sum(axis=-1) +
+            W[3] * np.maximum(0, u - self.config.u_bounds[:, 1]).sum(axis=-1)
         )
 
     def phi(self, alt: Union[float, np.ndarray]) -> np.ndarray:
