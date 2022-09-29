@@ -5,7 +5,7 @@ from gym import Env
 from gym.utils.seeding import np_random
 from itertools import count
 from mpc import QuadRotorMPC, QuadRotorMPCConfig, Solution
-from typing import Any, Union
+from typing import Any, Optional, Union
 from util.configurations import init_config
 from util.rl import RLParameter, RLParameterCollection
 
@@ -144,8 +144,7 @@ class QuadRotorBaseAgent(ABC):
         if sol0 is None:
             if self.last_solution is None:
                 sol0 = {
-                    'x': np.tile(state,
-                                 (mpc.vars['x'].shape[1], 1)).T,
+                    'x': np.tile(state, (mpc.vars['x'].shape[1], 1)).T,
                     'u': np.tile([0, 0, self.weights['g'].value.item()],
                                  (mpc.vars['u'].shape[1], 1)).T,
                     'slack': 0
@@ -314,7 +313,11 @@ class QuadRotorBaseAgent(ABC):
         return str(self)
 
     @staticmethod
-    def _make_seed_list(seed: Union[int, list[int]], n: int) -> list[int]:
+    def _make_seed_list(
+        seed: Optional[Union[int, list[int]]], n: int
+    ) -> list[int]:
+        '''Given a seed, possibly None, converts it into a list of length n,
+        where each seed is different or None'''
         if seed is None:
             return [None] * n
         if isinstance(seed, int):
