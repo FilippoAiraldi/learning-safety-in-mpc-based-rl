@@ -125,7 +125,7 @@ if __name__ == '__main__':
     parser.add_argument('--seed', type=int, default=1909, help='RNG seed.')
     parser.add_argument('--trials', type=int, default=20,
                         help='Number of Optuna trials.')
-    parser.add_argument('--timeout', type=int, default=3600 * 1,
+    parser.add_argument('--timeout', type=int, default=3600 * 3,
                         help='Optuna timeout (seconds).')
     parser.add_argument('--n_jobs', type=int, default=-1,
                         help='Number of parallel Optuna jobs.')
