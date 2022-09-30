@@ -363,7 +363,7 @@ def learned_weights(
     if agents is None or any(a is None for a in agents):
         return
 
-    weightnames = agents[0].weights_history.keys()
+    weightnames = sorted(agents[0].weights_history.keys())
     Nweights = len(weightnames)
 
     # create figure and grid
@@ -386,8 +386,8 @@ def learned_weights(
         jaggedstack([agent.update_gradient for agent in agents]))).sum(axis=-1)
     )
     mean_norm = logmean(norms, axis=0)
-    updates = np.arange(norms.shape[1] + 1) + 1
-    _plot_population(ax, updates[:-1], norms, y_mean=mean_norm, color=color,
+    updates = np.arange(norms.shape[1] + 1)
+    _plot_population(ax, updates[1:], norms, y_mean=mean_norm, color=color,
                      label=label, xlabel='Update', ylabel='||p||',
                      method='semilogy')
 

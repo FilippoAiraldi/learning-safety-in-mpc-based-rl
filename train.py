@@ -57,7 +57,8 @@ def train_lstdq_agent(
     perturbation_decay: float,
     run_name: str,
     seed: int,
-    safe: bool
+    normalized_env: bool,
+    safe_agent: bool
 ) -> dict[str, Any]:
     '''
     Training of a single LSTD Q learning agent.
@@ -81,7 +82,9 @@ def train_lstdq_agent(
         The name of this run.
     seed : int
         RNG seed.
-    safe : bool
+    normalized_env : bool
+        Whether to train on a normalized version of the environment.
+    safe_agent : bool
         Whether to train an unsafe or safe version of the agent.
 
     Returns
@@ -89,15 +92,17 @@ def train_lstdq_agent(
     dict[str, Any]
         Data resulting from the simulation.
     '''
-    logger = None  # log.create_logger(run_name, to_file=False)
-    env = envs.NormalizedQuadRotorEnv.get_wrapped(
+    logger = log.create_logger(run_name, to_file=False)
+    env = (
+        envs.NormalizedQuadRotorEnv if normalized_env else envs.QuadRotorEnv
+    ).get_wrapped(
         max_episode_steps=max_ep_steps,
         normalize_observation=False,
         normalize_reward=False
     )
     agent = agents.wrappers.RecordLearningData(
         (agents.QuadRotorGPSafeLSTDQAgent
-         if safe else
+         if safe_agent else
          agents.QuadRotorLSTDQAgent)(
             env=env,
             agentname=f'LSTDQ_{agent_n}',
@@ -140,11 +145,13 @@ if __name__ == '__main__':
     parser.add_argument('--seed', type=int, default=1909, help='RNG seed.')
     parser.add_argument('--eval_pk', action='store_true',
                         help='If passed, evaluates a PK agent.')
+    parser.add_argument('--normalized', action='store_true',
+                        help='Whether to use a normalized variant of env.')
     parser.add_argument('--n_jobs', type=int, default=-1,
                         help='Joblib\'s parallel jobs.')
     # only relevant for safe variant of algorithm
     parser.add_argument('--safe', action='store_true',
-                        help='If passed, trains the agent\'s safe variant.')
+                        help='Whether to use a safe variant of agent.')
     parser.add_argument('--gp_alpha', type=float, default=1e-10,
                         help='Measurement noise of the GP data.')
     parser.add_argument('--gp_kernel_type', choices=('RBF', 'Matern'),
@@ -193,7 +200,8 @@ if __name__ == '__main__':
             agent_config=agent_config,
             perturbation_decay=args.perturbation_decay,
             run_name=run_name,
-            safe=args.safe,
+            normalized_env=args.normalized,
+            safe_agent=args.safe,
             seed=args.seed + (tot_episodes + 1) * n
         )
     with log.tqdm_joblib(desc='Simulation', total=args.agents):
