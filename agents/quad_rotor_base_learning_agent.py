@@ -183,8 +183,8 @@ class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
         self, init_pars: dict[str, tuple[np.ndarray, np.ndarray]]
     ) -> None:
         '''Initializes the learnable parameters of the MPC.'''
-        required_pars = set(self._Q.pars).intersection(
-            self._V.pars).difference({'x0', 'xf'}).difference(self.fixed_pars)
+        required_pars = sorted(set(self._Q.pars).intersection(
+            self._V.pars).difference({'x0', 'xf'}).difference(self.fixed_pars))
         self.weights = RLParameterCollection(
             *(RLParameter(
                 name, *init_pars[name], self.V.pars[name], self.Q.pars[name])
