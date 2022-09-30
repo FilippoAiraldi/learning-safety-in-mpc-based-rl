@@ -96,7 +96,7 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
         fixed_pars = agent_config.get_group('fixed')
         if env.normalized:
             fixed_pars = {
-                name: (env.normalize(name, par) 
+                name: (env.normalize(name, par)
                        if env.can_be_normalized(name) else par)
                 for name, par in fixed_pars.items()
             }
@@ -183,7 +183,7 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
 
     def update(self) -> np.ndarray:
         # sample the memory
-        cfg = self.config
+        cfg: QuadRotorLSTDQAgentConfig = self.config
         sample = self.replay_memory.sample(
             cfg.replay_sample_size, cfg.replay_include_last)
 
@@ -191,14 +191,13 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
         g, H = [sum(o) for o in zip(*chain.from_iterable(sample))]
         R = cholesky_added_multiple_identities(H)
         p = cho_solve((R, True), g).flatten()
-        c = cfg.lr * p
 
         # run QP solver and update weights
         theta = self.weights.values()
+        pars = np.block([theta, p, cfg.lr])
         lb, ub = self._get_percentage_bounds(
             theta, self.weights.bounds(), cfg.max_perc_update)
-        sol = self._solver(lbx=lb, ubx=ub, x0=theta - c,
-                           p=np.concatenate((theta, c)))
+        sol = self._solver(p=pars, lbx=lb, ubx=ub, x0=theta - cfg.lr * p)
         if not self._solver.stats()['success']:
             raise UpdateError(f'RL update failed in epoch {self._epoch_n}.')
         self.weights.update_values(sol['x'].full().flatten())
@@ -276,18 +275,20 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
         self.d2Qdtheta = cs.simplify(d2Qdtheta)
 
     def _init_qp_solver(self) -> None:
-        n = sum(self.weights.sizes())
+        n_theta = sum(self.weights.sizes())
 
         # prepare symbols
-        theta: cs.SX = cs.SX.sym('theta', n, 1)
-        theta_new: cs.SX = cs.SX.sym('theta+', n, 1)
-        c: cs.SX = cs.SX.sym('c', n, 1)
-
-        # compute objective
+        theta: cs.SX = cs.SX.sym('theta', n_theta, 1)
+        theta_new: cs.SX = cs.SX.sym('theta+', n_theta, 1)
         dtheta = theta_new - theta
-        f = 0.5 * dtheta.T @ dtheta + c.T @ dtheta
+        p: cs.SX = cs.SX.sym('p', n_theta, 1)
+        lr: cs.SX = cs.SX.sym('lr', 1, 1)
 
         # prepare solver
-        qp = {'x': theta_new, 'p': cs.vertcat(theta, c), 'f': f}
+        qp = {
+            'x': theta_new, 
+            'f': 0.5 * dtheta.T @ dtheta + (lr * p).T @ dtheta,
+            'p': cs.vertcat(theta, p, lr)
+        }
         opts = {'print_iter': False, 'print_header': False}
         self._solver = cs.qpsol(f'qpsol_{self.name}', 'qrqp', qp, opts)
