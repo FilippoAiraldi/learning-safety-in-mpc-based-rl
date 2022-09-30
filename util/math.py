@@ -78,7 +78,7 @@ def jaggedstack(
     constant_values: Union[float, np.ndarray] = np.nan
 ) -> np.ndarray:
     '''
-    Join a sequence of arrays with different shapes along a new axis. To do 
+    Joins a sequence of arrays with different shapes along a new axis. To do 
     so, each array is padded with `constant_values` (see `numpy.pad`) to the 
     right to even out the shapes. Then, `numpy.stack` is called.
 
@@ -116,3 +116,41 @@ def jaggedstack(
         for a in newarrays
     ]
     return np.stack(newarrays, axis, out)
+
+
+def logmean(
+    a, 
+    axis=None, 
+    dtype=None, 
+    out=None, 
+    keepdims=np._NoValue, 
+    *, 
+    where=np._NoValue,
+    nanmean: bool = False
+) -> np.ndarray:
+    '''
+    Computes the arithmetic mean of the exponents of the elements along the 
+    specified axis. To do so, first the log of elements in `a` is taken, then 
+    the mean of the exponents is computed, and finally the elements are raised
+    to the base.
+
+    Parameters
+    ----------
+    a, axis, dtype, out, keepdims, where
+        See `numpy.mean`.
+    nanmean : bool, optional
+        Whether to compute the mean with `numpy.mean` or `numpy.nanmean`. By 
+        default `False`.
+
+    Returns
+    -------
+    np.ndarray
+        The mean in the logarithmic space of the array.
+    '''
+    _mean = np.nanmean if nanmean else np.mean
+    return np.exp(_mean(
+            np.log(a), 
+            axis=axis, 
+            dtype=dtype, 
+            out=out, keepdims=keepdims, where=where
+        ))

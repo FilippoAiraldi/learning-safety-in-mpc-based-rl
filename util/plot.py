@@ -13,7 +13,7 @@ from matplotlib.figure import Figure
 from matplotlib.ticker import MaxNLocator, PercentFormatter
 from mpl_toolkits.mplot3d.art3d import Line3DCollection, Poly3DCollection
 from typing import Optional, Iterable, Union
-from util.math import constraint_violation as cv_, jaggedstack
+from util.math import constraint_violation as cv_, jaggedstack, logmean
 
 
 LINEWIDTHS = (0.05, 2.0)
@@ -191,7 +191,7 @@ def trajectory_time(env: RecordData, traj_num: int) -> Figure:
         [U[:, :2], ('desired pitch', 'desired roll'), 'Angle [$rad$]', None, u_bnd[:2]],
         [U[:, -1], ('desired z acc.',), 'Acceleration [$m/s^2$]', None, u_bnd[-1]],
         [Cx, None, 'Termination error', None, env.config.termination_error],
-        [C, (f'pos. error ({Cx.sum():,.1f})', f'act. usage ({Cu.sum():,.1f})', 
+        [C, (f'pos. error ({Cx.sum():,.1f})', f'act. usage ({Cu.sum():,.1f})',
          f'violations ({Cv.sum():,.1f})'), f'Cost (J = {C.sum():,.1f})', None, None],
     ]
 
@@ -208,10 +208,7 @@ def trajectory_time(env: RecordData, traj_num: int) -> Figure:
 
         # plot data
         L = x.shape[0]
-        if i < 7:
-            lines = ax.plot(t[:L], x)
-        else:
-            lines = ax.stackplot(t[:L], x.T)
+        lines = ax.plot(t[:L], x) if i < 7 else ax.stackplot(t[:L], x.T)
         if asymptot is not None:
             ax.hlines(asymptot, xmin=t[0], xmax=t[L - 1], linestyles='dotted',
                       colors=[l.get_color() for l in lines], linewidths=0.7)
@@ -388,9 +385,9 @@ def learned_weights(
     norms = np.sqrt(np.square(np.ma.masked_invalid(
         jaggedstack([agent.update_gradient for agent in agents]))).sum(axis=-1)
     )
-    log10_mean_norm = 10**(np.log10(norms).mean(axis=0))
+    mean_norm = logmean(norms, axis=0)
     updates = np.arange(norms.shape[1] + 1) + 1
-    _plot_population(ax, updates[:-1], norms, log10_mean_norm, color=color,
+    _plot_population(ax, updates[:-1], norms, y_mean=mean_norm, color=color,
                      label=label, xlabel='Update', ylabel='||p||',
                      method='semilogy')
 

@@ -96,14 +96,15 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
         fixed_pars = agent_config.get_group('fixed')
         if env.normalized:
             fixed_pars = {
-                name: env.normalize(name, par)
+                name: (env.normalize(name, par) 
+                       if env.can_be_normalized(name) else par)
                 for name, par in fixed_pars.items()
             }
             init_pars = {
                 name: (
-                    (par, bnd)
-                    if name.startswith('w_') else
                     (env.normalize(name, par), env.normalize(name, bnd))
+                    if env.can_be_normalized(name) else
+                    (par, bnd)
                 )
                 for name, (par, bnd) in init_pars.items()
             }

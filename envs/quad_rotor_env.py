@@ -142,7 +142,7 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
         '''
         super().__init__()
         config = init_config(config, QuadRotorEnvConfig)
-        self._config = config
+        self.config = config
 
         # create dynamics matrices
         self._A, self._B, self._C, self._e = self.get_dynamics(
@@ -177,11 +177,6 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
         self._Wx = np.ones(self.nx)
         self._Wu = np.ones(self.nu)
         self._Wv = np.array([1e2, 1e2, 3e2, 3e2])
-
-    @property
-    def config(self) -> QuadRotorEnvConfig:
-        '''Returns a reference to the environment's configuration.'''
-        return self._config
 
     @property
     def A(self) -> np.ndarray:
