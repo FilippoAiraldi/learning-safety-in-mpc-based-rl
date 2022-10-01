@@ -22,6 +22,28 @@ def set_fixed_attr(trial: optuna.Trial, name: str, value: Any) -> Any:
     return value
 
 
+def show_study_stats(study: optuna.Study) -> None:
+    best_trial = study.best_trial
+    pruned_trials = study.get_trials(
+        deepcopy=False, states=[optuna.trial.TrialState.PRUNED])
+    complete_trials = study.get_trials(
+        deepcopy=False, states=[optuna.trial.TrialState.COMPLETE])
+    out = f'{study.study_name}\nStudy statistics:\n'
+    out += f'\tNumber of finished trials: {len(study.trials)}\n'
+    out += f'\tNumber of pruned trials: {len(pruned_trials)}\n'
+    out += f'\tNumber of complete trials: {len(complete_trials)}\n'
+    out += 'Best trial:\n'
+    out += f'\tValue: {best_trial.value}\n'
+    out += '\tOptimal params:\n'
+    for key, value in best_trial.params.items():
+        out += f'\t\t{key}: {value}\n'
+    if len(best_trial.user_attrs) > 0:
+        out += '\tFixed params:\n'
+        for key, value in best_trial.user_attrs.items():
+            out += f'\t\t{key}: {value}\n'
+    print(out)
+
+
 def objective(
     trial: optuna.Trial,
     env_cls: Type[EnvType],
@@ -156,25 +178,6 @@ if __name__ == '__main__':
         catch=(MPCSolverError, UpdateError),
         show_progress_bar=False)
 
-    # save results
+    # save and show results
     io.save_results(f'tune_{args.agents}.pkl', args=args, study=study)
-
-    # display some stats
-    best_trial = study.best_trial
-    pruned_trials = study.get_trials(
-        deepcopy=False, states=[optuna.trial.TrialState.PRUNED])
-    complete_trials = study.get_trials(
-        deepcopy=False, states=[optuna.trial.TrialState.COMPLETE])
-    print('Study statistics: ')
-    print('\tNumber of finished trials: ', len(study.trials))
-    print('\tNumber of pruned trials: ', len(pruned_trials))
-    print('\tNumber of complete trials: ', len(complete_trials))
-    print('Best trial:')
-    print('\tValue: ', best_trial.value)
-    print('\tOptimal params: ')
-    for key, value in best_trial.params.items():
-        print(f'\t\t{key}: {value}')
-    if len(best_trial.user_attrs) > 0:
-        print('\tFixed params:')
-        for key, value in best_trial.user_attrs.items():
-            print(f'\t\t{key}: {value}')
+    show_study_stats(study)
