@@ -69,7 +69,7 @@ class NormalizedQuadRotorEnv(QuadRotorEnv):
 
         # change the weights of each contribution to the stage cost
         self._Wu /= 5
-        self._Wv *= 5  # or 10.0
+        self._Wv *= 10
 
     def get_dynamics(
         self,
