@@ -19,9 +19,9 @@ class QuadRotorLSTDQAgentConfig:
     # initial learnable RL weights and their bounds
     init_g: float = (9.81, (1, 40))
     init_thrust_coeff: float = (2.0, (0.1, 4))
-    init_w_x: np.ndarray = (1e1, (1e-3, np.inf))
-    init_w_u: np.ndarray = (1e0, (1e-3, np.inf))
-    init_w_s: np.ndarray = (1e2, (1e-3, np.inf))
+    # init_w_x: np.ndarray = (1e1, (1e-3, np.inf))
+    # init_w_u: np.ndarray = (1e0, (1e-3, np.inf))
+    # init_w_s: np.ndarray = (1e2, (1e-3, np.inf))
     # fixed non-learnable weights
     fixed_pitch_d: float = 12
     fixed_pitch_dd: float = 7
@@ -29,6 +29,9 @@ class QuadRotorLSTDQAgentConfig:
     fixed_roll_d: float = 10.5
     fixed_roll_dd: float = 8
     fixed_roll_gain: float = 9
+    fixed_w_x: np.ndarray = 1e1
+    fixed_w_u: np.ndarray = 1e0
+    fixed_w_s: np.ndarray = 1e2
 
     # experience replay parameters
     replay_maxlen: float = 20
