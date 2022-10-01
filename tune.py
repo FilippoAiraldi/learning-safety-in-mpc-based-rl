@@ -134,6 +134,8 @@ if __name__ == '__main__':
     # create study and begin optimization
     env_cls = NormalizedQuadRotorEnv if args.normalized else QuadRotorEnv
     agent_cls = QuadRotorGPSafeLSTDQAgent if args.safe else QuadRotorLSTDQAgent
+    if args.timeout <= 0:
+        args.timeout = None
     study = optuna.create_study(
         study_name='tuning',
         pruner=optuna.pruners.SuccessiveHalvingPruner(),
@@ -155,7 +157,7 @@ if __name__ == '__main__':
         show_progress_bar=False)
 
     # save results
-    io.save_results('tmp.pkl', args=args, study=study)
+    io.save_results(f'tune_{args.agents}.pkl', args=args, study=study)
 
     # display some stats
     best_trial = study.best_trial
