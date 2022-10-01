@@ -58,7 +58,8 @@ def train_lstdq_agent(
     run_name: str,
     seed: int,
     normalized_env: bool,
-    safe_agent: bool
+    safe_agent: bool,
+    verbose: bool
 ) -> dict[str, Any]:
     '''
     Training of a single LSTD Q learning agent.
@@ -86,13 +87,15 @@ def train_lstdq_agent(
         Whether to train on a normalized version of the environment.
     safe_agent : bool
         Whether to train an unsafe or safe version of the agent.
+    verbose : bool
+        Whether intermediate results should be logged.
 
     Returns
     -------
     dict[str, Any]
         Data resulting from the simulation.
     '''
-    logger = log.create_logger(run_name, to_file=False)
+    logger = log.create_logger(run_name, to_file=False) if verbose else None
     env = (
         envs.NormalizedQuadRotorEnv if normalized_env else envs.QuadRotorEnv
     ).get_wrapped(
@@ -124,21 +127,21 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--agents', type=int, default=50,
                         help='Number of parallel agent to train.')
-    parser.add_argument('--epochs', type=int, default=20,
+    parser.add_argument('--epochs', type=int, default=50,
                         help='Number of training epochs.')
-    parser.add_argument('--episodes', type=int, default=5,
+    parser.add_argument('--episodes', type=int, default=1,
                         help='Number of training episodes per epoch.')
     parser.add_argument('--max_ep_steps', type=int, default=50,
                         help='Maximum number of steps per episode.')
-    parser.add_argument('--gamma', type=float, default=0.9792,
+    parser.add_argument('--gamma', type=float, default=1.0,
                         help='Discount factor.')
-    parser.add_argument('--lr', type=float, default=0.3,
+    parser.add_argument('--lr', type=float, default=0.03,
                         help='Learning rate.')
-    parser.add_argument('--max_perc_update', type=float, default=0.15,
+    parser.add_argument('--max_perc_update', type=float, default=float('inf'),
                         help='Maximum percentage update of agent weigths.')
-    parser.add_argument('--replay_mem_maxlen_factor', type=int, default=10,
+    parser.add_argument('--replay_mem_maxlen_factor', type=int, default=1,
                         help='Replay memory maximum length factor.')
-    parser.add_argument('--replay_mem_sample_size', type=float, default=0.7,
+    parser.add_argument('--replay_mem_sample_size', type=float, default=1.0,
                         help='Replay memory sample size (%).')
     parser.add_argument('--perturbation_decay', type=float, default=0.885,
                         help='Exploration perturbance decay.')
@@ -149,6 +152,7 @@ if __name__ == '__main__':
                         help='Whether to use a normalized variant of env.')
     parser.add_argument('--n_jobs', type=int, default=-1,
                         help='Joblib\'s parallel jobs.')
+    parser.add_argument('--verbose', action='store_true')
     # only relevant for safe variant of algorithm
     parser.add_argument('--safe', action='store_true',
                         help='Whether to use a safe variant of agent.')
@@ -202,7 +206,8 @@ if __name__ == '__main__':
             run_name=run_name,
             normalized_env=args.normalized,
             safe_agent=args.safe,
-            seed=args.seed + (tot_episodes + 1) * n
+            seed=args.seed + (tot_episodes + 1) * n,
+            verbose=args.verbose
         )
     with log.tqdm_joblib(desc='Simulation', total=args.agents):
         raw_data = jl.Parallel(n_jobs=args.n_jobs)(
