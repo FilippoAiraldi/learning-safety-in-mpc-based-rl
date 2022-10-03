@@ -1,9 +1,7 @@
 from agents.quad_rotor_pk_agent import QuadRotorPKAgent
-from agents.quad_rotor_lstd_q_agent import (
+from agents.quad_rotor_lstd_q_agents import (
     QuadRotorLSTDQAgent,
-    QuadRotorLSTDQAgentConfig
-)
-from agents.quad_rotor_gp_safe_lstd_q_agent import (
+    QuadRotorLSTDQAgentConfig,
     QuadRotorGPSafeLSTDQAgent,
     QuadRotorGPSafeLSTDQAgentConfig
 )
