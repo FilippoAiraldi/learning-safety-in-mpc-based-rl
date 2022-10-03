@@ -137,7 +137,7 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
 
         Parameters
         ----------
-        pars : dict, QuadRotorPars
+        config : dict, QuadRotorPars
             A set of parameters for the quadrotor model and disturbances. If 
             not given, the default ones are used.
         '''
@@ -451,35 +451,25 @@ class NormalizedQuadRotorEnv(QuadRotorEnv, Normalized):
     def __init__(
         self, config: Union[dict, QuadRotorEnvConfig] = None
     ) -> None:
-        # precompute scaling matrices
-        rx, ru = self.normalization_ranges['x'], self.normalization_ranges['u']
-        self._Tx = np.diag(1 / (rx[:, 1] - rx[:, 0]))
-        self._Tx_inv = np.diag(rx[:, 1] - rx[:, 0])
-        self._Mx = - (self._Tx @ rx[:, 0]).reshape(-1, 1)
-        self._Tu = np.diag(1 / (ru[:, 1] - ru[:, 0]))
-        self._Tu_inv = np.diag(ru[:, 1] - ru[:, 0])
-        self._Mu = - (self._Tu @ ru[:, 0]).reshape(-1, 1)
-
         # normalize the configuration model parameters and bounds
-        c = deepcopy(init_config(config, QuadRotorEnvConfig))
-        for k in c.__dataclass_fields__.keys():
-            if k not in self.normalization_ranges:
-                continue
-            r = self.normalization_ranges[k]
-            c.__dict__[k] = (c.__dict__[k] - r[0]) / (r[1] - r[0])
-        c.__dict__['x_bounds'] = self.normalize('x', c.x_bounds.T).T
-        c.__dict__['u_bounds'] = self.normalize('u', c.u_bounds.T).T
-        c.__dict__['x0'] = self.normalize('x', c.x0)
-        c.__dict__['xf'] = self.normalize('x', c.xf)
-        c.__dict__['termination_error'] = \
-            c.termination_error / np.linalg.norm(self._Tx**2) / self.nx
+        C = init_config(config, QuadRotorEnvConfig)
+        for p in ['g', 'thrust_coeff', 'pitch_d', 'pitch_dd', 'pitch_gain',
+                  'roll_d', 'roll_dd', 'roll_gain']:
+            C.__dict__[p] = self.normalize(p, getattr(C, p))
+        for p, n in [('x_bounds', 'x'), ('x0', 'x'), 
+                     ('xf', 'x'), ('u_bounds', 'u')]:
+            C.__dict__[p] = self.normalize(n, getattr(C, p).T).T
+        frobenius_norm = np.linalg.norm(
+            np.diff(self.normalization_ranges['x']).flatten()**-2)
+        C.__dict__['termination_error'] = \
+            C.termination_error / frobenius_norm / self.nx
 
         # let the base class do the rest
-        super().__init__(c)
+        super().__init__(C)
 
         # change the weights of each contribution to the stage cost
         self._Wu /= 5
-        self._Wv *= 10
+        self._Wv *= 20
 
     def get_dynamics(
         self,
@@ -515,8 +505,15 @@ class NormalizedQuadRotorEnv(QuadRotorEnv, Normalized):
         else:
             A, B, C, e = o
 
-        Tx, Tx_inv, Mx = self._Tx, self._Tx_inv, self._Mx
-        Tu_inv, Mu = self._Tu_inv, self._Mu
+        rx = self.normalization_ranges['x']
+        Tx = np.diag(1 / (rx[:, 1] - rx[:, 0]))
+        Tx_inv = np.diag(rx[:, 1] - rx[:, 0])
+        Mx = - (Tx @ rx[:, 0]).reshape(-1, 1)
+
+        ru = self.normalization_ranges['u']
+        Tu = np.diag(1 / (ru[:, 1] - ru[:, 0]))
+        Tu_inv = np.diag(ru[:, 1] - ru[:, 0])
+        Mu = - (Tu @ ru[:, 0]).reshape(-1, 1)
 
         As = Tx @ A @ Tx_inv
         Bs = Tx @ B @ Tu_inv

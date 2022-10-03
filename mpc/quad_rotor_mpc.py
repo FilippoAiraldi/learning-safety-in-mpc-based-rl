@@ -58,7 +58,7 @@ class QuadRotorMPC(GenericMPC):
             'MPC must be either V (state value func) or Q (action value func)'
         super().__init__(name=type)
         self.config = init_config(config, QuadRotorMPCConfig)
-        N = config.N
+        N = self.config.N
 
         # ======================= #
         # Variable and Parameters #
@@ -159,4 +159,4 @@ class QuadRotorMPC(GenericMPC):
             self.f += cs.dot(perturbation, u[:, 0])
 
         # initialize solver
-        self.init_solver(config.solver_opts)
+        self.init_solver(self.config.solver_opts)
