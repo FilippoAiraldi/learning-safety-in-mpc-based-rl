@@ -9,7 +9,11 @@ from util import io, log
 
 
 def eval_pk_agent(
-    agent_n: int, episodes: int, max_ep_steps: int, seed: int
+    agent_n: int, 
+    episodes: int, 
+    max_ep_steps: int, 
+    seed: int, 
+    normalized_env: bool
 ) -> dict[str, Any]:
     '''
     Evaluation of a single perfect-knowledge (PK) agent.
@@ -24,13 +28,17 @@ def eval_pk_agent(
         Maximum number of time steps simulated per each episode.
     seed : int
         RNG seed.
+    normalized_env : bool
+        Whether to train on a normalized version of the environment.
 
     Returns
     -------
     dict[str, Any]
         Data resulting from the simulation.
     '''
-    env = envs.NormalizedQuadRotorEnv.get_wrapped(
+    env = env = (
+        envs.NormalizedQuadRotorEnv if normalized_env else envs.QuadRotorEnv
+    ).get_wrapped(
         max_episode_steps=max_ep_steps,
         normalize_observation=False,
         normalize_reward=False
@@ -198,6 +206,7 @@ if __name__ == '__main__':
             agent_n=n,
             episodes=tot_episodes,
             max_ep_steps=args.max_ep_steps,
+            normalized_env=args.normalized,
             seed=args.seed + (tot_episodes + 1) * n
         )
     else:
