@@ -1,4 +1,5 @@
 import numpy as np
+from collections import UserDict, Mapping
 from itertools import combinations
 from scipy.special import comb
 from typing import Any, Iterable, Iterator, Union
@@ -150,29 +151,20 @@ def logmean(
     _mean = np.nanmean if nanmean else np.mean
     return np.exp(_mean(
         np.log(a),
-            np.log(a), 
-        np.log(a),
         axis=axis,
-            axis=axis, 
-        axis=axis,
-        dtype=dtype,
-            dtype=dtype, 
         dtype=dtype,
         out=out, keepdims=keepdims, where=where
     ))
 
 
-class Normalized:
-    '''Base class with utilities for normalization.'''
-
-    normalized: bool = True
-    normalization_ranges: dict[str, np.ndarray] = {}
+class NormalizationService(UserDict[str, np.ndarray]):
+    '''Shared service for normalizing quantities.'''
 
     def normalize(
         self, name: str, x: Union[float, np.ndarray]
     ) -> Union[float, np.ndarray]:
         '''Normalizes the value `x` according to the ranges of `name`.'''
-        r = self.normalization_ranges[name]
+        r = self.data[name]
         if r.ndim == 1:
             return (x - r[0]) / (r[1] - r[0])
         if isinstance(x, np.ndarray) and x.shape[-1] != r.shape[0]:
@@ -184,7 +176,7 @@ class Normalized:
         self, name: str, x: Union[float, np.ndarray]
     ) -> Union[float, np.ndarray]:
         '''Denormalizes the value `x` according to the ranges of `name`.'''
-        r = self.normalization_ranges[name]
+        r = self.data[name]
         if r.ndim == 1:
             return (r[1] - r[0]) * x + r[0]
         if isinstance(x, np.ndarray) and x.shape[-1] != r.shape[0]:
@@ -194,4 +186,22 @@ class Normalized:
 
     def can_be_normalized(self, name: str) -> bool:
         '''Whether variable `name` can be normalized.'''
-        return name in self.normalization_ranges
+        return name in self.data
+
+    def update(self, other: Any = None, **kwargs: np.ndarray) -> None:
+        '''Updates but throws if duplicate keys occur.'''
+        # thanks to  https://stackoverflow.com/a/30242574/19648688
+        if other is not None:
+            for k, v in other.items() if isinstance(other, Mapping) else other:
+                self[k] = v
+        for k, v in kwargs.items():
+            self[k] = v
+
+    def register(self, other: Any = None, **kwargs: np.ndarray) -> None:
+        '''Updates the normalization ranges. Raises if duplicates occur.'''
+        return self.update(other, **kwargs)
+
+    def __setitem__(self, name: str, range: np.ndarray) -> None:
+        if name in self.data:
+            raise KeyError(f'\'{name}\' already registered for normalization.')
+        self.data[name] = range

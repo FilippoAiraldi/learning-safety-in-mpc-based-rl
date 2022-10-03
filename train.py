@@ -6,6 +6,7 @@ import time
 from datetime import datetime
 from typing import Any
 from util import io, log
+from util.math import NormalizationService
 
 
 def eval_pk_agent(
@@ -36,12 +37,10 @@ def eval_pk_agent(
     dict[str, Any]
         Data resulting from the simulation.
     '''
-    env = env = (
-        envs.NormalizedQuadRotorEnv if normalized_env else envs.QuadRotorEnv
-    ).get_wrapped(
+    normalization = NormalizationService() if normalized_env else None
+    env = envs.QuadRotorEnv.get_wrapped(
         max_episode_steps=max_ep_steps,
-        normalize_observation=False,
-        normalize_reward=False
+        normalization=normalization
     )
     agents.QuadRotorPKAgent(
         env=env,
@@ -104,12 +103,10 @@ def train_lstdq_agent(
         Data resulting from the simulation.
     '''
     logger = log.create_logger(runname, to_file=False) if verbose else None
-    env = (
-        envs.NormalizedQuadRotorEnv if normalized_env else envs.QuadRotorEnv
-    ).get_wrapped(
+    normalization = NormalizationService() if normalized_env else None
+    env = envs.QuadRotorEnv.get_wrapped(
         max_episode_steps=max_ep_steps,
-        normalize_observation=False,
-        normalize_reward=False
+        normalization=normalization
     )
     agent = agents.wrappers.RecordLearningData(
         (agents.QuadRotorGPSafeLSTDQAgent
