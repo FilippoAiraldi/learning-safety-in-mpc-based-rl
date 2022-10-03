@@ -227,7 +227,7 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
                     'ipopt': {
                         'max_iter': 500,
                         'sb': 'yes',
-                        # debug
+                        # for debugging
                         'print_level': 0,
                         'print_user_options': 'no',
                         'print_options_documentation': 'no'

@@ -5,11 +5,11 @@ from envs.quad_rotor_env import QuadRotorEnv
 from mpc.generic_mpc import GenericMPC
 from typing import Union
 from util.casadi import quad_form
-from util.configurations import init_config
+from util.configurations import BaseConfig, init_config
 
 
 @dataclass(frozen=True)
-class QuadRotorMPCConfig:
+class QuadRotorMPCConfig(BaseConfig):
     '''
     Quadrotor MPC configuration, such as horizons and CasADi/IPOPT options.
     '''
@@ -24,7 +24,7 @@ class QuadRotorMPCConfig:
             'tol': 1e-6,
             'barrier_tol_factor': 1,
             'sb': 'yes',
-            # debug
+            # for debugging
             'print_level': 0,
             'print_user_options': 'no',
             'print_options_documentation': 'no'

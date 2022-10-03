@@ -184,7 +184,7 @@ class NormalizationService(UserDict[str, np.ndarray]):
                              'denormalization would alter shape.')
         return (r[:, 1] - r[:, 0]) * x + r[:, 0]
 
-    def can_be_normalized(self, name: str) -> bool:
+    def can_normalize(self, name: str) -> bool:
         '''Whether variable `name` can be normalized.'''
         return name in self.data
 

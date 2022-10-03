@@ -152,7 +152,7 @@ def gp_as_casadi_callback():
         'ipopt': {
             'max_iter': 100,
             'sb': 'yes',
-            # debug
+            # for debugging
             'print_level': 5,
             'print_user_options': 'no',
             'print_options_documentation': 'no'

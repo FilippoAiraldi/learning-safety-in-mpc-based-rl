@@ -53,7 +53,7 @@ def objective(
     max_ep_steps: int,
     seed: int,
 ) -> float:
-    # fix parameters of this trial
+    # make these parameters of this trial constant (i.e., fixed)
     train_eps = set_fixed_attr(trial, 'train_eps', 1)
     max_perc_update = set_fixed_attr(trial, 'max_perc_update', float('inf'))
     replay_maxlen_factor = set_fixed_attr(trial, 'replay_maxlen_factor', 1)
