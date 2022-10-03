@@ -278,18 +278,18 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
         self.d2Qdtheta = cs.simplify(d2Qdtheta)
 
     def _init_qp_solver(self) -> None:
-        n_theta = sum(self.weights.sizes())
+        n_theta = self.weights.n_theta
 
         # prepare symbols
         theta: cs.SX = cs.SX.sym('theta', n_theta, 1)
         theta_new: cs.SX = cs.SX.sym('theta+', n_theta, 1)
         dtheta = theta_new - theta
         p: cs.SX = cs.SX.sym('p', n_theta, 1)
-        lr: cs.SX = cs.SX.sym('lr', 1, 1)
+        lr: cs.SX = cs.SX.sym('lr', n_theta, 1)
 
         # prepare solver
         qp = {
-            'x': theta_new, 
+            'x': theta_new,
             'f': 0.5 * dtheta.T @ dtheta + (lr * p).T @ dtheta,
             'p': cs.vertcat(theta, p, lr)
         }

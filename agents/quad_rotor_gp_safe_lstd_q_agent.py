@@ -209,7 +209,7 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
             theta_new: cs.SX = cs.SX.sym('theta+', n_theta, 1)
             dtheta = theta_new - theta
             p: cs.SX = cs.SX.sym('p', n_theta, 1)
-            lr: cs.SX = cs.SX.sym('lr', 1, 1)
+            lr: cs.SX = cs.SX.sym('lr', n_theta, 1)
             mu0: cs.SX = cs.SX.sym('mu0', 1, 1)
             beta: cs.SX = cs.SX.sym('beta', 1, 1)
             self._qp = {
