@@ -60,6 +60,11 @@ class QuadRotorMPC(GenericMPC):
         self.config = init_config(config, QuadRotorMPCConfig)
         N = self.config.N
 
+        # NOTE: regarding normalization. Dynamical state, inputs and slacks,
+        # do not need to be normalized here, since the dynamics are already
+        # normalized in the env (if normalization is enabled, of course). What
+        # needs to be normalized here are the MPC parameters.
+
         # ======================= #
         # Variable and Parameters #
         # ======================= #
@@ -133,6 +138,10 @@ class QuadRotorMPC(GenericMPC):
         w_x = self.add_par('w_x', nx, 1)    # weights for stage/final state
         w_u = self.add_par('w_u', nu, 1)    # weights for stage/final control
         w_s = self.add_par('w_s', ns, 1)    # weights for stage/final slack
+        if env.normalized:
+            w_x = env.normalization.denormalize('w_x', w_x)
+            w_u = env.normalization.denormalize('w_u', w_u)
+            w_s = env.normalization.denormalize('w_s', w_s)
         J += sum((
             quad_form(w_x, x[:, k] - xf) +
             quad_form(w_u, u[:, k] - uf) +

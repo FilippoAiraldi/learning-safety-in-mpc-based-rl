@@ -7,6 +7,7 @@ from itertools import count
 from mpc import QuadRotorMPC, QuadRotorMPCConfig, Solution
 from typing import Any, Optional, Union
 from util.configurations import init_config
+from util.math import NormalizationService
 
 
 class QuadRotorBaseAgent(ABC):
@@ -51,16 +52,7 @@ class QuadRotorBaseAgent(ABC):
         self.env = env
         self._config = init_config(agent_config, self.config_cls) \
             if hasattr(self, 'config_cls') else None
-
-        # initialize default MPC parameters
         self.fixed_pars = {} if fixed_pars is None else fixed_pars
-        default_pars = [
-            ('xf', env.config.xf),
-            ('backoff', 0.05)
-        ]
-        for p, default in default_pars:
-            if p not in self.fixed_pars:
-                self.fixed_pars[p] = default
 
         # set RNG and disturbances
         self.seed = seed
@@ -72,6 +64,16 @@ class QuadRotorBaseAgent(ABC):
         self.last_solution: Solution = None
         self._Q = QuadRotorMPC(env, config=mpc_config, type='Q')
         self._V = QuadRotorMPC(env, config=mpc_config, type='V')
+
+    @property
+    def normalized(self) -> bool:
+        '''Returns whether the agent's env is normalized.'''
+        return self.env.normalization is not None
+
+    @property
+    def normalization(self) -> Optional[NormalizationService]:
+        '''Returns the agent's env normalization.'''
+        return self.env.normalization
 
     @property
     def V(self) -> QuadRotorMPC:
