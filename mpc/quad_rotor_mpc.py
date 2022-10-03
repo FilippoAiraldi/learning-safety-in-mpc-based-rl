@@ -5,6 +5,7 @@ from envs.quad_rotor_env import QuadRotorEnv
 from mpc.generic_mpc import GenericMPC
 from typing import Union
 from util.casadi import quad_form
+from util.configurations import init_config
 
 
 @dataclass(frozen=True)
@@ -56,13 +57,7 @@ class QuadRotorMPC(GenericMPC):
         assert type in {'V', 'Q'}, \
             'MPC must be either V (state value func) or Q (action value func)'
         super().__init__(name=type)
-        if config is None:
-            config = QuadRotorMPCConfig()
-        elif isinstance(config, dict):
-            keys = QuadRotorMPCConfig.__dataclass_fields__.keys()
-            config = QuadRotorMPCConfig(
-                **{k: config[k] for k in keys if k in config})
-        self.config = config
+        self.config = init_config(config, QuadRotorMPCConfig)
         N = config.N
 
         # ======================= #
