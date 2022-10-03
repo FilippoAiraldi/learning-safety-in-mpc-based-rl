@@ -414,7 +414,7 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
 class NormalizedQuadRotorEnv(QuadRotorEnv, Normalized):
     '''Normalized version of the quadrotor environment.'''
 
-    ranges: dict[str, np.ndarray] = {
+    normalization_ranges: dict[str, np.ndarray] = {
         # model parameters
         'g': np.array([0, 20]),
         'thrust_coeff': np.array([0, 4]),
@@ -452,7 +452,7 @@ class NormalizedQuadRotorEnv(QuadRotorEnv, Normalized):
         self, config: Union[dict, QuadRotorEnvConfig] = None
     ) -> None:
         # precompute scaling matrices
-        rx, ru = self.ranges['x'], self.ranges['u']
+        rx, ru = self.normalization_ranges['x'], self.normalization_ranges['u']
         self._Tx = np.diag(1 / (rx[:, 1] - rx[:, 0]))
         self._Tx_inv = np.diag(rx[:, 1] - rx[:, 0])
         self._Mx = - (self._Tx @ rx[:, 0]).reshape(-1, 1)
@@ -463,9 +463,9 @@ class NormalizedQuadRotorEnv(QuadRotorEnv, Normalized):
         # normalize the configuration model parameters and bounds
         c = deepcopy(init_config(config, QuadRotorEnvConfig))
         for k in c.__dataclass_fields__.keys():
-            if k not in self.ranges:
+            if k not in self.normalization_ranges:
                 continue
-            r = self.ranges[k]
+            r = self.normalization_ranges[k]
             c.__dict__[k] = (c.__dict__[k] - r[0]) / (r[1] - r[0])
         c.__dict__['x_bounds'] = self.normalize('x', c.x_bounds.T).T
         c.__dict__['u_bounds'] = self.normalize('u', c.u_bounds.T).T

@@ -160,13 +160,13 @@ class Normalized:
     '''Base class with utilities for normalization.'''
 
     normalized: bool = True
-    ranges: dict[str, np.ndarray] = {}
+    normalization_ranges: dict[str, np.ndarray] = {}
 
     def normalize(
         self, name: str, x: Union[float, np.ndarray]
     ) -> Union[float, np.ndarray]:
         '''Normalizes the value `x` according to the ranges of `name`.'''
-        r = self.ranges[name]
+        r = self.normalization_ranges[name]
         if r.ndim == 1:
             return (x - r[0]) / (r[1] - r[0])
         if isinstance(x, np.ndarray) and x.shape[-1] != r.shape[0]:
@@ -178,7 +178,7 @@ class Normalized:
         self, name: str, x: Union[float, np.ndarray]
     ) -> Union[float, np.ndarray]:
         '''Denormalizes the value `x` according to the ranges of `name`.'''
-        r = self.ranges[name]
+        r = self.normalization_ranges[name]
         if r.ndim == 1:
             return (r[1] - r[0]) * x + r[0]
         if isinstance(x, np.ndarray) and x.shape[-1] != r.shape[0]:
@@ -188,4 +188,4 @@ class Normalized:
 
     def can_be_normalized(self, name: str) -> bool:
         '''Whether variable `name` can be normalized.'''
-        return name in self.ranges
+        return name in self.normalization_ranges
