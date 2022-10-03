@@ -485,17 +485,15 @@ class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
         cfg = self.config
         if cfg is None or not hasattr(cfg, 'lr'):
             return
-        lr = cfg.lr
         n_pars, n_theta = len(self.weights), self.weights.n_theta
-        if np.isscalar(lr):
+        lr = np.asarray(cfg.lr).squeeze()
+        if lr.ndim == 0:
             lr = np.full((n_theta,), lr)
-        else:
-            lr = np.asarray(cfg.lr).squeeze()
-            if lr.size == n_pars and lr.size != n_theta:
-                lr = np.concatenate(
-                    [np.full(p.size, r) for p, r in zip(self.weights, lr)])
+        elif lr.size == n_pars and lr.size != n_theta:
+            lr = np.concatenate(
+                [np.full(p.size, r) for p, r in zip(self.weights, lr)])
         assert lr.shape == (n_theta,), 'Learning rate must have the same ' \
-            'size as the learnable parameter vector.'
+                'size as the learnable parameter vector.'
         cfg.lr = lr
 
     def _merge_mpc_pars_callback(self) -> dict[str, np.ndarray]:
