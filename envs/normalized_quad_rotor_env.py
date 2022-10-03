@@ -1,15 +1,14 @@
 import casadi as cs
 import numpy as np
 from copy import deepcopy
+from envs.normalized_base_env import NormalizedBaseEnv
 from envs.quad_rotor_env import QuadRotorEnv, QuadRotorEnvConfig
 from typing import Union
 from util.configurations import init_config
 
 
-class NormalizedQuadRotorEnv(QuadRotorEnv):
+class NormalizedQuadRotorEnv(QuadRotorEnv, NormalizedBaseEnv):
     '''Normalized version of the quadrotor environment.'''
-
-    normalized: bool = True
 
     ranges: dict[str, np.ndarray] = {
         # model parameters
@@ -21,6 +20,7 @@ class NormalizedQuadRotorEnv(QuadRotorEnv):
         'roll_d': np.array([0, 20]),
         'roll_dd': np.array([0, 20]),
         'roll_gain': np.array([0, 20]),
+        
         # system states
         'x': np.array([[-1, 5],
                        [-1, 5],
@@ -32,10 +32,16 @@ class NormalizedQuadRotorEnv(QuadRotorEnv):
                        [np.deg2rad(-30), np.deg2rad(30)],
                        [-3, 3],
                        [-3, 3]]),
+        
         # system control actions
         'u': np.array([[-np.pi, np.pi],
                        [-np.pi, np.pi],
                        [0, 20]]),
+
+        # stage cost weights
+        'w_x': np.array([0, 1e2]),
+        'w_u': np.array([0, 1e1]),
+        'w_s': np.array([0, 1e3]),
     }
 
     def __init__(
@@ -118,31 +124,3 @@ class NormalizedQuadRotorEnv(QuadRotorEnv):
             Tx @ B @ Tu_inv @ Mu
         )
         return (As, Bs, es) if is_cs else (As, Bs, Cs, es)
-
-    def normalize(
-        self, name: str, x: Union[float, np.ndarray]
-    ) -> Union[float, np.ndarray]:
-        '''Normalizes the value `x` according to the ranges of `name`.'''
-        r = self.ranges[name]
-        if r.ndim == 1:
-            return (x - r[0]) / (r[1] - r[0])
-        if isinstance(x, np.ndarray) and x.shape[-1] != r.shape[0]:
-            raise ValueError('Input with invalid dimensions: '
-                             'normalization would alter shape.')
-        return (x - r[:, 0]) / (r[:, 1] - r[:, 0])
-
-    def denormalize(
-        self, name: str, x: Union[float, np.ndarray]
-    ) -> Union[float, np.ndarray]:
-        '''Denormalizes the value `x` according to the ranges of `name`.'''
-        r = self.ranges[name]
-        if r.ndim == 1:
-            return (r[1] - r[0]) * x + r[0]
-        if isinstance(x, np.ndarray) and x.shape[-1] != r.shape[0]:
-            raise ValueError('Input with invalid dimensions: '
-                             'denormalization would alter shape.')
-        return (r[:, 1] - r[:, 0]) * x + r[:, 0]
-
-    def can_be_normalized(self, name: str) -> bool:
-        '''Whether variable `name` can be normalized.'''
-        return name in self.ranges
