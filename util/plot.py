@@ -191,8 +191,8 @@ def trajectory_time(env: RecordData, traj_num: int) -> Figure:
         [U[:, :2], ('desired pitch', 'desired roll'), 'Angle [$rad$]', None, u_bnd[:2]],
         [U[:, -1], ('desired z acc.',), 'Acceleration [$m/s^2$]', None, u_bnd[-1]],
         [Cx, None, 'Termination error', None, env.config.termination_error],
-        [C, (f'pos. error ({Cx.sum():,.1f})', f'act. usage ({Cu.sum():,.1f})',
-         f'violations ({Cv.sum():,.1f})'), f'Cost (J = {C.sum():,.1f})', None, None],
+        [C, (f'pos. error ({Cx.sum():,.2f})', f'act. usage ({Cu.sum():,.2f})',
+         f'violations ({Cv.sum():,.2f})'), f'Cost (J = {C.sum():,.2f})', None, None],
     ]
 
     # create figure and grid
