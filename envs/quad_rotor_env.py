@@ -420,6 +420,18 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
             nw = len(winds)
             wind_mag = np.array(list(winds.values()))
 
+        # if normalized, first denormalize the parameters
+        if self.normalized:
+            N = self.normalization
+            g = N.denormalize('g', g)
+            thrust_coeff = N.denormalize('thrust_coeff', thrust_coeff)
+            pitch_d = N.denormalize('pitch_d', pitch_d)
+            pitch_dd = N.denormalize('pitch_dd', pitch_dd)
+            pitch_gain = N.denormalize('pitch_gain', pitch_gain)
+            roll_d = N.denormalize('roll_d', roll_d)
+            roll_dd = N.denormalize('roll_dd', roll_dd)
+            roll_gain = N.denormalize('roll_gain', roll_gain)
+
         # build the actual matrices
         A = T * block([
             [np.zeros((3, 3)), np.eye(3), np.zeros((3, 4))],
@@ -458,11 +470,11 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
             return (A, B, e) if is_casadi else (A, B, C, e)
 
         # compute the scaling matrices T and offsets M
-        rx = self.normalization['x']
+        rx = N['x']
         Tx = np.diag(1 / (rx[:, 1] - rx[:, 0]))
         Tx_inv = np.diag(rx[:, 1] - rx[:, 0])
         Mx = - (Tx @ rx[:, 0]).reshape(-1, 1)
-        ru = self.normalization['u']
+        ru = N['u']
         Tu = np.diag(1 / (ru[:, 1] - ru[:, 0]))
         Tu_inv = np.diag(ru[:, 1] - ru[:, 0])
         Mu = - (Tu @ ru[:, 0]).reshape(-1, 1)
