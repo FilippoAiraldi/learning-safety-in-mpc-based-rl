@@ -440,7 +440,7 @@ def safety(
         ax = next(axs)
         _plot_population(ax, episodes, y=None, y_mean=failed.sum(axis=0),
                          color=color, label=label, xlabel='Episode',
-                         ylabel='Failed agents')
+                         ylabel='Failed agents', method='step')
         ax.set_ylim(0, failed.shape[0])
         ax.yaxis.set_major_formatter(PercentFormatter(xmax=failed.shape[0]))
 
@@ -459,7 +459,7 @@ def safety(
         cnt = np.nancumsum((np.nanmax(cv_all, axis=0) > 0.0), axis=0)
         _plot_population(next(axs), episodes, cnt.T, color=color, label=label,
                          xlabel='Episode', ylabel='Number of unsafe episodes',
-                         legendloc='upper left')
+                         method='step', legendloc='upper left')
 
         # # plot also the overall constraint violation
         # cv_all[~np.isfinite(cv_all)] = 0.0
