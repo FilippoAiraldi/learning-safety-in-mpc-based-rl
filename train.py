@@ -9,10 +9,10 @@ from util import io, log
 
 
 def eval_pk_agent(
-    agent_n: int, 
-    episodes: int, 
-    max_ep_steps: int, 
-    seed: int, 
+    agent_n: int,
+    episodes: int,
+    max_ep_steps: int,
+    seed: int,
     normalized_env: bool
 ) -> dict[str, Any]:
     '''
@@ -134,7 +134,7 @@ if __name__ == '__main__':
     # parse arguments
     parser = argparse.ArgumentParser()
     parser.add_argument('--runname', type=str, default=None,
-                        help='Name of the simulation run.')    
+                        help='Name of the simulation run.')
     parser.add_argument('--agents', type=int, default=50,
                         help='Number of parallel agent to train.')
     parser.add_argument('--epochs', type=int, default=50,
@@ -145,8 +145,8 @@ if __name__ == '__main__':
                         help='Maximum number of steps per episode.')
     parser.add_argument('--gamma', type=float, default=1.0,
                         help='Discount factor.')
-    parser.add_argument('--lr', type=float, nargs='+', 
-                        default=0.03,  # [3e-2, 3e-2, 1e-3, 1e-3, 1e-3], 
+    parser.add_argument('--lr', type=float, nargs='+',
+                        default=0.03,  # [3e-2, 3e-2, 1e-3, 1e-3, 1e-3],
                         help='Learning rate. Cane be a single float, '
                              'or one per parameter type, or one per '
                              'parameter vector entry.')
@@ -178,7 +178,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # prepare to launch
-    runname = io.get_runname(candidate=args.runname) 
+    runname = io.get_runname(candidate=args.runname)
     date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     start = time.perf_counter()
     agent_config = {

@@ -119,12 +119,12 @@ def jaggedstack(
 
 
 def logmean(
-    a, 
-    axis=None, 
-    dtype=None, 
-    out=None, 
-    keepdims=np._NoValue, 
-    *, 
+    a,
+    axis=None,
+    dtype=None,
+    out=None,
+    keepdims=np._NoValue,
+    *,
     where=np._NoValue,
     nanmean: bool = False
 ) -> np.ndarray:
@@ -149,11 +149,17 @@ def logmean(
     '''
     _mean = np.nanmean if nanmean else np.mean
     return np.exp(_mean(
+        np.log(a),
             np.log(a), 
+        np.log(a),
+        axis=axis,
             axis=axis, 
+        axis=axis,
+        dtype=dtype,
             dtype=dtype, 
-            out=out, keepdims=keepdims, where=where
-        ))
+        dtype=dtype,
+        out=out, keepdims=keepdims, where=where
+    ))
 
 
 class Normalized:
