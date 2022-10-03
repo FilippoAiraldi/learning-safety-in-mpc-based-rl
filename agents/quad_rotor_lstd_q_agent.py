@@ -18,7 +18,7 @@ from util.rl import ReplayMemory
 class QuadRotorLSTDQAgentConfig:
     # initial learnable RL weights and their bounds
     init_g: float = (9.81, (1, 40))
-    init_thrust_coeff: float = (2.0, (0.1, 4))
+    init_thrust_coeff: float = (2.0, (0.1, 4))  # safe=0.7
     # init_w_x: np.ndarray = (1e1, (1e-3, np.inf))
     # init_w_u: np.ndarray = (1e0, (1e-3, np.inf))
     # init_w_s: np.ndarray = (1e2, (1e-3, np.inf))

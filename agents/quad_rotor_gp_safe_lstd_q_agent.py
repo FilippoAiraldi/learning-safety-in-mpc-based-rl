@@ -36,6 +36,8 @@ class QuadRotorGPSafeLSTDQAgentConfig(QuadRotorLSTDQAgentConfig):
 
 
 class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
+    '''GP-based safe variant of the LSTDQ agent.'''
+
     config_cls: type = QuadRotorGPSafeLSTDQAgentConfig
 
     def update(self) -> tuple[np.ndarray, tuple[float, float], float]:
