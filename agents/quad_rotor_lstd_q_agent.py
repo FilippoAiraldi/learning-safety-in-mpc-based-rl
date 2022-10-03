@@ -3,25 +3,26 @@ import numpy as np
 import casadi as cs
 from agents.quad_rotor_base_learning_agent import \
     QuadRotorBaseLearningAgent, UpdateError
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from envs import QuadRotorEnv
 from itertools import chain
 from mpc import Solution, MPCSolverError, QuadRotorMPCConfig
 from scipy.linalg import cho_solve
-from typing import Union
+from typing import Optional, Union
 from util.configurations import BaseConfig, init_config
-from util.math import cholesky_added_multiple_identities
+from util.math import NormalizationService, cholesky_added_multiple_identities
 from util.rl import ReplayMemory
 
 
 @dataclass
 class QuadRotorLSTDQAgentConfig(BaseConfig):
     # initial learnable RL weights and their bounds
-    init_g: float = (9.81, (1, 40))
-    init_thrust_coeff: float = (2.0, (0.1, 4))  # safe=0.7
-    # init_w_x: np.ndarray = (1e1, (1e-3, np.inf))
-    # init_w_u: np.ndarray = (1e0, (1e-3, np.inf))
-    # init_w_s: np.ndarray = (1e2, (1e-3, np.inf))
+    init_g: tuple[float, tuple[float, float]] = (9.81, (1, 40))
+    init_thrust_coeff: tuple[float, tuple[float, float]] = (2.0, (0.1, 4))
+    # init_w_x: tuple[float, tuple[float, float]] = (1e1, (1e-3, np.inf))
+    # init_w_u: tuple[float, tuple[float, float]] = (1e0, (1e-3, np.inf))
+    # init_w_s: tuple[float, tuple[float, float]] = (1e2, (1e-3, np.inf))
+
     # fixed non-learnable weights
     fixed_pitch_d: float = 12
     fixed_pitch_dd: float = 7
@@ -42,6 +43,15 @@ class QuadRotorLSTDQAgentConfig(BaseConfig):
     gamma: float = 1.0
     lr: float = 1e-1
     max_perc_update: float = np.inf
+
+    # normalization ranges for stage costs (for other pars ranges are taken
+    # from env)
+    normalization_ranges: dict[str, np.ndarray] = field(
+        default_factory=lambda: {
+            'w_x': np.array([0, 1e2]),
+            'w_u': np.array([0, 1e1]),
+            'w_s': np.array([0, 1e3]),
+        })
 
 
 class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
@@ -82,28 +92,14 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
         seed : int, optional
             Seed for the random number generator.
         '''
-        # initialize fixed and learnable parameters. If the environment is
-        # normalized, then apply normalization here
-        agent_config = init_config(agent_config, self.config_cls)
-        init_pars = agent_config.get_group('init')
-        fixed_pars = agent_config.get_group('fixed')
-        if env.normalized:
-            fixed_pars = {
-                name: (env.normalize(name, par)
-                       if env.can_be_normalized(name) else par)
-                for name, par in fixed_pars.items()
-            }
-            init_pars = {
-                name: (
-                    (env.normalize(name, par), env.normalize(name, bnd))
-                    if env.can_be_normalized(name) else
-                    (par, bnd)
-                )
-                for name, (par, bnd) in init_pars.items()
-            }
-        fixed_pars['perturbation'] = np.nan
-
         # create base agent
+        agent_config, fixed_pars, init_pars = self._init_config_and_pars(
+            agent_config, env.normalization)
+        fixed_pars.update({
+            'xf': env.config.xf,  # already normalized
+            'perturbation': np.nan,
+            'backoff': 0.05,
+        })
         super().__init__(
             env,
             agentname=agentname,
@@ -258,6 +254,36 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
             if return_info else
             returns
         )
+
+    def _init_config_and_pars(
+        self,
+        config: Optional[QuadRotorLSTDQAgentConfig],
+        normalization: Optional[NormalizationService]
+    ) -> tuple[
+        QuadRotorLSTDQAgentConfig,
+        dict[str, float],
+        dict[str, tuple[float, tuple[float, float]]]
+    ]:
+        '''
+        Initializes the agent configuration and fixed and initial pars (does
+        not save to self).
+        '''
+        C = init_config(config, self.config_cls)
+        N = normalization
+        if N is not None:
+            N.register(C.normalization_ranges)
+            for name in N:
+                attr = f'fixed_{name}'
+                if hasattr(C, attr):
+                    setattr(C, attr, N.normalize(name, getattr(C, attr)))
+                attr = f'init_{name}'
+                if hasattr(C, attr):
+                    val, bnd = getattr(C, attr)
+                    setattr(C, attr, (
+                        N.normalize(name, val),
+                        N.normalize(name, bnd)
+                    ))
+        return C, C.get_group('fixed'), C.get_group('init')
 
     def _init_derivative_symbols(self) -> None:
         '''Computes symbolical derivatives needed for Q learning.'''

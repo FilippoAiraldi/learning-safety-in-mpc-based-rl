@@ -37,7 +37,7 @@ class QuadRotorPKAgent(QuadRotorBaseAgent):
             'w_x': 1e1,
             'w_u': 1e0,
             'w_s': 1e2,
-            'backoff': 0.05,
+            'backoff': 0.10,
             'perturbation': 0,  # no random perturbation for this agent
         }
         if not env.normalized:
