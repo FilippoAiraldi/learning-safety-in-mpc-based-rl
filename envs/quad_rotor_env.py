@@ -2,10 +2,11 @@ import casadi as cs
 import numpy as np
 from copy import deepcopy
 from dataclasses import dataclass, field
-from envs.base_env import BaseEnv, NormalizedBaseEnv
+from envs.base_env import BaseEnv
 from gym import spaces
 from typing import Union
 from util.configurations import BaseConfig, init_config
+from util.math import Normalized
 
 
 @dataclass(frozen=True)
@@ -410,7 +411,7 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
         return (A, B, e) if is_cs else (A, B, C, e)
 
 
-class NormalizedQuadRotorEnv(QuadRotorEnv, NormalizedBaseEnv):
+class NormalizedQuadRotorEnv(QuadRotorEnv, Normalized):
     '''Normalized version of the quadrotor environment.'''
 
     ranges: dict[str, np.ndarray] = {
@@ -423,7 +424,7 @@ class NormalizedQuadRotorEnv(QuadRotorEnv, NormalizedBaseEnv):
         'roll_d': np.array([0, 20]),
         'roll_dd': np.array([0, 20]),
         'roll_gain': np.array([0, 20]),
-        
+
         # system states
         'x': np.array([[-1, 5],
                        [-1, 5],
@@ -435,7 +436,7 @@ class NormalizedQuadRotorEnv(QuadRotorEnv, NormalizedBaseEnv):
                        [np.deg2rad(-30), np.deg2rad(30)],
                        [-3, 3],
                        [-3, 3]]),
-        
+
         # system control actions
         'u': np.array([[-np.pi, np.pi],
                        [-np.pi, np.pi],
