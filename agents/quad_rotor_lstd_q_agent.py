@@ -9,13 +9,13 @@ from itertools import chain
 from mpc import Solution, MPCSolverError, QuadRotorMPCConfig
 from scipy.linalg import cho_solve
 from typing import Union
-from util.configurations import init_config
+from util.configurations import BaseConfig, init_config
 from util.math import cholesky_added_multiple_identities
 from util.rl import ReplayMemory
 
 
 @dataclass(frozen=True)
-class QuadRotorLSTDQAgentConfig:
+class QuadRotorLSTDQAgentConfig(BaseConfig):
     # initial learnable RL weights and their bounds
     init_g: float = (9.81, (1, 40))
     init_thrust_coeff: float = (2.0, (0.1, 4))  # safe=0.7
@@ -42,16 +42,6 @@ class QuadRotorLSTDQAgentConfig:
     gamma: float = 1.0
     lr: float = 1e-1
     max_perc_update: float = np.inf
-
-    def get_group(
-        self, group: str
-    ) -> dict[str, tuple[np.ndarray, np.ndarray]]:
-        '''Gets a group of parameters.'''
-        return {
-            name.removeprefix(f'{group}_'): val
-            for name, val in self.__dict__.items()
-            if name.startswith(f'{group}_')
-        }
 
 
 class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):

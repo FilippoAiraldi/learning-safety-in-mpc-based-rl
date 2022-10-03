@@ -5,11 +5,11 @@ from dataclasses import dataclass, field
 from envs.base_env import BaseEnv, NormalizedBaseEnv
 from gym import spaces
 from typing import Union
-from util.configurations import init_config
+from util.configurations import BaseConfig, init_config
 
 
 @dataclass(frozen=True)
-class QuadRotorEnvConfig:
+class QuadRotorEnvConfig(BaseConfig):
     '''
     Quadrotor environments configuration parameters. The model parameters must 
     be nonnegative, whereas the disturbance parameter 'winds' is a dictionary 
