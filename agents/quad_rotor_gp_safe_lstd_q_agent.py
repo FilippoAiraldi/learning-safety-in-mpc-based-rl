@@ -2,7 +2,7 @@ import casadi as cs
 import logging
 import numpy as np
 import time
-from agents.quad_rotor_base_learning_agent import UpdateError
+from agents.quad_rotor_base_agents import UpdateError
 from agents.quad_rotor_lstd_q_agent import \
     QuadRotorLSTDQAgent, QuadRotorLSTDQAgentConfig
 from dataclasses import dataclass
@@ -77,6 +77,10 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
             else:
                 mu0 += cfg.mu0_backtracking
                 beta *= cfg.beta_backtracking
+                if beta < 0.5:
+                    raise UpdateError('RL update failed (beta).')
+                if mu0 > 0.5:
+                    raise UpdateError('RL update failed (mu0).')
                 pars[-2:] = (mu0, beta)
         return p, (mu0, beta), gp_fit_time
 

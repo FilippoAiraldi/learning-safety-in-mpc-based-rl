@@ -4,7 +4,7 @@ import optuna
 import os
 from agents import \
     QuadRotorLSTDQAgent, QuadRotorGPSafeLSTDQAgent
-from agents.quad_rotor_base_learning_agent import \
+from agents.quad_rotor_base_agents import \
     QuadRotorBaseLearningAgent, UpdateError
 from envs import QuadRotorEnv, NormalizedQuadRotorEnv
 from mpc import MPCSolverError

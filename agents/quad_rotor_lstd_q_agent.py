@@ -1,7 +1,7 @@
 import logging
 import numpy as np
 import casadi as cs
-from agents.quad_rotor_base_learning_agent import \
+from agents.quad_rotor_base_agents import \
     QuadRotorBaseLearningAgent, UpdateError
 from dataclasses import dataclass, field
 from envs import QuadRotorEnv
