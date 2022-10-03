@@ -20,7 +20,7 @@ class QuadRotorBaseAgent(ABC):
         self,
         env: QuadRotorEnv,
         agentname: str = None,
-        agent_config: Union[dict, Any] = None,
+        agent_config: Union[dict[str, Any], Any] = None,
         fixed_pars: dict[str, np.ndarray] = None,
         mpc_config: Union[dict, QuadRotorMPCConfig] = None,
         seed: int = None
@@ -34,12 +34,12 @@ class QuadRotorBaseAgent(ABC):
             Environment for which to create the agent.
         agentname : str, optional
             Name of the agent.
-        agent_config : dict, ConfigType
+        agent_config : dict, ConfigType, optional
             A set of parameters for the quadrotor agent. If not given, the 
             default ones are used.
-        fixed_pars : dict[str, np.ndarray]
+        fixed_pars : dict[str, np.ndarray], optional
             A dictionary containing MPC parameters that are fixed.
-        mpc_config : dict, QuadRotorMPCConfig
+        mpc_config : dict, QuadRotorMPCConfig, optional
             A set of parameters for the agent's MPC. If not given, the default
             ones are used.
         seed : int, optional

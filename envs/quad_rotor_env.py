@@ -170,7 +170,7 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
             A set of parameters for the quadrotor model and disturbances. If 
             not given, the default ones are used.
         normalization : NormalizationService, optional
-            An optional service that allows to normalize all the parameters and
+            An optional service that allows to normalize parameters and
             quantities in the environment. If `None`, no normalization is 
             performed.
         '''
