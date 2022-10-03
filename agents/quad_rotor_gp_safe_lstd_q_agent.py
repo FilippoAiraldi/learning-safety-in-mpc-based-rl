@@ -182,7 +182,7 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
             # this is the first time the initilization gets called, so only the
             # GP regressor is initialized and the QP symbols with fixed size
             cfg: QuadRotorGPSafeLSTDQAgentConfig = self.config
-            n_theta = sum(self.weights.sizes())
+            n_theta = self.weights.n_theta
 
             # create regressor
             kernel = (

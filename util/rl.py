@@ -88,6 +88,10 @@ class RLParameter:
     symV: cs.SX
     symQ: cs.SX
 
+    @property
+    def size(self) -> int:
+        return self.symV.shape[0]  # since rl pars are all column vectors
+
     def __post_init__(self) -> None:
         shape = self.symV.shape
         assert shape == self.symQ.shape, \
@@ -134,6 +138,11 @@ class RLParameterCollection(Sequence[RLParameter]):
         '''Returns a view of the collection as `dict`.'''
         return self._dict
 
+    @property
+    def n_theta(self) -> int:
+        '''Returns the length of the parameters vector theta.'''
+        return sum(self.sizes())
+
     def names(self) -> Sequence[str]:
         '''Returns the names of the parameters in the collection.'''
         return self._dict.keys()
@@ -177,8 +186,8 @@ class RLParameterCollection(Sequence[RLParameter]):
     def sizes(self, as_dict: bool = False) -> Union[list[int], dict[str, int]]:
         '''Returns the size of each parameter.'''
         if as_dict:
-            return {p.name: p.symV.shape[0] for p in self._list}
-        return [p.symV.shape[0] for p in self._list]
+            return {p.name: p.size for p in self._list}
+        return [p.size for p in self._list]
 
     def update_values(
         self,
