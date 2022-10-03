@@ -55,7 +55,7 @@ def train_lstdq_agent(
     max_ep_steps: int,
     agent_config: dict[str, Any],
     perturbation_decay: float,
-    run_name: str,
+    runname: str,
     seed: int,
     normalized_env: bool,
     safe_agent: bool,
@@ -79,7 +79,7 @@ def train_lstdq_agent(
         Agent's configuration.
     perturbation_decay : float
         Decay of exploration perturbations at the end of each epoch.
-    run_name : str
+    runname : str
         The name of this run.
     seed : int
         RNG seed.
@@ -95,7 +95,7 @@ def train_lstdq_agent(
     dict[str, Any]
         Data resulting from the simulation.
     '''
-    logger = log.create_logger(run_name, to_file=False) if verbose else None
+    logger = log.create_logger(runname, to_file=False) if verbose else None
     env = (
         envs.NormalizedQuadRotorEnv if normalized_env else envs.QuadRotorEnv
     ).get_wrapped(
@@ -125,6 +125,8 @@ def train_lstdq_agent(
 if __name__ == '__main__':
     # parse arguments
     parser = argparse.ArgumentParser()
+    parser.add_argument('--runname', type=str, default=None,
+                        help='Name of the simulation run.')    
     parser.add_argument('--agents', type=int, default=50,
                         help='Number of parallel agent to train.')
     parser.add_argument('--epochs', type=int, default=50,
@@ -168,7 +170,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # prepare to launch
-    run_name = log.get_run_name()
+    runname = io.get_runname(candidate=args.runname) 
     date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     start = time.perf_counter()
     agent_config = {
@@ -190,7 +192,7 @@ if __name__ == '__main__':
     tot_episodes = args.epochs * args.episodes
 
     # launch training/evaluation
-    print(f'[Simulation {run_name} started at {date}]')
+    print(f'[Simulation {runname} started at {date}]')
     if args.eval_pk:
         func = lambda n: eval_pk_agent(
             agent_n=n,
@@ -206,7 +208,7 @@ if __name__ == '__main__':
             max_ep_steps=args.max_ep_steps,
             agent_config=agent_config,
             perturbation_decay=args.perturbation_decay,
-            run_name=run_name,
+            runname=runname,
             normalized_env=args.normalized,
             safe_agent=args.safe,
             seed=args.seed + (tot_episodes + 1) * n,
@@ -223,7 +225,7 @@ if __name__ == '__main__':
         for key in ('env', 'agent') if key in raw_data[0]
     }
     fn = io.save_results(
-        filename=run_name,
+        filename=runname,
         date=date,
         args=args,
         simtime=time.perf_counter() - start,

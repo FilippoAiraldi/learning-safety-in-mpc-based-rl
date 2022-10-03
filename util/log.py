@@ -1,15 +1,7 @@
 import contextlib
 import joblib
 import logging
-from datetime import datetime
 from tqdm import tqdm
-
-
-def get_run_name(prefix: str = None) -> str:
-    '''Gets the name of the run.'''
-    if prefix is None:
-        prefix = 'R'
-    return f'{prefix}_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
 
 
 def create_logger(run_name: str, to_file: bool = True) -> logging.Logger:
@@ -37,9 +29,11 @@ def create_logger(run_name: str, to_file: bool = True) -> logging.Logger:
 
 @contextlib.contextmanager
 def tqdm_joblib(*args, **kwargs):
-    '''Context manager to patch joblib to report into tqdm progress bar
-    given as argument.'''
-    # thanks to: https://stackoverflow.com/questions/24983493/tracking-progress-of-joblib-parallel-execution/58936697#58936697
+    '''
+    Context manager to patch joblib to report into tqdm progress bar
+    given as argument.
+    '''
+    # https://stackoverflow.com/questions/24983493/tracking-progress-of-joblib-parallel-execution/58936697#58936697
     tqdm_object = tqdm(*args, **kwargs)
 
     class TqdmBatchCompletionCallback(joblib.parallel.BatchCompletionCallBack):
