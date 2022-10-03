@@ -135,8 +135,11 @@ if __name__ == '__main__':
                         help='Maximum number of steps per episode.')
     parser.add_argument('--gamma', type=float, default=1.0,
                         help='Discount factor.')
-    parser.add_argument('--lr', type=float, default=0.03,
-                        help='Learning rate.')
+    parser.add_argument('--lr', type=float, nargs='+', 
+                        default=0.03,  # [3e-2, 3e-2, 1e-3, 1e-3, 1e-3], 
+                        help='Learning rate. Cane be a single float, '
+                             'or one per parameter type, or one per '
+                             'parameter vector entry.')
     parser.add_argument('--max_perc_update', type=float, default=float('inf'),
                         help='Maximum percentage update of agent weigths.')
     parser.add_argument('--replay_mem_maxlen_factor', type=int, default=1,
