@@ -1,7 +1,6 @@
 import numpy as np
 from agents.quad_rotor_base_agent import QuadRotorBaseAgent
 from envs import QuadRotorEnv
-from util.configurations import BaseConfig
 
 
 class QuadRotorPKAgent(QuadRotorBaseAgent):
