@@ -33,7 +33,7 @@ class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
         init_learnable_pars : dict[str, tuple[array_like, array_like]]
             Initial values and bounds for each learnable MPC parameter.
         *args, **kwargs
-            See `envs.QuadRotorBaseAgent`.
+            See `agents.QuadRotorBaseAgent`.
         '''
         super().__init__(*args, **kwargs)
         self._V = DifferentiableMPC[QuadRotorMPC](self._V)
