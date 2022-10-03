@@ -207,7 +207,7 @@ class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
                     [np.full(p.size, r) for p, r in zip(self.weights, lr)])
         assert lr.shape == (n_theta,), 'Learning rate must have the same ' \
             'size as the learnable parameter vector.'
-        cfg.__dict__['lr'] = lr
+        cfg.lr = lr
 
     def _merge_mpc_pars_callback(self) -> dict[str, np.ndarray]:
         return self.weights.values(as_dict=True)

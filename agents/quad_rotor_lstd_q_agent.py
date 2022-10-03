@@ -14,7 +14,7 @@ from util.math import cholesky_added_multiple_identities
 from util.rl import ReplayMemory
 
 
-@dataclass(frozen=True)
+@dataclass
 class QuadRotorLSTDQAgentConfig(BaseConfig):
     # initial learnable RL weights and their bounds
     init_g: float = (9.81, (1, 40))

@@ -8,7 +8,7 @@ from util.configurations import BaseConfig, init_config
 from util.math import NormalizationService
 
 
-@dataclass(frozen=True)
+@dataclass
 class QuadRotorEnvConfig(BaseConfig):
     '''
     Quadrotor environment configuration parameters. The model parameters must 
@@ -325,8 +325,8 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
                 self.observation_space.contains(xf)), \
             'Invalid initial or final state.'
         self.x = x0
-        self.config.__dict__['x0'] = x0
-        self.config.__dict__['xf'] = xf
+        self.config.x0 = x0
+        self.config.xf = xf
         self._n_within_termination = 0
         return self.x
 
@@ -497,22 +497,20 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
         normalization: Optional[NormalizationService]
     ) -> QuadRotorEnvConfig:
         '''Initializes the env configuration (does not save to self).'''
-        config = init_config(config, QuadRotorEnvConfig)
+        C = init_config(config, QuadRotorEnvConfig)
         if normalization is None:
-            return config
-        normalization.register(config.normalization_ranges)
+            return C
+        N = normalization
+        N.register(C.normalization_ranges)
 
-        for p in ['g', 'thrust_coeff', 'pitch_d', 'pitch_dd', 'pitch_gain',
-                  'roll_d', 'roll_dd', 'roll_gain']:
-            config.__dict__[p] = normalization.normalize(p, getattr(config, p))
+        for par in ['g', 'thrust_coeff', 'pitch_d', 'pitch_dd', 'pitch_gain',
+                    'roll_d', 'roll_dd', 'roll_gain']:
+            setattr(C, par, N.normalize(par, getattr(C, par)))
 
-        for p, n in [('x_bounds', 'x'), ('x0', 'x'),
-                     ('xf', 'x'), ('u_bounds', 'u')]:
-            config.__dict__[p] = normalization.normalize(
-                n, getattr(config, p).T).T
+        for par, n in [('x_bounds', 'x'), ('x0', 'x'),
+                       ('xf', 'x'), ('u_bounds', 'u')]:
+            setattr(C, par, N.normalize(n, getattr(C, par).T).T)
 
-        fro_norm = np.linalg.norm(
-            np.diff(normalization['x']).flatten()**-2)
-        config.__dict__['termination_error'] = \
-            config.termination_error / fro_norm / self.nx
-        return config
+        fro_norm = np.linalg.norm(np.diff(N['x']).flatten()**-2)
+        C.termination_error = C.termination_error / fro_norm / self.nx
+        return C

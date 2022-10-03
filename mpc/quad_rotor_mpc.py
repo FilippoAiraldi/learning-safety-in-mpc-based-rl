@@ -8,7 +8,7 @@ from util.casadi import quad_form
 from util.configurations import BaseConfig, init_config
 
 
-@dataclass(frozen=True)
+@dataclass
 class QuadRotorMPCConfig(BaseConfig):
     '''
     Quadrotor MPC configuration, such as horizons and CasADi/IPOPT options.

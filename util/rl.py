@@ -78,7 +78,7 @@ class ReplayMemory(deque[T]):
         yield from (self[i] for i in chain(last_n, sampled))
 
 
-@dataclass(frozen=True)
+@dataclass
 class RLParameter:
     '''An RL parameter class for compactly managing information and the value 
     of a learnable parameter.'''
@@ -99,7 +99,7 @@ class RLParameter:
             f'Q ({self.symQ.shape}) and V ({self.symV.shape}).'
         assert self.symV.is_column(), \
             f'Parameter {self.name} must be a column vector.'
-        self.__dict__['bounds'] = np.broadcast_to(self.bounds, (shape[0], 2))
+        self.bounds = np.broadcast_to(self.bounds, (shape[0], 2))
         self.update_value(self.value)
 
     def update_value(self, new_val: np.ndarray) -> None:
@@ -112,7 +112,7 @@ class RLParameter:
             (new_val <= self.bounds[:, 1]) |
             np.isclose(new_val, self.bounds[:, 1])
         ).all()), 'Parameter value outside bounds.'
-        self.__dict__['value'] = np.clip(
+        self.value = np.clip(
             new_val, self.bounds[:, 0], self.bounds[:, 1])
 
 

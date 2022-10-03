@@ -17,7 +17,7 @@ from util.math import cholesky_added_multiple_identities, constraint_violation
 from util.gp import MultitGaussianProcessRegressor, CasadiKernels
 
 
-@dataclass(frozen=True)
+@dataclass
 class QuadRotorGPSafeLSTDQAgentConfig(QuadRotorLSTDQAgentConfig):
     alpha: float = 1e-10
     kernel_cls: type = kernels.RBF  # kernels.Matern
@@ -32,7 +32,7 @@ class QuadRotorGPSafeLSTDQAgentConfig(QuadRotorLSTDQAgentConfig):
     def __post_init__(self) -> None:
         if not isinstance(self.kernel_cls, str):
             return
-        self.__dict__['kernel_cls'] = getattr(kernels, self.kernel_cls)
+        self.kernel_cls = getattr(kernels, self.kernel_cls)
 
 
 class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
@@ -204,7 +204,7 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
             #     prior_mu, prior_std = 0, np.sqrt(
             #         CasadiKernels.sklearn2func(kernel)(np.zeros(1), diag=True)
             #     ).item()
-            #     cfg.__dict__['mu0'] = prior_mu + norm_ppf(cfg.beta) * prior_std
+            #     cfg.mu0 = prior_mu + norm_ppf(cfg.beta) * prior_std
 
             # compute symbols that do not depend on GP
             theta: cs.SX = cs.SX.sym('theta', n_theta, 1)
