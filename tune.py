@@ -6,10 +6,11 @@ from agents import \
     QuadRotorLSTDQAgent, QuadRotorGPSafeLSTDQAgent
 from agents.quad_rotor_base_agents import \
     QuadRotorBaseLearningAgent, UpdateError
-from envs import QuadRotorEnv, NormalizedQuadRotorEnv
+from envs import QuadRotorEnv
 from mpc import MPCSolverError
 from typing import Any, Type, TypeVar
 from util import io
+from util.math import NormalizationService
 
 
 os.environ['PYTHONWARNINGS'] = 'ignore'
@@ -46,7 +47,7 @@ def show_study_stats(study: optuna.Study) -> None:
 
 def objective(
     trial: optuna.Trial,
-    env_cls: Type[EnvType],
+    normalized: bool,
     agent_cls: Type[AgentType],
     n_epochs: int,
     n_agents: int,
@@ -88,16 +89,16 @@ def objective(
         # 'kernel_cls': args.gp_kernel_type,
         # 'average_violation': args.average_violation,
     }
-    envs: list[env_cls] = []
+    envs: list[QuadRotorEnv] = []
     agents: list[agent_cls] = []
     for n_agent in range(n_agents):
-        env = env_cls.get_wrapped(
+        normalization = NormalizationService if normalized else None
+        env = QuadRotorEnv.get_wrapped(
             max_episode_steps=max_ep_steps,
-            normalize_observation=False,
-            normalize_reward=False,
             record_data=False,
             clip_action=False,
-            enforce_order=True
+            enforce_order=True,
+            normalization=normalization
         )
         agent = agent_cls(
             env=env,
@@ -154,7 +155,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # create study and begin optimization
-    env_cls = NormalizedQuadRotorEnv if args.normalized else QuadRotorEnv
     agent_cls = QuadRotorGPSafeLSTDQAgent if args.safe else QuadRotorLSTDQAgent
     if args.timeout <= 0:
         args.timeout = None
@@ -164,7 +164,7 @@ if __name__ == '__main__':
         direction='minimize')
     obj_fn = lambda trial: objective(
         trial,
-        env_cls=env_cls,
+        normalized=args.normalized,
         agent_cls=agent_cls,
         n_epochs=args.epochs,
         n_agents=args.agents,
