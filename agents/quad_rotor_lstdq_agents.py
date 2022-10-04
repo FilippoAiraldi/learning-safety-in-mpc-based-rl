@@ -326,7 +326,7 @@ class QuadRotorGPSafeLSTDQAgentConfig(QuadRotorLSTDQAgentConfig):
     beta_backtracking: float = 0.95
     max_backtracking_iter: int = 35 
 
-    n_opti: int = 9  # number of multistart for nonlinear optimization
+    n_opti: int = 14  # number of multistart for nonlinear optimization
 
     def __post_init__(self) -> None:
         if not isinstance(self.kernel_cls, str):
@@ -354,7 +354,8 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
 
         # run QP solver (backtrack on beta if necessary) and update weights
         theta = self.weights.values()
-        candidates = np.linspace(theta, theta - cfg.lr * p, cfg.n_opti)
+        candidates = np.linspace(theta, theta - cfg.lr * p, cfg.n_opti) + \
+            self.np_random.normal(size=(cfg.n_opti, theta.size), scale=0.1)
         mu0, beta = cfg.mu0, cfg.beta
         pars = np.block([theta, p, cfg.lr, mu0, beta])
         lb, ub = self._get_percentage_bounds(
