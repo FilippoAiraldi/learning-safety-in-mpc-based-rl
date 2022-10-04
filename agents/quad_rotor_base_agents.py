@@ -392,8 +392,8 @@ class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
         throw_on_exception: bool = False,
         return_info: bool = True
     ) -> Union[
-        np.ndarray,
-        tuple[np.ndarray, list[np.ndarray], list[dict[str, np.ndarray]]]
+        tuple[bool, np.ndarray],
+        tuple[bool, np.ndarray, list[np.ndarray], list[dict[str, np.ndarray]]]
     ]:
         '''
         Trains the agent on its environment.
@@ -410,7 +410,6 @@ class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
             RNG seed.
         logger : logging.Logger, optional
             For logging purposes.
-
         throw_on_exception : bool, optional
             When a training exception occurs, if `throw_on_exception=True`,
             then the exception is fired again and training fails. Otherwise; 
@@ -422,15 +421,18 @@ class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
 
         Returns
         -------
+        success : bool
+            True if the training was successfull.
         returns : array_like
             An array of the returns for each episode in each epoch.
         gradient : list[array_like], optional
-            Gradients of each update. Only returned if 'return_info=True'.   
+            Gradients of each update. Only returned if `return_info=True`.
         new_weights : list[dict[str, array_like]], optional
             Agent's new set of weights after each update. Only returned if 
-            'return_info=True'.
+            `return_info=True`.
         '''
         logger = logger or logging.getLogger('dummy')
+        ok = True
         results = []
 
         for e in range(n_epochs):
@@ -447,15 +449,18 @@ class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
             except (MPCSolverError, UpdateError) as ex:
                 if throw_on_exception:
                     raise ex
+                ok = False
                 logger.error(f'Suppressing agent \'{self.name}\': {ex}')
                 break
 
         if not results:
-            return (np.nan, [], []) if return_info else np.nan
+            return (ok, np.nan, [], []) if return_info else (ok, np.nan)
+
         if not return_info:
-            return np.stack(results, axis=0)
+            return ok, np.stack(results, axis=0)
+
         returns, grads, weightss = list(zip(*results))
-        return np.stack(returns, axis=0), grads, weightss
+        return ok, np.stack(returns, axis=0), grads, weightss
 
     def _init_learnable_pars(
         self, init_pars: dict[str, tuple[np.ndarray, np.ndarray]]

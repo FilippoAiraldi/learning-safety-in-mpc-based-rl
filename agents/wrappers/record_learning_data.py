@@ -45,9 +45,10 @@ class RecordLearningData(Generic[AgentType]):
         list[np.ndarray], 
         list[dict[str, np.ndarray]]
     ]:
+        ok, returns, grads, weightss = self.agent.learn(*args, **kwargs)
         for grad, weights in zip(grads, weightss):
             self._save(grad, weights)
-        return returns, grads, weightss
+        return ok, returns, grads, weightss
 
     def _save(self, grad: np.ndarray, weights: dict[str, np.ndarray]) -> None:
         self.update_gradient.append(grad)

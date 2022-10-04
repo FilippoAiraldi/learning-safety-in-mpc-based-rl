@@ -4,6 +4,7 @@ import envs
 import joblib as jl
 import time
 from datetime import datetime
+from itertools import count
 from typing import Any
 from util import io, log
 from util.math import NormalizationService
@@ -52,7 +53,7 @@ def eval_pk_agent(
         deterministic=True,
         seed=seed + 1
     )
-    return {'env': env}
+    return {'success': True, 'env': env}
 
 
 def train_lstdq_agent(
@@ -117,14 +118,15 @@ def train_lstdq_agent(
             agent_config=agent_config,
             seed=seed
         ))
-    agent.learn(
+    ok = agent.learn(
         n_epochs=epochs,
         n_episodes=train_episodes,
         seed=seed + 1,
         perturbation_decay=perturbation_decay,
-        logger=logger
-    )
-    return {'env': env, 'agent': agent}
+        logger=logger,
+        return_info=True
+    )[0]
+    return {'success': ok, 'env': env, 'agent': agent}
 
 
 if __name__ == '__main__':
@@ -176,8 +178,6 @@ if __name__ == '__main__':
 
     # prepare to launch
     runname = io.get_runname(candidate=args.runname)
-    date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    start = time.perf_counter()
     agent_config = {
         'gamma': args.gamma,
         'lr': args.lr,
@@ -195,9 +195,6 @@ if __name__ == '__main__':
         import os
         os.environ['PYTHONWARNINGS'] = 'ignore'  # ignore warnings
     tot_episodes = args.epochs * args.episodes
-
-    # launch training/evaluation
-    print(f'[Simulation {runname} started at {date}]')
     if args.eval_pk:
         func = lambda n: eval_pk_agent(
             agent_n=n,
@@ -220,10 +217,23 @@ if __name__ == '__main__':
             seed=args.seed + (tot_episodes + 1) * n,
             verbose=args.verbose
         )
-    with log.tqdm_joblib(desc='Simulation', total=args.agents):
-        raw_data = jl.Parallel(n_jobs=args.n_jobs)(
-            jl.delayed(func)(i) for i in range(args.agents)
-        )
+    date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    start = time.perf_counter()
+
+    # launch training/evaluation - perform simulations until the required
+    # number of agents has been succesfully simulated
+    print(f'[Simulation {runname} started at {date}]')
+    raw_data: list[dict[str, Any]] = []
+    sim_cnt = count(0)
+    agent_cnt = count(0)
+    while len(raw_data) < args.agents:
+        n_agents = max(args.agents - len(raw_data), 10)
+        with log.tqdm_joblib(desc=f'Sim {next(sim_cnt)}', total=n_agents):
+            raw_data.extend(
+                jl.Parallel(n_jobs=args.n_jobs)(
+                    jl.delayed(func)(next(agent_cnt)) for _ in range(n_agents)
+                ))
+        raw_data = list(filter(lambda o: o['success']), raw_data)
 
     # save results
     data = {
