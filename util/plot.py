@@ -23,8 +23,8 @@ MATLAB_COLORS = [
 ]
 
 
-def spy(H: Union[cs.SX, cs.MX, cs.DM, np.ndarray], **original_kwargs) -> None:
-    '''See Matplotlib.pyplot.spy.'''
+def spy(H: Union[cs.SX, cs.MX, cs.DM, np.ndarray], **spy_kwargs) -> Figure:
+    '''See `matplotlib.pyplot.spy`.'''
     # try convert to numerical; if it fails, then use symbolic method from cs
     try:
         H = np.array(H)
@@ -40,14 +40,15 @@ def spy(H: Union[cs.SX, cs.MX, cs.DM, np.ndarray], **original_kwargs) -> None:
                      dtype=int)
 
     # plot looks nicer
-    if 'markersize' not in original_kwargs:
-        original_kwargs['markersize'] = 1
+    if 'markersize' not in spy_kwargs:
+        spy_kwargs['markersize'] = 1
 
     # do plotting
-    plt.spy(H, **original_kwargs)
+    fig, ax = plt.subplots(1, 1)
+    ax.spy(H, **spy_kwargs)
     nz = np.count_nonzero(H)
-    plt.xlabel(f'nz = {nz} ({nz / H.size * 100:.2f}%)')
-    plt.show(block=False)
+    ax.set_xlabel(f'nz = {nz} ({nz / H.size * 100:.2f}%)')
+    return fig
 
 
 def set_mpl_defaults() -> None:
