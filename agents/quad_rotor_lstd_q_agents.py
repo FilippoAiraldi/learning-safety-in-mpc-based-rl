@@ -183,7 +183,7 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
             cfg.replay_sample_size, cfg.replay_include_last)
 
         # sum over the batch of samples and compute update direction p
-        g, H = [sum(o) for o in zip(*chain.from_iterable(sample))]
+        g, H = (np.mean(o, axis=0) for o in zip(*chain.from_iterable(sample)))
         R = cholesky_added_multiple_identities(H)
         p = cho_solve((R, True), g).flatten()
 

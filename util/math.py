@@ -40,7 +40,7 @@ def cholesky_added_multiple_identities(
         try:
             return np.linalg.cholesky(A + tau * I)
         except np.linalg.LinAlgError:
-            tau = max(1.1 * tau, beta)
+            tau = max(1.05 * tau, beta)
     raise ValueError('Maximum iterations reached.')
 
 
