@@ -4,12 +4,11 @@ import optuna
 import os
 from agents import \
     QuadRotorLSTDQAgent, QuadRotorGPSafeLSTDQAgent
-from agents.quad_rotor_base_agents import \
-    QuadRotorBaseLearningAgent, UpdateError
+from agents.quad_rotor_base_agents import QuadRotorBaseLearningAgent
 from envs import QuadRotorEnv
-from mpc import MPCSolverError
 from typing import Any, Type, TypeVar
 from util import io
+from util.errors import MPCSolverError, UpdateError
 from util.math import NormalizationService
 
 

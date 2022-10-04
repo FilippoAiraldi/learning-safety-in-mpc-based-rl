@@ -2,18 +2,18 @@ import casadi as cs
 import logging
 import numpy as np
 import time
-from agents.quad_rotor_base_agents import \
-    QuadRotorBaseLearningAgent, UpdateError
+from agents.quad_rotor_base_agents import QuadRotorBaseLearningAgent
 from dataclasses import dataclass, field
 from envs import QuadRotorEnv
 from itertools import chain
-from mpc import Solution, MPCSolverError, QuadRotorMPCConfig
+from mpc import Solution, QuadRotorMPCConfig
 from scipy.linalg import cho_solve
 from scipy.linalg.lapack import dtrtri
 from sklearn.gaussian_process import kernels
 from typing import Optional, Union
 from util.casadi import norm_ppf
 from util.configurations import BaseConfig, init_config
+from util.errors import MPCSolverError, UpdateError
 from util.gp import MultitGaussianProcessRegressor, CasadiKernels
 from util.math import NormalizationService, \
     cholesky_added_multiple_identities, constraint_violation
