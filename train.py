@@ -4,7 +4,6 @@ import envs
 import joblib as jl
 import time
 from datetime import datetime
-from itertools import count
 from typing import Any
 from util import io, log
 from util.math import NormalizationService
@@ -222,19 +221,23 @@ if __name__ == '__main__':
 
     # launch training/evaluation - perform simulations until the required
     # number of agents has been succesfully simulated
-    print(f'[Simulation {runname} started at {date}]')
+    print(f'[Simulation {runname.upper()} started at {date}]')
     raw_data: list[dict[str, Any]] = []
-    sim_cnt = count(0)
-    agent_cnt = count(0)
+    sim_iter, agent_cnt = 0, 0
     while len(raw_data) < args.agents:
         n_agents = max(args.agents - len(raw_data), 10)
-        with log.tqdm_joblib(desc=f'Sim {next(sim_cnt)}', total=n_agents):
+        with log.tqdm_joblib(desc=f'Simulation {sim_iter}', total=n_agents):
             batch = jl.Parallel(n_jobs=args.n_jobs)(
-                jl.delayed(func)(next(agent_cnt)) for _ in range(n_agents)
+                jl.delayed(func)(agent_cnt + n) for n in range(n_agents)
             )
         raw_data.extend(filter(lambda o: o['success'], batch))
+        sim_iter += 1
+        agent_cnt += n_agents
+
 
     # save results
+    args.agents = len(raw_data)
+    print(f'[Simulated {agent_cnt} agents: {agent_cnt - args.agents} failed]')
     data = {
         f'{key}s': [r[key] for r in raw_data]
         for key in ('env', 'agent') if key in raw_data[0]
