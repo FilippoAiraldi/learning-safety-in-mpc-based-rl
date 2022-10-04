@@ -229,11 +229,10 @@ if __name__ == '__main__':
     while len(raw_data) < args.agents:
         n_agents = max(args.agents - len(raw_data), 10)
         with log.tqdm_joblib(desc=f'Sim {next(sim_cnt)}', total=n_agents):
-            raw_data.extend(
-                jl.Parallel(n_jobs=args.n_jobs)(
-                    jl.delayed(func)(next(agent_cnt)) for _ in range(n_agents)
-                ))
-        raw_data = list(filter(lambda o: o['success'], raw_data))
+            batch = jl.Parallel(n_jobs=args.n_jobs)(
+                jl.delayed(func)(next(agent_cnt)) for _ in range(n_agents)
+            )
+        raw_data.extend(filter(lambda o: o['success'], batch))
 
     # save results
     data = {
