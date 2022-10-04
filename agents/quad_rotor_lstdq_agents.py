@@ -320,9 +320,12 @@ class QuadRotorGPSafeLSTDQAgentConfig(QuadRotorLSTDQAgentConfig):
     average_violation: bool = True
 
     mu0: float = 0.0  # target constraint violation
-    mu0_backtracking: float = 0.0
     beta: float = 0.9   # probability of target violation satisfaction
-    beta_backtracking: float = 0.9
+    
+    mu0_backtracking: float = 0.0
+    beta_backtracking: float = 0.95
+    max_backtracking_iter: int = 35 
+
     n_opti: int = 9  # number of multistart for nonlinear optimization
 
     def __post_init__(self) -> None:
@@ -356,7 +359,7 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
         pars = np.block([theta, p, cfg.lr, mu0, beta])
         lb, ub = self._get_percentage_bounds(
             theta, self.weights.bounds(), cfg.max_perc_update)
-        while True:
+        for _ in range(cfg.max_backtracking_iter):
             # run the solver for each candidate
             best_sol = None
             for x0 in candidates:
@@ -369,16 +372,13 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
             # either apply the successful update or backtrack
             if best_sol is not None:
                 self.weights.update_values(best_sol['x'].full().flatten())
-                break
+                return p, (mu0, beta), gp_fit_time
             else:
                 mu0 += cfg.mu0_backtracking
                 beta *= cfg.beta_backtracking
-                if beta < 0.5:
-                    raise UpdateError('RL update failed (beta).')
-                if mu0 > 0.5:
-                    raise UpdateError('RL update failed (mu0).')
                 pars[-2:] = (mu0, beta)
-        return p, (mu0, beta), gp_fit_time
+        raise UpdateError(f'Update failed (beta={beta:.3f}, mu0={mu0:.2f}).')
+        
 
     def learn_one_epoch(
         self,
