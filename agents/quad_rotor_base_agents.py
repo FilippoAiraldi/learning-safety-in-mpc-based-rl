@@ -5,13 +5,13 @@ from gym import Env
 from gym.utils.seeding import np_random
 from itertools import count
 import logging
-from mpc import QuadRotorMPC, QuadRotorMPCConfig, Solution, MPCSolverError
+from mpc import QuadRotorMPC, QuadRotorMPCConfig, Solution
 from mpc.wrappers import DifferentiableMPC
 from typing import Any, Optional, Union
 from util.configurations import init_config
+from util.errors import MPCSolverError, UpdateError
 from util.math import NormalizationService
 from util.rl import RLParameter, RLParameterCollection
-
 
 
 class QuadRotorBaseAgent(ABC):
@@ -225,7 +225,6 @@ class QuadRotorBaseAgent(ABC):
         env: Env,
         n_eval_episodes: int,
         deterministic: bool = True,
-        observation_mean_std: tuple[np.ndarray, np.ndarray] = (0.0, 1.0),
         seed: int = None,
     ) -> np.ndarray:
         '''
@@ -239,9 +238,6 @@ class QuadRotorBaseAgent(ABC):
             Number of episodes over which to evaluate.
         deterministic : bool, optional
             Whether to use deterministic or stochastic actions.
-        observation_mean_std : tuple[array_like, array_like], optional
-            Mean and std for normalization of the observations before calling 
-            the agent.
         seed : int or list[int], optional
             RNG seed.
 
@@ -251,7 +247,6 @@ class QuadRotorBaseAgent(ABC):
             An array of the accumulated rewards/costs for each episode
         '''
         returns = np.zeros(n_eval_episodes)
-        mean, std = observation_mean_std
         seeds = self._make_seed_list(seed, n_eval_episodes)
 
         for e in range(n_eval_episodes):
@@ -260,9 +255,7 @@ class QuadRotorBaseAgent(ABC):
             truncated, terminated = False, False
 
             while not (truncated or terminated):
-                state = (state - mean) / (std + 1e-8)
                 action = self.predict(state, deterministic=deterministic)[0]
-
                 state, r, truncated, terminated, _ = env.step(action)
                 returns[e] += r
 
@@ -295,11 +288,6 @@ class QuadRotorBaseAgent(ABC):
             return [seed + i for i in range(n)]
         assert len(seed) == n, 'Seed sequence with invalid length.'
         return seed
-
-
-class UpdateError(RuntimeError):
-    '''Exception class to raise an error when the agent's update fails.'''
-    ...
 
 
 class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
@@ -359,7 +347,7 @@ class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
         perturbation_decay: float = 0.75,
         seed: Union[int, list[int]] = None,
         logger: logging.Logger = None,
-        return_info: bool = False
+        return_info: bool = True
     ) -> Union[
         np.ndarray,
         tuple[np.ndarray, np.ndarray, dict[str, np.ndarray]]
@@ -387,10 +375,10 @@ class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
         returns : array_like
             An array of the returns for each episode of this epoch.
         gradient : array_like, optional
-            Gradient of the update. Only returned if 'return_info=True'.   
+            Gradient of the update. Only returned if `return_info=True`.
         new_weights : dict[str, array_like], optional
             Agent's new set of weights after the update. Only returned if 
-            'return_info=True'.
+            `return_info=True`.
         '''
         pass
 
@@ -400,12 +388,12 @@ class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
         n_episodes: int,
         perturbation_decay: float = 0.75,
         seed: Union[int, list[int]] = None,
-        throw_on_exception: bool = False,
         logger: logging.Logger = None,
+        throw_on_exception: bool = False,
         return_info: bool = True
     ) -> Union[
-        np.ndarray,
-        tuple[np.ndarray, list[np.ndarray], list[dict[str, np.ndarray]]]
+        tuple[bool, np.ndarray],
+        tuple[bool, np.ndarray, list[np.ndarray], list[dict[str, np.ndarray]]]
     ]:
         '''
         Trains the agent on its environment.
@@ -422,7 +410,6 @@ class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
             RNG seed.
         logger : logging.Logger, optional
             For logging purposes.
-
         throw_on_exception : bool, optional
             When a training exception occurs, if `throw_on_exception=True`,
             then the exception is fired again and training fails. Otherwise; 
@@ -434,15 +421,18 @@ class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
 
         Returns
         -------
+        success : bool
+            True if the training was successfull.
         returns : array_like
             An array of the returns for each episode in each epoch.
         gradient : list[array_like], optional
-            Gradients of each update. Only returned if 'return_info=True'.   
+            Gradients of each update. Only returned if `return_info=True`.
         new_weights : list[dict[str, array_like]], optional
             Agent's new set of weights after each update. Only returned if 
-            'return_info=True'.
+            `return_info=True`.
         '''
         logger = logger or logging.getLogger('dummy')
+        ok = True
         results = []
 
         for e in range(n_epochs):
@@ -459,15 +449,18 @@ class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
             except (MPCSolverError, UpdateError) as ex:
                 if throw_on_exception:
                     raise ex
+                ok = False
                 logger.error(f'Suppressing agent \'{self.name}\': {ex}')
                 break
 
         if not results:
-            return (np.nan, [], []) if return_info else np.nan
+            return (ok, np.nan, [], []) if return_info else (ok, np.nan)
+
         if not return_info:
-            return np.stack(results, axis=0)
+            return ok, np.stack(results, axis=0)
+
         returns, grads, weightss = list(zip(*results))
-        return np.stack(returns, axis=0), grads, weightss
+        return ok, np.stack(returns, axis=0), grads, weightss
 
     def _init_learnable_pars(
         self, init_pars: dict[str, tuple[np.ndarray, np.ndarray]]
@@ -493,7 +486,7 @@ class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
             lr = np.concatenate(
                 [np.full(p.size, r) for p, r in zip(self.weights, lr)])
         assert lr.shape == (n_theta,), 'Learning rate must have the same ' \
-                'size as the learnable parameter vector.'
+            'size as the learnable parameter vector.'
         cfg.lr = lr
 
     def _merge_mpc_pars_callback(self) -> dict[str, np.ndarray]:
