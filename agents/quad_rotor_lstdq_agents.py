@@ -378,7 +378,8 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
                 mu0 += cfg.mu0_backtracking
                 beta *= cfg.beta_backtracking
                 pars[-2:] = (mu0, beta)
-        raise UpdateError(f'Update failed (beta={beta:.3f}, mu0={mu0:.2f}).')
+        raise UpdateError(f'Update failed in epoch {self._epoch_n} '
+                          f'(beta={beta:.3f}, mu0={mu0:.2f}).')
         
 
     def learn_one_epoch(

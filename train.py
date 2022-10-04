@@ -233,7 +233,7 @@ if __name__ == '__main__':
                 jl.Parallel(n_jobs=args.n_jobs)(
                     jl.delayed(func)(next(agent_cnt)) for _ in range(n_agents)
                 ))
-        raw_data = list(filter(lambda o: o['success']), raw_data)
+        raw_data = list(filter(lambda o: o['success'], raw_data))
 
     # save results
     data = {
@@ -245,4 +245,5 @@ if __name__ == '__main__':
         date=date,
         args=args,
         simtime=time.perf_counter() - start,
-        data=data)
+        data=data
+    )
