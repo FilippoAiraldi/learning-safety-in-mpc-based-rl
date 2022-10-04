@@ -5,13 +5,13 @@ from gym import Env
 from gym.utils.seeding import np_random
 from itertools import count
 import logging
-from mpc import QuadRotorMPC, QuadRotorMPCConfig, Solution, MPCSolverError
+from mpc import QuadRotorMPC, QuadRotorMPCConfig, Solution
 from mpc.wrappers import DifferentiableMPC
 from typing import Any, Optional, Union
 from util.configurations import init_config
+from util.errors import MPCSolverError, UpdateError
 from util.math import NormalizationService
 from util.rl import RLParameter, RLParameterCollection
-
 
 
 class QuadRotorBaseAgent(ABC):
@@ -297,11 +297,6 @@ class QuadRotorBaseAgent(ABC):
         return seed
 
 
-class UpdateError(RuntimeError):
-    '''Exception class to raise an error when the agent's update fails.'''
-    ...
-
-
 class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
     '''
     Abstract base agent class that renders the two MPC function approximators
@@ -493,7 +488,7 @@ class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
             lr = np.concatenate(
                 [np.full(p.size, r) for p, r in zip(self.weights, lr)])
         assert lr.shape == (n_theta,), 'Learning rate must have the same ' \
-                'size as the learnable parameter vector.'
+            'size as the learnable parameter vector.'
         cfg.lr = lr
 
     def _merge_mpc_pars_callback(self) -> dict[str, np.ndarray]:
