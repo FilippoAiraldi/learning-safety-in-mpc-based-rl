@@ -30,13 +30,21 @@ class RecordLearningData(Generic[AgentType]):
                 attr = ('agent' if key.startswith('_') else 'agent_') + key
                 self.__setattr__(attr, value)
 
-    def learn_one_epoch(self, *args, **kwargs) -> Any:
+    def learn_one_epoch(
+        self, *args, **kwargs
+    ) -> tuple[np.ndarray, np.ndarray]:
         returns, grad, weights = self.agent.learn_one_epoch(*args, **kwargs)
         self._save(grad, weights)
         return returns, grad
 
-    def learn(self, *args, **kwargs) -> Any:
-        returns, grads, weightss = self.agent.learn(*args, **kwargs)
+    def learn(
+        self, *args, **kwargs
+    ) -> tuple[
+        bool, 
+        np.ndarray, 
+        list[np.ndarray], 
+        list[dict[str, np.ndarray]]
+    ]:
         for grad, weights in zip(grads, weightss):
             self._save(grad, weights)
         return returns, grads, weightss

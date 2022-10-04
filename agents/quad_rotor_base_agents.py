@@ -347,7 +347,7 @@ class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
         perturbation_decay: float = 0.75,
         seed: Union[int, list[int]] = None,
         logger: logging.Logger = None,
-        return_info: bool = False
+        return_info: bool = True
     ) -> Union[
         np.ndarray,
         tuple[np.ndarray, np.ndarray, dict[str, np.ndarray]]
@@ -375,10 +375,10 @@ class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
         returns : array_like
             An array of the returns for each episode of this epoch.
         gradient : array_like, optional
-            Gradient of the update. Only returned if 'return_info=True'.   
+            Gradient of the update. Only returned if `return_info=True`.
         new_weights : dict[str, array_like], optional
             Agent's new set of weights after the update. Only returned if 
-            'return_info=True'.
+            `return_info=True`.
         '''
         pass
 
@@ -388,8 +388,8 @@ class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
         n_episodes: int,
         perturbation_decay: float = 0.75,
         seed: Union[int, list[int]] = None,
-        throw_on_exception: bool = False,
         logger: logging.Logger = None,
+        throw_on_exception: bool = False,
         return_info: bool = True
     ) -> Union[
         np.ndarray,
