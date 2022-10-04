@@ -439,11 +439,11 @@ def safety(
         failed: np.ndarray = np.stack(
             [episodes > len(env.episode_lengths) for env in envs])
         ax = next(axs)
-        _plot_population(ax, episodes, y=None, y_mean=failed.sum(axis=0),
+        _plot_population(ax, episodes, y=None, y_mean=failed.mean(axis=0),
                          color=color, label=label, xlabel='Episode',
                          ylabel='Failed agents', method='step')
-        ax.set_ylim(0, failed.shape[0])
-        ax.yaxis.set_major_formatter(PercentFormatter(xmax=failed.shape[0]))
+        ax.set_ylim(0, 1)
+        ax.yaxis.set_major_formatter(PercentFormatter(xmax=1))
 
         # compute constraint violations and apply 2 reductions: first merge lb
         # and ub in a single constraint (since both cannot be active at the
