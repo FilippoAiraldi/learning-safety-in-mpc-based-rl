@@ -23,22 +23,27 @@ from util.rl import ReplayMemory
 @dataclass
 class QuadRotorLSTDQAgentConfig(BaseConfig):
     # initial learnable RL weights and their bounds
-    init_g: tuple[float, tuple[float, float]] = (9.81, (1, 40))
-    init_thrust_coeff: tuple[float, tuple[float, float]] = (2.0, (0.1, 4))
-    # init_w_x: tuple[float, tuple[float, float]] = (1e1, (1e-3, np.inf))
-    # init_w_u: tuple[float, tuple[float, float]] = (1e0, (1e-3, np.inf))
-    # init_w_s: tuple[float, tuple[float, float]] = (1e2, (1e-3, np.inf))
+    init_pars: dict[str, tuple[float, tuple[float, float]]] = field(
+        default_factory=lambda: {
+            'g': (9.81, (1, 40)),
+            'thrust_coeff': (2.0, (0.1, 4)),
+            # 'w_x': (1e1, (1e-3, np.inf)),
+            # 'w_u': (1e0, (1e-3, np.inf)),
+            # 'w_s': (1e2, (1e-3, np.inf))
+        })
 
     # fixed non-learnable weights
-    fixed_pitch_d: float = 12
-    fixed_pitch_dd: float = 7
-    fixed_pitch_gain: float = 11
-    fixed_roll_d: float = 10.5
-    fixed_roll_dd: float = 8
-    fixed_roll_gain: float = 9
-    fixed_w_x: np.ndarray = 1e1
-    fixed_w_u: np.ndarray = 1e0
-    fixed_w_s: np.ndarray = 1e2
+    fixed_pars: dict[str, float] = field(default_factory=lambda: {
+        'pitch_d': 12,
+        'pitch_dd': 7,
+        'pitch_gain': 11,
+        'roll_d': 10.5,
+        'roll_dd': 8,
+        'roll_gain': 9,
+        'w_x': 1e1,
+        'w_u': 1e0,
+        'w_s': 1e2
+    })
 
     # experience replay parameters
     replay_maxlen: float = 20
@@ -99,8 +104,8 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
             Seed for the random number generator.
         '''
         # create base agent
-        agent_config, fixed_pars, init_pars = self._init_config_and_pars(
-            agent_config, env.normalization)
+        agent_config = self._init_config(agent_config, env.normalization)
+        fixed_pars, init_pars = agent_config.fixed_pars, agent_config.init_pars
         fixed_pars.update({
             'xf': env.config.xf,  # already normalized
             'perturbation': np.nan,
@@ -261,15 +266,11 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
             returns
         )
 
-    def _init_config_and_pars(
+    def _init_config(
         self,
         config: Optional[QuadRotorLSTDQAgentConfig],
         normalization: Optional[NormalizationService]
-    ) -> tuple[
-        QuadRotorLSTDQAgentConfig,
-        dict[str, float],
-        dict[str, tuple[float, tuple[float, float]]]
-    ]:
+    ) -> QuadRotorLSTDQAgentConfig:
         '''
         Initializes the agent configuration and fixed and initial pars (does
         not save to self).
@@ -278,18 +279,11 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
         N = normalization
         if N is not None:
             N.register(C.normalization_ranges)
-            for name in N:
-                attr = f'fixed_{name}'
-                if hasattr(C, attr):
-                    setattr(C, attr, N.normalize(name, getattr(C, attr)))
-                attr = f'init_{name}'
-                if hasattr(C, attr):
-                    val, bnd = getattr(C, attr)
-                    setattr(C, attr, (
-                        N.normalize(name, val),
-                        N.normalize(name, bnd)
-                    ))
-        return C, C.get_group('fixed'), C.get_group('init')
+            for k, v in C.fixed_pars.items():
+                C.fixed_pars[k] = N.normalize(k, v)
+            for k, v in C.init_pars.items():
+                C.init_pars[k] = (N.normalize(k, v[0]), N.normalize(k, v[1]))
+        return C
 
     def _init_derivative_symbols(self) -> None:
         '''Computes symbolical derivatives needed for Q learning.'''
