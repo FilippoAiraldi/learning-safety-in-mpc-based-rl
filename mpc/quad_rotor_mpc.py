@@ -112,6 +112,8 @@ class QuadRotorMPC(GenericMPC):
         # removing redundant entries)
         # constraint backoff parameter and bounds
         bo = self.add_par('backoff', 1, 1)
+        if env.normalized:
+            bo = env.normalization.denormalize('backoff', bo)
 
         # set the state constraints as
         #  - soft-backedoff minimum constraint: (1+back)*lb - slack <= x

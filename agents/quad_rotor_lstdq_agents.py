@@ -29,7 +29,8 @@ class QuadRotorLSTDQAgentConfig(BaseConfig):
             'thrust_coeff': (2.0, (0.1, 4)),
             'w_x': (1e1, (1e-3, np.inf)),
             'w_u': (1e0, (1e-3, np.inf)),
-            'w_s': (1e2, (1e-3, np.inf))
+            'w_s': (1e2, (1e-3, np.inf)),
+            'backoff': (1 / 3, (1e-3, 0.4))
         })
 
     # fixed non-learnable weights
@@ -40,6 +41,7 @@ class QuadRotorLSTDQAgentConfig(BaseConfig):
         'roll_d': 10.5,
         'roll_dd': 8,
         'roll_gain': 9,
+        # 'backoff': 0.05,
         # 'w_x': 1e1,
         # 'w_u': 1e0,
         # 'w_s': 1e2
@@ -62,6 +64,7 @@ class QuadRotorLSTDQAgentConfig(BaseConfig):
             'w_x': np.array([0, 1e2]),
             'w_u': np.array([0, 1e1]),
             'w_s': np.array([0, 1e3]),
+            'backoff': np.array([0, 0.7])
         })
 
 
@@ -108,8 +111,7 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
         fixed_pars, init_pars = agent_config.fixed_pars, agent_config.init_pars
         fixed_pars.update({
             'xf': env.config.xf,  # already normalized
-            'perturbation': np.nan,
-            'backoff': 0.05,
+            'perturbation': np.nan
         })
         super().__init__(
             env,
@@ -321,10 +323,10 @@ class QuadRotorGPSafeLSTDQAgentConfig(QuadRotorLSTDQAgentConfig):
 
     mu0: float = 0.0  # target constraint violation
     beta: float = 0.9   # probability of target violation satisfaction
-    
+
     mu0_backtracking: float = 0.0
     beta_backtracking: float = 0.95
-    max_backtracking_iter: int = 35 
+    max_backtracking_iter: int = 35
 
     n_opti: int = 14  # number of multistart for nonlinear optimization
 
@@ -380,7 +382,6 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
                 pars[-2:] = (mu0, beta)
         raise UpdateError(f'Update failed in epoch {self._epoch_n} '
                           f'(beta={beta:.3f}, mu0={mu0:.2f}).')
-        
 
     def learn_one_epoch(
         self,
