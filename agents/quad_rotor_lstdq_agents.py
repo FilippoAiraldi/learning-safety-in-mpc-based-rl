@@ -27,9 +27,9 @@ class QuadRotorLSTDQAgentConfig(BaseConfig):
         default_factory=lambda: {
             'g': (9.81, (1, 40)),
             'thrust_coeff': (2.0, (0.1, 4)),
-            # 'w_x': (1e1, (1e-3, np.inf)),
-            # 'w_u': (1e0, (1e-3, np.inf)),
-            # 'w_s': (1e2, (1e-3, np.inf))
+            'w_x': (1e1, (1e-3, np.inf)),
+            'w_u': (1e0, (1e-3, np.inf)),
+            'w_s': (1e2, (1e-3, np.inf))
         })
 
     # fixed non-learnable weights
@@ -40,9 +40,9 @@ class QuadRotorLSTDQAgentConfig(BaseConfig):
         'roll_d': 10.5,
         'roll_dd': 8,
         'roll_gain': 9,
-        'w_x': 1e1,
-        'w_u': 1e0,
-        'w_s': 1e2
+        # 'w_x': 1e1,
+        # 'w_u': 1e0,
+        # 'w_s': 1e2
     })
 
     # experience replay parameters
@@ -355,7 +355,7 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
         # run QP solver (backtrack on beta if necessary) and update weights
         theta = self.weights.values()
         candidates = np.linspace(theta, theta - cfg.lr * p, cfg.n_opti) + \
-            self.np_random.normal(size=(cfg.n_opti, theta.size), scale=0.1)
+            self.np_random.normal(size=(cfg.n_opti, theta.size), scale=0.0)
         mu0, beta = cfg.mu0, cfg.beta
         pars = np.block([theta, p, cfg.lr, mu0, beta])
         lb, ub = self._get_percentage_bounds(

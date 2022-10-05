@@ -145,7 +145,7 @@ if __name__ == '__main__':
                         help='Discount factor.')
     parser.add_argument('--lr', type=float, nargs='+',
                         default=0.03,  # [3e-2, 3e-2, 1e-3, 1e-3, 1e-3],
-                        help='Learning rate. Cane be a single float, '
+                        help='Learning rate. Can be a single float, '
                              'or one per parameter type, or one per '
                              'parameter vector entry.')
     parser.add_argument('--max_perc_update', type=float, default=float('inf'),
@@ -153,7 +153,7 @@ if __name__ == '__main__':
     parser.add_argument('--replay_mem_maxlen_factor', type=int, default=1,
                         help='Replay memory maximum length factor.')
     parser.add_argument('--replay_mem_sample_size', type=float, default=1.0,
-                        help='Replay memory sample size (%).')
+                        help='Replay memory sample size (percentage).')
     parser.add_argument('--perturbation_decay', type=float, default=0.885,
                         help='Exploration perturbance decay.')
     parser.add_argument('--seed', type=int, default=1909, help='RNG seed.')
@@ -162,7 +162,7 @@ if __name__ == '__main__':
     parser.add_argument('--normalized', action='store_true',
                         help='Whether to use a normalized variant of env.')
     parser.add_argument('--n_jobs', type=int, default=-1,
-                        help='Joblib\'s parallel jobs.')
+                        help='joblib parallel jobs.')
     parser.add_argument('--verbose', action='store_true')
     # only relevant for safe variant of algorithm
     parser.add_argument('--safe', action='store_true',
