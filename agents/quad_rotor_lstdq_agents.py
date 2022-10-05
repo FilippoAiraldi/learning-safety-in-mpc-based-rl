@@ -26,11 +26,11 @@ class QuadRotorLSTDQAgentConfig(BaseConfig):
     init_pars: dict[str, tuple[float, tuple[float, float]]] = field(
         default_factory=lambda: {
             'g': (9.81, (1, 40)),
-            'thrust_coeff': (2.0, (0.1, 4)),
-            'w_x': (1e1, (1e-3, np.inf)),
-            'w_u': (1e0, (1e-3, np.inf)),
-            'w_s': (1e2, (1e-3, np.inf)),
-            'backoff': (1 / 3, (1e-3, 0.4))
+            'thrust_coeff': (0.3, (0.1, 4)),
+            # 'w_x': (1e1, (1e-3, np.inf)),
+            # 'w_u': (1e0, (1e-3, np.inf)),
+            # 'w_s': (1e2, (1e-3, np.inf)),
+            'backoff': (0.4, (1e-3, 0.4))
         })
 
     # fixed non-learnable weights
@@ -42,9 +42,9 @@ class QuadRotorLSTDQAgentConfig(BaseConfig):
         'roll_dd': 8,
         'roll_gain': 9,
         # 'backoff': 0.05,
-        # 'w_x': 1e1,
-        # 'w_u': 1e0,
-        # 'w_s': 1e2
+        'w_x': 1e1,
+        'w_u': 1e0,
+        'w_s': 1e2
     })
 
     # experience replay parameters

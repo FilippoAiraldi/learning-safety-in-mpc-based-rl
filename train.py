@@ -135,24 +135,24 @@ if __name__ == '__main__':
                         help='Name of the simulation run.')
     parser.add_argument('--agents', type=int, default=50,
                         help='Number of parallel agent to train.')
-    parser.add_argument('--epochs', type=int, default=50,
+    parser.add_argument('--epochs', type=int, default=20,
                         help='Number of training epochs.')
-    parser.add_argument('--episodes', type=int, default=1,
+    parser.add_argument('--episodes', type=int, default=5,
                         help='Number of training episodes per epoch.')
     parser.add_argument('--max_ep_steps', type=int, default=50,
                         help='Maximum number of steps per episode.')
-    parser.add_argument('--gamma', type=float, default=1.0,
+    parser.add_argument('--gamma', type=float, default=0.9792,
                         help='Discount factor.')
     parser.add_argument('--lr', type=float, nargs='+',
-                        default=0.03,  # [3e-2, 3e-2, 1e-3, 1e-3, 1e-3],
+                        default=0.0321,  # [3e-2, 3e-2, 1e-3, 1e-3, 1e-3],
                         help='Learning rate. Can be a single float, '
                              'or one per parameter type, or one per '
                              'parameter vector entry.')
     parser.add_argument('--max_perc_update', type=float, default=float('inf'),
                         help='Maximum percentage update of agent weigths.')
-    parser.add_argument('--replay_mem_maxlen_factor', type=int, default=1,
+    parser.add_argument('--replay_mem_maxlen_factor', type=int, default=10,
                         help='Replay memory maximum length factor.')
-    parser.add_argument('--replay_mem_sample_size', type=float, default=1.0,
+    parser.add_argument('--replay_mem_sample_size', type=float, default=0.7,
                         help='Replay memory sample size (percentage).')
     parser.add_argument('--perturbation_decay', type=float, default=0.885,
                         help='Exploration perturbance decay.')
@@ -233,7 +233,6 @@ if __name__ == '__main__':
         raw_data.extend(filter(lambda o: o['success'], batch))
         sim_iter += 1
         agent_cnt += n_agents
-
 
     # save results
     args.agents = len(raw_data)
