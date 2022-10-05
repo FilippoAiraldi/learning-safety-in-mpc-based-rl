@@ -176,7 +176,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # prepare to launch
-    runname = io.get_runname(candidate=args.runname)
+    args.runname = io.get_runname(candidate=args.runname)
     agent_config = {
         'gamma': args.gamma,
         'lr': args.lr,
@@ -210,7 +210,7 @@ if __name__ == '__main__':
             max_ep_steps=args.max_ep_steps,
             agent_config=agent_config,
             perturbation_decay=args.perturbation_decay,
-            runname=runname,
+            runname=args.runname,
             normalized_env=args.normalized,
             safe_agent=args.safe,
             seed=args.seed + (tot_episodes + 1) * n,
@@ -221,7 +221,7 @@ if __name__ == '__main__':
 
     # launch training/evaluation - perform simulations until the required
     # number of agents has been succesfully simulated
-    print(f'[Simulation {runname.upper()} started at {date}]')
+    print(f'[Simulation {args.runname.upper()} started at {date}]')
     raw_data: list[dict[str, Any]] = []
     sim_iter, agent_cnt = 0, 0
     while len(raw_data) < args.agents:
@@ -243,7 +243,7 @@ if __name__ == '__main__':
         for key in ('env', 'agent') if key in raw_data[0]
     }
     fn = io.save_results(
-        filename=runname,
+        filename=args.runname,
         date=date,
         args=args,
         simtime=time.perf_counter() - start,
