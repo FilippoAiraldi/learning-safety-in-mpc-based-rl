@@ -51,7 +51,7 @@ if __name__ == '__main__':
         agents: list[RecordLearningData] = data.get('agents')
 
         # print summary
-        print(f'{n}) {filename}\n',
+        print(f'p{n}) {filename}\n',
               *(f' -{k}: {v}\n' for k, v in results.items()))
 
         # plot
