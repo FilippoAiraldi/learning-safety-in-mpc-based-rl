@@ -30,7 +30,7 @@ class QuadRotorLSTDQAgentConfig(BaseConfig):
             # 'w_x': (1e1, (1e-3, np.inf)),
             # 'w_u': (1e0, (1e-3, np.inf)),
             # 'w_s': (1e2, (1e-3, np.inf)),
-            'backoff': (0.4, (1e-3, 0.4))
+            'backoff': (0.4, (1e-3, 0.7))
         })
 
     # fixed non-learnable weights
@@ -64,7 +64,7 @@ class QuadRotorLSTDQAgentConfig(BaseConfig):
             'w_x': np.array([0, 1e2]),
             'w_u': np.array([0, 1e1]),
             'w_s': np.array([0, 1e3]),
-            'backoff': np.array([0, 0.7])
+            'backoff': np.array([0, 1])
         })
 
 
