@@ -1,10 +1,10 @@
-import agents
 import argparse
-import envs
-import joblib as jl
 import time
 from datetime import datetime
 from typing import Any
+import joblib as jl
+import agents
+import envs
 from util import io, log
 from util.math import NormalizationService
 
@@ -117,7 +117,7 @@ def train_lstdq_agent(
             agent_config=agent_config,
             seed=seed
         ))
-    ok = agent.learn(
+    success = agent.learn(
         n_epochs=epochs,
         n_episodes=train_episodes,
         seed=seed + 1,
@@ -125,7 +125,7 @@ def train_lstdq_agent(
         logger=logger,
         return_info=True
     )[0]
-    return {'success': ok, 'env': env, 'agent': agent}
+    return {'success': success, 'env': env, 'agent': agent}
 
 
 if __name__ == '__main__':
@@ -221,11 +221,12 @@ if __name__ == '__main__':
 
     # launch training/evaluation - perform simulations until the required
     # number of agents has been succesfully simulated
-    print(f'[Simulation {args.runname.upper()} started at {date}]')
+    print(f'[Simulation {args.runname.upper()} started at {date}]',
+          f'Args: {args}')
     raw_data: list[dict[str, Any]] = []
     sim_iter, agent_cnt = 0, 0
     while len(raw_data) < args.agents:
-        n_agents = max(args.agents - len(raw_data), 10)
+        n_agents = max(args.agents - len(raw_data), 10 if args.safe else 1)
         with log.tqdm_joblib(desc=f'Simulation {sim_iter}', total=n_agents):
             batch = jl.Parallel(n_jobs=args.n_jobs)(
                 jl.delayed(func)(agent_cnt + n) for n in range(n_agents)

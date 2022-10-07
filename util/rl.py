@@ -1,10 +1,10 @@
-import numpy as np
-import casadi as cs
 from collections import deque
 from dataclasses import dataclass
-from gym.utils.seeding import np_random
 from itertools import chain
 from typing import Iterable, Iterator, Optional, Sequence, Union, TypeVar
+from gym.utils.seeding import np_random
+import casadi as cs
+import numpy as np
 
 
 T = TypeVar('T')

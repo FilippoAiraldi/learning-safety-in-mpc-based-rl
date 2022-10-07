@@ -1,13 +1,13 @@
-import numpy as np
 from abc import ABC, abstractmethod
-from envs import QuadRotorEnv
-from gym import Env
-from gym.utils.seeding import np_random
 from itertools import count
 import logging
+from typing import Any, Optional, Union
+import numpy as np
+from gym import Env
+from gym.utils.seeding import np_random
+from envs import QuadRotorEnv
 from mpc import QuadRotorMPC, QuadRotorMPCConfig, Solution
 from mpc.wrappers import DifferentiableMPC
-from typing import Any, Optional, Union
 from util.configurations import init_config
 from util.errors import MPCSolverError, UpdateError
 from util.math import NormalizationService

@@ -1,9 +1,9 @@
+from dataclasses import dataclass, field
+from typing import Optional, Union
 import casadi as cs
 import numpy as np
-from dataclasses import dataclass, field
-from envs.base_env import BaseEnv
 from gym import spaces
-from typing import Optional, Union
+from envs.base_env import BaseEnv
 from util.configurations import BaseConfig, init_config
 from util.math import NormalizationService
 

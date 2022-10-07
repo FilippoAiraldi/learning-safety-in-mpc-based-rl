@@ -1,8 +1,8 @@
-import numpy as np
 from collections import UserDict, Mapping
 from itertools import combinations
-from scipy.special import comb
 from typing import Any, Iterable, Iterator, Union
+import numpy as np
+from scipy.special import comb
 
 
 def nchoosek(n: Union[int, Iterable[Any]],

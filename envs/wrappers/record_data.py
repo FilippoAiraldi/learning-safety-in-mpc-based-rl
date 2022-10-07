@@ -1,7 +1,7 @@
+from collections import deque
+import time
 import gym
 import numpy as np
-import time
-from collections import deque
 
 
 class RecordData(gym.Wrapper):

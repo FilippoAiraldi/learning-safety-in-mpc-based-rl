@@ -1,12 +1,12 @@
-import casadi as cs
 import math
+from typing import Callable, Optional, Union
+import casadi as cs
 import numpy as np
 from joblib import Parallel
 from sklearn.gaussian_process import GaussianProcessRegressor, kernels
 from sklearn.multioutput import MultiOutputRegressor
 from sklearn.utils.fixes import delayed
 from sklearn.utils.validation import check_is_fitted
-from typing import Callable, Optional, Union
 
 
 KERNEL_PARAMS_DICT = {

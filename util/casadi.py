@@ -1,6 +1,6 @@
-import casadi as cs
 import math
 from typing import Union
+import casadi as cs
 
 
 def prod(

@@ -1,10 +1,10 @@
 import argparse
+import warnings
+from typing import Any
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-import warnings
 from agents.wrappers import RecordLearningData
 from envs.wrappers import RecordData
-from typing import Any
 from util import io, plot
 
 

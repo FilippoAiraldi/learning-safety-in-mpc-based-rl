@@ -1,6 +1,6 @@
+from typing import Generic, TypeVar, Any
 import numpy as np
 from agents.quad_rotor_base_agents import QuadRotorBaseLearningAgent
-from typing import Generic, TypeVar, Any
 
 
 AgentType = TypeVar('AgentType', bound=QuadRotorBaseLearningAgent)

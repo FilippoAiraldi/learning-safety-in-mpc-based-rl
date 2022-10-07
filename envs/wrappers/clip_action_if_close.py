@@ -6,7 +6,7 @@ from gym.wrappers import ClipAction
 
 class ClipActionIfClose(ClipAction):
     '''
-    Clips the continuous action within bounds even if spite of small numerical
+    Clips the continuous action within bounds even in spite of small numerical
     violations. If the violations of the bounds is outside tolerace, then an
     error is raised.
     '''

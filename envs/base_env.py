@@ -1,8 +1,8 @@
-import gym
 from abc import ABC
-from gym.wrappers import TimeLimit, OrderEnforcing
-from envs.wrappers import RecordData, ClipActionIfClose
 from typing import Optional, TypeVar, Type
+import gym
+from gym.wrappers import TimeLimit, OrderEnforcing, NormalizeReward
+from envs.wrappers import RecordData, ClipActionIfClose
 
 
 ObsType = TypeVar('ObsType')
@@ -11,6 +11,8 @@ SuperEnvType = TypeVar('SuperEnvType')
 
 
 class BaseEnv(gym.Env[ObsType, ActType], ABC):
+    '''Base abstract class for gym environments.'''
+
     @classmethod
     def get_wrapped(
         cls: Type[SuperEnvType],
@@ -19,7 +21,7 @@ class BaseEnv(gym.Env[ObsType, ActType], ABC):
         deque_size: Optional[int] = None,
         clip_action: Optional[bool] = False,
         enforce_order: Optional[bool] = True,
-        *env_args, **env_kwargs
+        **env_kwargs,
     ) -> SuperEnvType:
         '''
         Returns the environment properly encapsulated in some useful wrappers. 
@@ -45,6 +47,8 @@ class BaseEnv(gym.Env[ObsType, ActType], ABC):
             (see `ClipActionIfClose`).
         enforce_order : bool, optional
             Whether to apply order enforcing or not (see `OrderEnforcing`).
+        env_kwargs : dict
+            Additional arguments passed to the env constructor.
 
         Returns
         -------
@@ -56,7 +60,7 @@ class BaseEnv(gym.Env[ObsType, ActType], ABC):
         # modifications by outer wrappers
         # NOTE: RecordData must be done after ClipActionIfClose. TimeLimit must
         # be done after RecordData
-        env = cls(*env_args, **env_kwargs)
+        env = cls(**env_kwargs)
         if max_episode_steps is not None:
             env = TimeLimit(env, max_episode_steps=max_episode_steps)
         if record_data is not None and record_data:

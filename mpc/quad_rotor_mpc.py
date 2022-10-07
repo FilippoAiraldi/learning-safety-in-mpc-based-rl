@@ -1,9 +1,9 @@
+from dataclasses import dataclass, field
+from typing import Union
 import casadi as cs
 import numpy as np
-from dataclasses import dataclass, field
 from envs.quad_rotor_env import QuadRotorEnv
 from mpc.generic_mpc import GenericMPC
-from typing import Union
 from util.casadi import quad_form
 from util.configurations import BaseConfig, init_config
 
@@ -38,7 +38,7 @@ class QuadRotorMPC(GenericMPC):
         self,
         env: QuadRotorEnv,
         config: Union[dict, QuadRotorMPCConfig] = None,
-        type: str = 'V'
+        mpctype: str = 'V'
     ) -> None:
         '''
         Instantiates an MPC for the quad rotor env.
@@ -50,13 +50,13 @@ class QuadRotorMPC(GenericMPC):
         config : dict, QuadRotorMPCConfig
             A set of configuration parameters for the MPC. If not given, the 
             default ones are used.
-        type : 'Q' or 'V'
+        mpctype : 'Q' or 'V'
             Type of MPC to instantiate, either state value function or action 
             value function.
         '''
-        assert type in {'V', 'Q'}, \
+        assert mpctype in {'V', 'Q'}, \
             'MPC must be either V (state value func) or Q (action value func)'
-        super().__init__(name=type)
+        super().__init__(name=mpctype)
         self.config = init_config(config, QuadRotorMPCConfig)
         N = self.config.N
 
@@ -162,7 +162,7 @@ class QuadRotorMPC(GenericMPC):
         # ====== #
 
         # case-specific modifications
-        if type == 'Q':
+        if mpctype == 'Q':
             u0 = self.add_par('u0', nu, 1)
             self.add_con('init_action', u[:, 0], '==', u0)
         else:
