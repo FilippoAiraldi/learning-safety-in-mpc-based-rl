@@ -7,6 +7,8 @@ from sklearn.gaussian_process import GaussianProcessRegressor, kernels
 from sklearn.model_selection import train_test_split
 from util.gp import MultitGaussianProcessRegressor, \
     CasadiKernels
+from gym import Env
+from gym.wrappers import NormalizeReward
 
 # from scipy.stats import norm
 # 1.96 = norm.ppf((0.95 + 1) / 2) # because of abs value, but we need the tail
@@ -206,7 +208,29 @@ def multioutput_gp():
     print(score, score_mo)
 
 
+def normalization_rewards():
+    m1 = np.full(5, 300)
+    m2 = m1[-1] + np.arange(10) * 100
+    m3 = m2[-1] + np.arange(10) * -120
+    m4 = m3[-1] + np.arange(20) * -5
+    rewards = np.concatenate((m1, m2, m3, m4))
+    r = np.nditer(rewards)
+
+    class StupidEnv(Env):
+        def step(self, _):
+            return None, next(r), False, False, {}
+
+    env = NormalizeReward(StupidEnv(), gamma=0.9792)
+    normalized_rewards = []
+    for _ in range(rewards.size):
+        normalized_rewards.append(env.step(_)[1])
+
+    plt.plot(rewards, '-', normalized_rewards, '-')
+    plt.show()
+
+
 if __name__ == '__main__':
-    reproducing_gp_in_casadi()
+    # reproducing_gp_in_casadi()
     # gp_as_casadi_callback()
     # multioutput_gp()
+    normalization_rewards()
