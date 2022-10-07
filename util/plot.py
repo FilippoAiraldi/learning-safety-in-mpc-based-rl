@@ -291,7 +291,7 @@ def performance(
         ax = fig.axes[0]
 
     rewards: np.ndarray = jaggedstack([env.cum_rewards for env in envs])
-    y = np.nanmean(rewards, axis=0) 
+    y = np.nanmean(rewards, axis=0)
     # y = np.nanmedian(rewards, axis=0)
     episodes = np.arange(rewards.shape[1]) + 1
 
