@@ -66,8 +66,8 @@ class QuadRotorBaseAgent(ABC):
 
         # initialize MPCs
         self.last_solution: Solution = None
-        self._Q = QuadRotorMPC(env, config=mpc_config, type='Q')
-        self._V = QuadRotorMPC(env, config=mpc_config, type='V')
+        self._Q = QuadRotorMPC(env, config=mpc_config, mpctype='Q')
+        self._V = QuadRotorMPC(env, config=mpc_config, mpctype='V')
 
     @property
     def normalized(self) -> bool:
