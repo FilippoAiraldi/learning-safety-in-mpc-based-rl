@@ -15,6 +15,7 @@ class QuadRotorPKAgent(QuadRotorBaseAgent):
         'w_x': np.array([0, 1e2]),
         'w_u': np.array([0, 1e1]),
         'w_s': np.array([0, 1e3]),
+        'backoff': np.array([0, 1])
     }
 
     def __init__(self, env: QuadRotorEnv, *args, **kwargs) -> None:

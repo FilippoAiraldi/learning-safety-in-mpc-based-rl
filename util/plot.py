@@ -291,9 +291,11 @@ def performance(
         ax = fig.axes[0]
 
     rewards: np.ndarray = jaggedstack([env.cum_rewards for env in envs])
+    y = np.nanmean(rewards, axis=0) 
+    # y = np.nanmedian(rewards, axis=0)
     episodes = np.arange(rewards.shape[1]) + 1
 
-    _plot_population(ax, episodes, rewards, color=color, label=label,
+    _plot_population(ax, episodes, rewards, y_mean=y, color=color, label=label,
                      xlabel='Episode', ylabel='Cumulative cost')
     return fig
 
