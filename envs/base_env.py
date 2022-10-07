@@ -1,5 +1,5 @@
 from abc import ABC
-from typing import Optional, TypeVar, Type
+from typing import Type, TypeVar
 import gym
 from gym.wrappers import TimeLimit, OrderEnforcing, NormalizeReward
 from envs.wrappers import RecordData, ClipActionIfClose
@@ -16,11 +16,12 @@ class BaseEnv(gym.Env[ObsType, ActType], ABC):
     @classmethod
     def get_wrapped(
         cls: Type[SuperEnvType],
-        max_episode_steps: Optional[int] = 50,
-        record_data: Optional[bool] = True,
-        deque_size: Optional[int] = None,
-        clip_action: Optional[bool] = False,
-        enforce_order: Optional[bool] = True,
+        max_episode_steps: int = 50,
+        record_data: bool = True,
+        normalize_reward: tuple[bool, float] = (False,),
+        deque_size: int = None,
+        clip_action: bool = False,
+        enforce_order: bool = True,
         **env_kwargs,
     ) -> SuperEnvType:
         '''
@@ -32,6 +33,7 @@ class BaseEnv(gym.Env[ObsType, ActType], ABC):
             - `OrderEnforcing`
             - `ClipActionIfClose`
             - `RecordData`
+            - `NormalizeReward`
             - `TimeLimit`
 
         Parameters
@@ -42,6 +44,9 @@ class BaseEnv(gym.Env[ObsType, ActType], ABC):
             Whether to wrap the env for data recording (see `RecordData`).
         deque_size : int, optional
             Maximum number of episodic data saved (see `RecordData`).
+        normalize_reward : tuple[bool, gamma], optional
+            Whether to apply reward normalization or not 
+            (see `NormalizeReward`). `gamma` is the discount factor.
         clip_action : bool, optional
             Whether to clip actions that violates the action space
             (see `ClipActionIfClose`).
@@ -63,13 +68,14 @@ class BaseEnv(gym.Env[ObsType, ActType], ABC):
         env = cls(**env_kwargs)
         if max_episode_steps is not None:
             env = TimeLimit(env, max_episode_steps=max_episode_steps)
-        if record_data is not None and record_data:
+        if record_data:
             env = RecordData(env, deque_size=deque_size)
-        if clip_action is not None and clip_action and (
-            env.action_space.bounded_below.any() or
-                env.action_space.bounded_above.any()):
+        if normalize_reward[0]:
+            env = NormalizeReward(env, gamma=normalize_reward[1])
+        if clip_action and (env.action_space.bounded_below.any() or
+                            env.action_space.bounded_above.any()):
             env = ClipActionIfClose(env)
-        if enforce_order is not None and enforce_order:
+        if enforce_order:
             env = OrderEnforcing(env)
         return env
 
