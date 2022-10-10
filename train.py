@@ -40,6 +40,7 @@ def eval_pk_agent(
     normalization = NormalizationService() if normalized_env else None
     env = envs.QuadRotorEnv.get_wrapped(
         max_episode_steps=max_ep_steps,
+        normalize_reward=(False,),
         normalization=normalization
     )
     agents.QuadRotorPKAgent(
@@ -106,6 +107,7 @@ def train_lstdq_agent(
     normalization = NormalizationService() if normalized_env else None
     env = envs.QuadRotorEnv.get_wrapped(
         max_episode_steps=max_ep_steps,
+        normalize_reward=(True, agent_config['gamma']),
         normalization=normalization
     )
     agent = agents.wrappers.RecordLearningData(
@@ -221,7 +223,7 @@ if __name__ == '__main__':
 
     # launch training/evaluation - perform simulations until the required
     # number of agents has been succesfully simulated
-    print(f'[Simulation {args.runname.upper()} started at {date}]',
+    print(f'[Simulation {args.runname.upper()} started at {date}]\n',
           f'Args: {args}')
     raw_data: list[dict[str, Any]] = []
     sim_iter, agent_cnt = 0, 0
