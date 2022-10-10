@@ -213,7 +213,7 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
         self._Wu = np.ones(self.nu)
         self._Wv = np.array([1e2, 1e2, 3e2, 3e2])
         if self.normalized:
-            # self._Wx *= 10
+            self._Wx *= 20
             self._Wu /= 5
             self._Wv *= 20
 
