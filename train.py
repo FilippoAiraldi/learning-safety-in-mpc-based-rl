@@ -146,7 +146,7 @@ if __name__ == '__main__':
     parser.add_argument('--gamma', type=float, default=0.9792,
                         help='Discount factor.')
     parser.add_argument('--lr', type=float, nargs='+',
-                        default=0.03,  # [3e-2, 3e-2, 1e-3, 1e-3, 1e-3],
+                        default=[0.498],  # [3e-2, 3e-2, 1e-3, 1e-3, 1e-3],
                         help='Learning rate. Can be a single float, '
                              'or one per parameter type, or one per '
                              'parameter vector entry.')

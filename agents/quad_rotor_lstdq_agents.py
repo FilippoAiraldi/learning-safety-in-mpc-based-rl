@@ -30,17 +30,17 @@ class QuadRotorLSTDQAgentConfig(BaseConfig):
             # 'w_x': (1e1, (1e-3, np.inf)),
             # 'w_u': (1e0, (1e-3, np.inf)),
             # 'w_s': (1e2, (1e-3, np.inf)),
-            'backoff': (0.4, (1e-3, 0.7))
+            'backoff': (0.1, (1e-3, 0.5))
         })
 
     # fixed non-learnable weights
     fixed_pars: dict[str, float] = field(default_factory=lambda: {
         'pitch_d': 12,
-        'pitch_dd': 7,
-        'pitch_gain': 11,
-        'roll_d': 10.5,
-        'roll_dd': 8,
-        'roll_gain': 9,
+        'pitch_dd': 5,
+        'pitch_gain': 12,
+        'roll_d': 13,
+        'roll_dd': 6,
+        'roll_gain': 8,
         # 'backoff': 0.05,
         'w_x': 1e1,
         'w_u': 1e0,
