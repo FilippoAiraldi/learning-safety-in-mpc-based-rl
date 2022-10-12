@@ -462,7 +462,7 @@ def safety(
         cnt = np.nancumsum((np.nanmax(cv_all, axis=0) > 0.0), axis=0)
         _plot_population(next(axs), episodes, cnt.T, color=color, label=label,
                          xlabel='Episode', ylabel='Number of unsafe episodes',
-                         method='step', legendloc='upper left')
+                         legendloc='upper left')
 
         # # plot also the overall constraint violation
         # cv_all[~np.isfinite(cv_all)] = 0.0
