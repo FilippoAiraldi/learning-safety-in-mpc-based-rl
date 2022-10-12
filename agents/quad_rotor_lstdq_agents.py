@@ -331,9 +331,8 @@ class QuadRotorGPSafeLSTDQAgentConfig(QuadRotorLSTDQAgentConfig):
     n_opti: int = 14  # number of multistart for nonlinear optimization
 
     def __post_init__(self) -> None:
-        if not isinstance(self.kernel_cls, str):
-            return
-        self.kernel_cls = getattr(kernels, self.kernel_cls)
+        if isinstance(self.kernel_cls, str):
+            self.kernel_cls = getattr(kernels, self.kernel_cls)
 
 
 class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
