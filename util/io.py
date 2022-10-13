@@ -1,7 +1,16 @@
 import re
 import unicodedata
 from datetime import datetime
-import cloudpickle
+from typing import Any
+import pickle
+
+
+def is_pickleable(obj: Any) -> bool:
+    try:
+        pickle.dumps(obj)
+        return True
+    except Exception as ex:
+        return False
 
 
 def save_results(filename: str, **data) -> str:
@@ -23,7 +32,7 @@ def save_results(filename: str, **data) -> str:
     if not filename.endswith('.pkl'):
         filename = f'{filename}.pkl'
     with open(filename, 'wb') as f:
-        cloudpickle.dump(data, f)
+        pickle.dump(data, f)
     return filename
 
 
@@ -44,7 +53,7 @@ def load_results(filename: str) -> dict:
     if not filename.endswith('.pkl'):
         filename = f'{filename}.pkl'
     with open(filename, 'rb') as f:
-        data = cloudpickle.load(f)
+        data = pickle.load(f)
     if isinstance(data, dict) and len(data.keys()) == 1:
         data = data[next(iter(data.keys()))]
     return data
