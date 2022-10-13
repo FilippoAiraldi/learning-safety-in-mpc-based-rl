@@ -16,8 +16,7 @@ from envs.wrappers import RecordData
 from util.math import constraint_violation as cv_, jaggedstack, logmean
 
 
-LINEWIDTHS = (0.05, 2.0)
-
+LINEWIDTHS = (0.01, 2.0)
 MATLAB_COLORS = [
     '#0072BD', '#D95319', '#EDB120', '#7E2F8E', '#77AC30', '#4DBEEE', '#A2142F'
 ]
@@ -51,14 +50,15 @@ def spy(H: Union[cs.SX, cs.MX, cs.DM, np.ndarray], **spy_kwargs) -> Figure:
     return fig
 
 
-def set_mpl_defaults() -> None:
+def set_mpl_defaults(matlab_colors: bool = True) -> None:
     '''Sets the default options for Matplotlib.'''
     np.set_printoptions(precision=4)
     mpl.style.use('seaborn-darkgrid')
     # mpl.rcParams['font.family'] = 'serif'
     # mpl.rcParams['text.usetex'] = True
     # mpl.rcParams['pgf.rcfonts'] = False
-    mpl.rcParams['axes.prop_cycle'] = cycler('color', MATLAB_COLORS)
+    if matlab_colors:
+        mpl.rcParams['axes.prop_cycle'] = cycler('color', MATLAB_COLORS)
     mpl.rcParams['lines.linewidth'] = 1
     mpl.rcParams['savefig.dpi'] = 900
 

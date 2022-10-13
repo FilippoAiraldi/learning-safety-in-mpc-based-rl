@@ -9,7 +9,7 @@ from util import io, plot
 
 
 if __name__ == '__main__':
-    plot.set_mpl_defaults()
+    plot.set_mpl_defaults(matlab_colors=False)
     warnings.filterwarnings('ignore', category=RuntimeWarning)
 
     # parse arguments
@@ -23,9 +23,9 @@ if __name__ == '__main__':
     # prepare args and plot functions
     if len(args.filenames) == 0:
         args.filenames = [
-            ('results/lstdq_no_w_safe_50agents', '50a'),
-            ('results/lstdq_no_w_safe_200agents', '200a'),
-            # ('results/pk_backoff_010backoff', 'PK'),
+            ('results/lstdq_300', 'LSTD Q'),
+            ('results/lstdq_safe_300', 'GP-safe LSTD Q'),
+            ('results/pk_300', 'PK')
         ]
     funcs = [
         plot.performance,
