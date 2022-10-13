@@ -325,7 +325,7 @@ class QuadRotorGPSafeLSTDQAgentConfig(QuadRotorLSTDQAgentConfig):
     beta: float = 0.9   # probability of target violation satisfaction
 
     beta_backtracking: float = 0.95
-    max_backtracking_iter: int = 35
+    max_backtracking_iter: int = 100
 
     n_opti: int = 14  # number of multistart for nonlinear optimization
 
@@ -448,7 +448,7 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
         # log training outcomes and return cumulative returns
         logger.debug(f'{self.name}|{epoch_n}: J_mean={returns.mean():,.3f}; '
                      f'||p||={np.linalg.norm(update_grad):.3e}; ' +
-                     f'beta={backtracked_gp_pars[1] * 100:.1f}%' +
+                     f'beta={backtracked_gp_pars[0] * 100:.1f}%' +
                      f'GP fit time={gp_fit_time:.2}s' +
                      self.weights.values2str())
         return (
