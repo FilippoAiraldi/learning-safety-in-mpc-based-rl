@@ -1,6 +1,8 @@
+from copy import copy
 from typing import Generic, TypeVar, Any
 import numpy as np
 from agents.quad_rotor_base_agents import QuadRotorBaseLearningAgent
+from util.io import is_pickleable
 
 
 AgentType = TypeVar('AgentType', bound=QuadRotorBaseLearningAgent)
@@ -24,11 +26,10 @@ class RecordLearningData(Generic[AgentType]):
         }
         self.update_gradient: list[np.ndarray] = []
 
-        # save additional references from the agent
-        for key, value in agent.__dict__.items():
-            if key.endswith('_history') or key == '_config':
-                attr = ('agent' if key.startswith('_') else 'agent_') + key
-                self.__setattr__(attr, value)
+    @property
+    def unwrapped(self) -> AgentType:
+        '''Returns the unwrapped instance of the agent.'''
+        return self.agent
 
     def learn_one_epoch(
         self, *args, **kwargs
@@ -40,9 +41,9 @@ class RecordLearningData(Generic[AgentType]):
     def learn(
         self, *args, **kwargs
     ) -> tuple[
-        bool, 
-        np.ndarray, 
-        list[np.ndarray], 
+        bool,
+        np.ndarray,
+        list[np.ndarray],
         list[dict[str, np.ndarray]]
     ]:
         ok, returns, grads, weightss = self.agent.learn(*args, **kwargs)
@@ -62,7 +63,11 @@ class RecordLearningData(Generic[AgentType]):
     def __getstate__(self) -> dict[str, Any]:
         '''Returns the instance's state to be pickled.'''
         state = self.__dict__.copy()
-        del state['agent']
+        agent = copy(self.agent)
+        for attr, value in agent.__dict__.copy().items():
+            if not is_pickleable(value):
+                delattr(agent, attr)
+        state['agent'] = agent
         return state
 
     def __setstate__(self, state: dict[str, Any]) -> None:

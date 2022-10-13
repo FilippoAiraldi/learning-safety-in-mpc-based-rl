@@ -1,7 +1,7 @@
 from collections import deque
 from dataclasses import dataclass
 from itertools import chain
-from typing import Iterable, Iterator, Optional, Sequence, Union, TypeVar
+from typing import Iterable, Iterator, Sequence, Union, TypeVar
 from gym.utils.seeding import np_random
 import casadi as cs
 import numpy as np
@@ -19,8 +19,8 @@ class ReplayMemory(deque[T]):
 
     def __init__(
         self,
-        *args,
-        maxlen: Optional[int],
+        iterable: Iterable[T] = (),
+        maxlen: int = None,
         seed: int = None
     ) -> None:
         '''
@@ -35,7 +35,7 @@ class ReplayMemory(deque[T]):
         seed : int, optional
             Seed for the random number generator.
         '''
-        super().__init__(*args, maxlen=maxlen)
+        super().__init__(iterable, maxlen=maxlen)
         self.np_random, _ = np_random(seed)
 
     def sample(
@@ -129,7 +129,7 @@ class RLParameterCollection(Sequence[RLParameter]):
             self._dict[parameter.name] = parameter
 
     @property
-    def as_list(self) -> dict[str, RLParameter]:
+    def as_list(self) -> list[RLParameter]:
         '''Returns a view of the collection as `list`.'''
         return self._list
 

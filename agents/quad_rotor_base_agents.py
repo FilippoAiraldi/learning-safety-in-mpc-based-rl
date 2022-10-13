@@ -70,6 +70,11 @@ class QuadRotorBaseAgent(ABC):
         self._V = QuadRotorMPC(env, config=mpc_config, mpctype='V')
 
     @property
+    def unwrapped(self) -> 'QuadRotorBaseAgent':
+        '''Returns the unwrapped instance of the agent.'''
+        return self
+
+    @property
     def normalized(self) -> bool:
         '''Returns whether the agent's env is normalized.'''
         return self.env.normalization is not None
