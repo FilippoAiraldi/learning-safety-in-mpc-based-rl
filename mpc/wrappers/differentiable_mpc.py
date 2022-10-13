@@ -92,8 +92,8 @@ class DifferentiableMPC(Generic[MPCType]):
 
     def __str__(self) -> str:
         '''Returns the wrapper name and the unwrapped MPC string.'''
-        return f'<{type(self).__name__}: {self._mpc}>'
+        return f'<{type(self).__name__}: {self._mpc.__str__()}>'
 
     def __repr__(self) -> str:
         '''Returns the string representation of the wrapper.'''
-        return str(self)
+        return f'<{type(self).__name__}: {self._mpc.__repr__()}>'
