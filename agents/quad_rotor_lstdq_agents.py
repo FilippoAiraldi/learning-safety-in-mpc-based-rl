@@ -324,7 +324,6 @@ class QuadRotorGPSafeLSTDQAgentConfig(QuadRotorLSTDQAgentConfig):
     mu0: float = 0.0  # target constraint violation
     beta: float = 0.9   # probability of target violation satisfaction
 
-    mu0_backtracking: float = 0.0
     beta_backtracking: float = 0.95
     max_backtracking_iter: int = 35
 
@@ -340,7 +339,7 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
 
     config_cls: type = QuadRotorGPSafeLSTDQAgentConfig
 
-    def update(self) -> tuple[np.ndarray, tuple[float, float], float]:
+    def update(self) -> tuple[np.ndarray, tuple[float, ...], float]:
         cfg: QuadRotorGPSafeLSTDQAgentConfig = self.config
         self._solver, gp_fit_time = self._init_qp_solver()
 
@@ -357,8 +356,8 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
         theta = self.weights.values()
         candidates = np.linspace(theta, theta - cfg.lr * p, cfg.n_opti) + \
             self.np_random.normal(size=(cfg.n_opti, theta.size), scale=0.0)
-        mu0, beta = cfg.mu0, cfg.beta
-        pars = np.block([theta, p, cfg.lr, mu0, beta])
+        beta = cfg.beta
+        pars = np.block([theta, p, cfg.lr, cfg.mu0, beta])
         lb, ub = self._get_percentage_bounds(
             theta, self.weights.bounds(), cfg.max_perc_update)
         for _ in range(cfg.max_backtracking_iter):
@@ -374,13 +373,12 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
             # either apply the successful update or backtrack
             if best_sol is not None:
                 self.weights.update_values(best_sol['x'].full().flatten())
-                return p, (mu0, beta), gp_fit_time
+                return p, (beta,), gp_fit_time
             else:
-                mu0 += cfg.mu0_backtracking
                 beta *= cfg.beta_backtracking
-                pars[-2:] = (mu0, beta)
+                pars[-1] = beta
         raise UpdateError(f'Update failed in epoch {self._epoch_n} '
-                          f'(beta={beta:.3f}, mu0={mu0:.2f}).')
+                          f'(beta={beta:.3f}).')
 
     def learn_one_epoch(
         self,
@@ -512,7 +510,7 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
         #     ).item()
         #     cfg.mu0 = prior_mu + norm_ppf(cfg.beta) * prior_std
         self._gpr_dataset: list[tuple[np.ndarray, np.ndarray]] = []
-        self.backtracked_gp_pars_history: list[tuple[float, float]] = []
+        self.backtracked_gp_pars_history: list[tuple[float, ...]] = []
 
         # compute symbols that do not depend on GP
         theta: cs.SX = cs.SX.sym('theta', n_theta, 1)

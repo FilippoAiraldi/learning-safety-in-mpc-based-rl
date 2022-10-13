@@ -437,16 +437,6 @@ def safety(
             [jaggedstack(env.actions) for env in envs]))
         episodes = np.arange(observations.shape[2]) + 1
 
-        # # plot percentage of failed agents
-        # failed: np.ndarray = np.stack(
-        #     [episodes > len(env.episode_lengths) for env in envs])
-        # ax = next(axs)
-        # _plot_population(ax, episodes, y=None, y_mean=failed.mean(axis=0),
-        #                  color=color, label=label, xlabel='Episode',
-        #                  ylabel='Failed agents', method='step')
-        # ax.set_ylim(0, 1)
-        # ax.yaxis.set_major_formatter(PercentFormatter(xmax=1))
-
         # compute constraint violations and apply 2 reductions: first merge lb
         # and ub in a single constraint (since both cannot be active at the
         # same time) (max axis=1); then reduce each trajectory's violations to
@@ -464,22 +454,14 @@ def safety(
                          xlabel='Episode', ylabel='Number of unsafe episodes',
                          legendloc='upper left')
 
-        # # plot also the overall constraint violation
-        # cv_all[~np.isfinite(cv_all)] = 0.0
-        # # cv_all = np.maximum(cv_all, 0).sum(axis=0)
-        # cv_all = cv_all.sum(axis=0)
-        # ax = next(axs)
-        # _plot_population(ax, episodes, cv_all.T, color=color, label=label,
-        #                  xlabel='Episode', ylabel='Overall violation')
-
     attr = 'agent_backtracked_gp_pars_history'
     if agents is not None and all(
             a is not None and hasattr(a, attr) for a in agents):
         pars = jaggedstack([getattr(a, attr) for a in agents])
         updates = np.arange(pars.shape[1]) + 1
 
-        parnames = ['$\\mu_0$', '$\\beta$']
-        styles = ['--', '-', ':']
+        parnames = ['$\\beta$', '$\\mu_0$', ]
+        styles = ['-', '--', ':']
         ax = next(axs)
         ax.set_axis_on()
         for i, name, ls in zip(range(pars.shape[-1]), parnames, styles):
