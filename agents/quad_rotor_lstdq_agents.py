@@ -325,7 +325,7 @@ class QuadRotorGPSafeLSTDQAgentConfig(QuadRotorLSTDQAgentConfig):
     beta: float = 0.9   # probability of target violation satisfaction
 
     beta_backtracking: float = 0.95
-    max_backtracking_iter: int = 100
+    max_backtracking_iter: int = 35
 
     n_opti: int = 14  # number of multistart for nonlinear optimization
 

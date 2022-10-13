@@ -454,7 +454,11 @@ def safety(
                          xlabel='Episode', ylabel='Number of unsafe episodes',
                          legendloc='upper left')
 
-    attr = 'agent_backtracked_gp_pars_history'
+    attr = (
+        'backtracked_gp_pars_history'
+        if hasattr(agents[0], 'backtracked_gp_pars_history') else
+        'agent_backtracked_gp_pars_history'
+    )
     if agents is not None and all(
             a is not None and hasattr(a, attr) for a in agents):
         pars = jaggedstack([getattr(a, attr) for a in agents])
