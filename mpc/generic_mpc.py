@@ -356,7 +356,7 @@ class GenericMPC:
 
     def __repr__(self) -> str:
         '''Returns the string representation of the MPC instance.'''
-        return f'{type(self).__name__} ({self.name})'
+        return f'{type(self).__name__}: {self.name}'
 
 
 def subsevalf(
