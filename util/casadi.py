@@ -1,6 +1,15 @@
 import math
-from typing import Union
+from typing import Any, Union
 import casadi as cs
+
+
+def is_casadi_object(obj: Any) -> bool:
+    '''Checks if the object belongs to the casadi module.'''
+    # thanks to https://stackoverflow.com/a/52783240/19648688
+    if not hasattr(obj, '__module__'):
+        return False
+    module: str = obj.__module__.split('.')[0]
+    return module == cs.__name__
 
 
 def prod(

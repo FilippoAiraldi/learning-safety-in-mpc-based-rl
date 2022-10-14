@@ -6,6 +6,19 @@ import pickle
 
 
 def is_pickleable(obj: Any) -> bool:
+    '''
+    Checks whether the object is pickeable.
+
+    Parameters
+    ----------
+    obj : Any
+        The object to test against.
+
+    Returns
+    -------
+    pickleable : bool
+        A flag indicating if pickleable or not.
+    '''
     try:
         pickle.dumps(obj)
         return True
@@ -32,7 +45,11 @@ def save_results(filename: str, **data) -> str:
     if not filename.endswith('.pkl'):
         filename = f'{filename}.pkl'
     with open(filename, 'wb') as f:
-        pickle.dump(data, f)
+        #     pickle.dump(data, f)
+        import pickletools
+        pickled = pickle.dumps(data)
+        optimized = pickletools.optimize(pickled)
+        f.write(optimized)
     return filename
 
 
