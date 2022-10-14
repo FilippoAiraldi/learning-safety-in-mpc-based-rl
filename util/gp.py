@@ -186,7 +186,12 @@ class MultitGaussianProcessRegressor(MultiOutputRegressor):
         )
         super().__init__(estimator, n_jobs=n_jobs)
 
-    def predict(self, X, return_std=False, return_cov=False):
+    def predict(
+        self, 
+        X: np.ndarray, 
+        return_std: bool = False, 
+        return_cov: bool = False
+    ) -> Union[np.ndarray, tuple[np.ndarray, np.ndarray]]:
         '''See `GaussianProcessRegressor.predict`.'''
         check_is_fitted(self)
         y = Parallel(n_jobs=self.n_jobs)(
