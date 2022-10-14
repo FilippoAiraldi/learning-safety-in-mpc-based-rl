@@ -64,15 +64,6 @@ def objective(
     # suggest parameters for this trial
     gamma = trial.suggest_float('gamma', 0.95, 1.0, log=True)
     lr = trial.suggest_float('lr', 1e-6, 5e-1, log=True)
-    # train_eps = trial.suggest_categorical('train_eps', [1, 5, 10, 20])
-    # max_perc_update = trial.suggest_categorical(
-    #     'max_perc_update', [0.2, 0.5, 1.0, np.inf])
-    # replay_maxlen_factor = trial.suggest_int(
-    #     'replay_maxlen_factor', 1, n_epochs // 2)
-    # replay_mem_sample_size = trial.suggest_float(
-    #     'mem_sample_size', 0.2, 0.8, step=0.1)
-    # replay_include_last_factor = trial.suggest_int(
-    # 'replay_include_last_factor', 0, 1)
     perturbation_decay = trial.suggest_float(
         'perturbation_decay', 0.5, 1.0, step=0.1)
 
@@ -91,7 +82,7 @@ def objective(
     envs: list[QuadRotorEnv] = []
     agents: list[agent_cls] = []
     for n_agent in range(n_agents):
-        normalization = NormalizationService if normalized else None
+        normalization = NormalizationService() if normalized else None
         env = QuadRotorEnv.get_wrapped(
             max_episode_steps=max_ep_steps,
             record_data=False,
