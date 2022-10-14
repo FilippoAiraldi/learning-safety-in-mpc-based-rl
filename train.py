@@ -136,7 +136,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--runname', type=str, default=None,
                         help='Name of the simulation run.')
-    parser.add_argument('--agents', type=int, default=50,
+    parser.add_argument('--agents', type=int, default=100,
                         help='Number of parallel agent to train.')
     parser.add_argument('--epochs', type=int, default=50,
                         help='Number of training epochs.')
