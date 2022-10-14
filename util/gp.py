@@ -85,7 +85,7 @@ class CasadiKernels:
                 m = Y.shape[0]
                 Y = Y / np.tile(l, (m, 1))
             dists = cs.horzcat(*(cs.sqrt(cs.sum2(
-                    (X - cs.repmat(Y[i, :].reshape((1, -1)), n, 1))**2))
+                (X - cs.repmat(Y[i, :].reshape((1, -1)), n, 1))**2))
                 for i in range(m)
             ))
 
@@ -187,9 +187,9 @@ class MultitGaussianProcessRegressor(MultiOutputRegressor):
         super().__init__(estimator, n_jobs=n_jobs)
 
     def predict(
-        self, 
-        X: np.ndarray, 
-        return_std: bool = False, 
+        self,
+        X: np.ndarray,
+        return_std: bool = False,
         return_cov: bool = False
     ) -> Union[np.ndarray, tuple[np.ndarray, np.ndarray]]:
         '''See `GaussianProcessRegressor.predict`.'''
