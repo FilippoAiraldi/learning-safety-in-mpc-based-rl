@@ -26,7 +26,7 @@ def is_pickleable(obj: Any) -> bool:
         return False
 
 
-def save_results(filename: str, **data) -> str:
+def save_results(filename: str, **data: Any) -> str:
     '''
     Saves results to pickle.
 
@@ -53,7 +53,7 @@ def save_results(filename: str, **data) -> str:
     return filename
 
 
-def load_results(filename: str) -> dict:
+def load_results(filename: str) -> dict[str, Any]:
     '''
     Loads results from pickle.
 
