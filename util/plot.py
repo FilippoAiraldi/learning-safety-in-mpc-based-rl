@@ -273,24 +273,20 @@ def _set_empty_axis_off(axs: Iterable[Axes]) -> None:
 
 
 def performance(
-    envs: list[RecordData],
+    agents: list[RecordLearningData],
     fig: Figure = None,
     color: str = None,
-    label: str = None,
-    **_
-) -> Optional[Figure]:
+    label: str = None
+) -> Figure:
     '''
     Plots the performance in each environment and the average performance.
     '''
-    if envs is None:
-        return
-
     if fig is None:
         fig, ax = plt.subplots(1, 1, constrained_layout=True)
     else:
         ax = fig.axes[0]
 
-    rewards: np.ndarray = jaggedstack([env.cum_rewards for env in envs])
+    rewards: np.ndarray = jaggedstack([a.env.cum_rewards for a in agents])
     y = np.nanmean(rewards, axis=0)
     # y = np.nanmedian(rewards, axis=0)
     episodes = np.arange(rewards.shape[1]) + 1
@@ -301,20 +297,16 @@ def performance(
 
 
 def constraint_violation(
-    envs: list[RecordData],
+    agents: list[RecordLearningData],
     fig: Figure = None,
     color: str = None,
-    label: str = None,
-    **_
-) -> Optional[Figure]:
+    label: str = None
+) -> Figure:
     '''
     Plots the constraint violations in each environment and the average 
     violation.
     '''
-    if envs is None:
-        return
-
-    x_bnd, u_bnd = envs[0].config.x_bounds, envs[0].config.u_bounds
+    x_bnd, u_bnd = agents[0].env.config.x_bounds, agents[0].env.config.u_bounds
     N = (np.isfinite(x_bnd).sum(axis=1) > 0).sum() + \
         (np.isfinite(u_bnd).sum(axis=1) > 0).sum()
     ncols = int(np.round(np.sqrt(N)))
@@ -331,9 +323,9 @@ def constraint_violation(
 
     # [nx(nu), max_ep_len, Nep, Nenv]
     observations = np.transpose(jaggedstack(
-        [jaggedstack(env.observations) for env in envs]))
+        [jaggedstack(a.env.observations) for a in agents]))
     actions = np.transpose(jaggedstack(
-        [jaggedstack(env.actions) for env in envs]))
+        [jaggedstack(a.env.actions) for a in agents]))
     episodes = np.arange(observations.shape[2]) + 1
 
     # apply 2 reductions: first merge lb and ub in a single constraint (since
@@ -359,13 +351,9 @@ def learned_weights(
     agents: list[RecordLearningData],
     fig: Figure = None,
     color: str = None,
-    label: str = None,
-    **_
-) -> Optional[Figure]:
+    label: str = None
+) -> Figure:
     '''Plots the learning curves of the MPC parameters.'''
-    if agents is None or any(a is None for a in agents):
-        return
-
     weightnames = sorted(agents[0].weights_history.keys())
     Nweights = len(weightnames)
 
@@ -412,47 +400,41 @@ def learned_weights(
 
 
 def safety(
-    envs: list[RecordData],
     agents: list[RecordLearningData],
     fig: Figure = None,
     color: str = None,
-    label: str = None,
-    **_
-) -> Optional[Figure]:
+    label: str = None
+) -> Figure:
     '''Plots safety related quantities for the simulation.'''
-    if envs is None and agents is None:
-        return
-
     if fig is None:
         fig, axs = plt.subplots(1, 2, constrained_layout=True)
     else:
         axs = fig.axes
 
     axs = iter(axs)
-    if envs is not None:
-        # [nx(nu), max_ep_len, Nep, Nenv]
-        observations = np.transpose(jaggedstack(
-            [jaggedstack(env.observations) for env in envs]))
-        actions = np.transpose(jaggedstack(
-            [jaggedstack(env.actions) for env in envs]))
-        episodes = np.arange(observations.shape[2]) + 1
+    # [nx(nu), max_ep_len, Nep, Nenv]
+    observations = np.transpose(jaggedstack(
+        [jaggedstack(a.env.observations) for a in agents]))
+    actions = np.transpose(jaggedstack(
+        [jaggedstack(a.env.actions) for a in agents]))
+    episodes = np.arange(observations.shape[2]) + 1
 
-        # compute constraint violations and apply 2 reductions: first merge lb
-        # and ub in a single constraint (since both cannot be active at the
-        # same time) (max axis=1); then reduce each trajectory's violations to
-        # scalar by picking max violation (max axis=2)
-        x_bnd, u_bnd = envs[0].config.x_bounds, envs[0].config.u_bounds
-        cv_obs, cv_act = (
-            np.nanmax(cv, axis=(1, 2))
-            for cv in cv_((observations, x_bnd), (actions, u_bnd))
-        )
+    # compute constraint violations and apply 2 reductions: first merge lb
+    # and ub in a single constraint (since both cannot be active at the
+    # same time) (max axis=1); then reduce each trajectory's violations to
+    # scalar by picking max violation (max axis=2)
+    x_bnd, u_bnd = agents[0].env.config.x_bounds, agents[0].env.config.u_bounds
+    cv_obs, cv_act = (
+        np.nanmax(cv, axis=(1, 2))
+        for cv in cv_((observations, x_bnd), (actions, u_bnd))
+    )
 
-        # plot cumulative number of unsafe episodes
-        cv_all = np.concatenate((cv_obs, cv_act), axis=0)
-        cnt = np.nancumsum((np.nanmax(cv_all, axis=0) > 0.0), axis=0)
-        _plot_population(next(axs), episodes, cnt.T, color=color, label=label,
-                         xlabel='Episode', ylabel='Number of unsafe episodes',
-                         legendloc='upper left')
+    # plot cumulative number of unsafe episodes
+    cv_all = np.concatenate((cv_obs, cv_act), axis=0)
+    cnt = np.nancumsum((np.nanmax(cv_all, axis=0) > 0.0), axis=0)
+    _plot_population(next(axs), episodes, cnt.T, color=color, label=label,
+                     xlabel='Episode', ylabel='Number of unsafe episodes',
+                     legendloc='upper left')
 
     attr = (
         'backtracked_gp_pars_history'

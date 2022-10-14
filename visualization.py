@@ -46,9 +46,7 @@ if __name__ == '__main__':
 
         # load data
         results = io.load_results(filename)
-        data: dict[str, Any] = results.pop('data')
-        envs: list[RecordData] = data.get('envs')
-        agents: list[RecordLearningData] = data.get('agents')
+        agents: list[RecordLearningData] = results.pop('agents')
 
         # print summary
         print(f'p{n}) {filename}\n',
@@ -58,7 +56,6 @@ if __name__ == '__main__':
         for i, func in enumerate(funcs):
             if i in args.plots:
                 figs[i] = func(
-                    envs=envs,
                     agents=agents,
                     fig=figs[i],
                     color=color['color'],
