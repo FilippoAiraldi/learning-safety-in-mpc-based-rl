@@ -2,6 +2,7 @@ from copy import copy
 from typing import Generic, TypeVar, Any
 import numpy as np
 from agents.quad_rotor_base_agents import QuadRotorBaseLearningAgent
+from util.casadi import is_casadi_object
 from util.io import is_pickleable
 
 
@@ -65,7 +66,7 @@ class RecordLearningData(Generic[AgentType]):
         state = self.__dict__.copy()
         agent = copy(self.agent)
         for attr, value in agent.__dict__.copy().items():
-            if not is_pickleable(value):
+            if not is_pickleable(value) or is_casadi_object(value):
                 delattr(agent, attr)
         state['agent'] = agent
         return state

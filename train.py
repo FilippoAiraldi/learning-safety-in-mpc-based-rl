@@ -43,17 +43,18 @@ def eval_pk_agent(
         normalize_reward=(False,),
         normalization=normalization
     )
-    agents.QuadRotorPKAgent(
+    agent = agents.QuadRotorPKAgent(
         env=env,
         agentname=f'PK_{agent_n}',
         seed=seed
-    ).eval(
+    )
+    agent.eval(
         env=env,
         n_eval_episodes=episodes,
         deterministic=True,
         seed=seed + 1
     )
-    return {'success': True, 'env': env}
+    return {'success': True, 'agent': agent}
 
 
 def train_lstdq_agent(
@@ -127,7 +128,7 @@ def train_lstdq_agent(
         logger=logger,
         return_info=True
     )[0]
-    return {'success': success, 'env': env, 'agent': agent}
+    return {'success': success, 'agent': agent}
 
 
 if __name__ == '__main__':
@@ -225,29 +226,25 @@ if __name__ == '__main__':
     # number of agents has been succesfully simulated
     print(f'[Simulation {args.runname.upper()} started at {date}]\n',
           f'Args: {args}')
-    raw_data: list[dict[str, Any]] = []
+    data: list[dict[str, Any]] = []
     sim_iter, agent_cnt = 0, 0
-    while len(raw_data) < args.agents:
-        n_agents = max(args.agents - len(raw_data), 10 if args.safe else 1)
+    while len(data) < args.agents:
+        n_agents = max(args.agents - len(data), 10 if args.safe else 1)
         with log.tqdm_joblib(desc=f'Simulation {sim_iter}', total=n_agents):
             batch = jl.Parallel(n_jobs=args.n_jobs)(
                 jl.delayed(func)(agent_cnt + n) for n in range(n_agents)
             )
-        raw_data.extend(filter(lambda o: o['success'], batch))
+        data.extend(filter(lambda o: o['success'], batch))
         sim_iter += 1
         agent_cnt += n_agents
 
     # save results
-    args.agents = len(raw_data)
+    args.agents = len(data)
     print(f'[Simulated {agent_cnt} agents: {agent_cnt - args.agents} failed]')
-    data = {
-        f'{key}s': [r[key] for r in raw_data]
-        for key in ('env', 'agent') if key in raw_data[0]
-    }
     fn = io.save_results(
         filename=args.runname,
         date=date,
         args=args,
         simtime=time.perf_counter() - start,
-        data=data
+        agents=[d['agent'] for d in data]
     )
