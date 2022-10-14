@@ -1,5 +1,5 @@
 from itertools import product
-from typing import Optional, Iterable, Union
+from typing import Iterable, Union
 import casadi as cs
 import matplotlib as mpl
 import matplotlib.gridspec as gridspec
@@ -11,11 +11,17 @@ from matplotlib.collections import LineCollection
 from matplotlib.figure import Figure
 from matplotlib.ticker import MaxNLocator, PercentFormatter
 from mpl_toolkits.mplot3d.art3d import Line3DCollection, Poly3DCollection
+from agents import \
+    QuadRotorPKAgent, QuadRotorLSTDQAgent, QuadRotorGPSafeLSTDQAgent
 from agents.wrappers import RecordLearningData
 from envs.wrappers import RecordData
 from util.math import constraint_violation as cv_, jaggedstack, logmean
 
 
+AGENTTYPE = Union[
+    QuadRotorPKAgent,
+    RecordLearningData[Union[QuadRotorLSTDQAgent, QuadRotorGPSafeLSTDQAgent]]
+]
 LINEWIDTHS = (0.01, 2.0)
 MATLAB_COLORS = [
     '#0072BD', '#D95319', '#EDB120', '#7E2F8E', '#77AC30', '#4DBEEE', '#A2142F'
@@ -273,7 +279,7 @@ def _set_empty_axis_off(axs: Iterable[Axes]) -> None:
 
 
 def performance(
-    agents: list[RecordLearningData],
+    agents: list[AGENTTYPE],
     fig: Figure = None,
     color: str = None,
     label: str = None
@@ -297,7 +303,7 @@ def performance(
 
 
 def constraint_violation(
-    agents: list[RecordLearningData],
+    agents: list[AGENTTYPE],
     fig: Figure = None,
     color: str = None,
     label: str = None
@@ -348,12 +354,15 @@ def constraint_violation(
 
 
 def learned_weights(
-    agents: list[RecordLearningData],
+    agents: list[AGENTTYPE],
     fig: Figure = None,
     color: str = None,
     label: str = None
 ) -> Figure:
     '''Plots the learning curves of the MPC parameters.'''
+    if any(not isinstance(a, RecordLearningData) for a in agents):
+        return
+
     weightnames = sorted(agents[0].weights_history.keys())
     Nweights = len(weightnames)
 
@@ -400,7 +409,7 @@ def learned_weights(
 
 
 def safety(
-    agents: list[RecordLearningData],
+    agents: list[AGENTTYPE],
     fig: Figure = None,
     color: str = None,
     label: str = None

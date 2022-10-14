@@ -1,10 +1,7 @@
 import argparse
 import warnings
-from typing import Any
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-from agents.wrappers import RecordLearningData
-from envs.wrappers import RecordData
 from util import io, plot
 
 
@@ -23,9 +20,9 @@ if __name__ == '__main__':
     # prepare args and plot functions
     if len(args.filenames) == 0:
         args.filenames = [
-            ('results/lstdq_300', 'LSTD Q'),
-            ('results/lstdq_safe_300', 'GP-safe LSTD Q'),
-            ('results/pk_300', 'PK')
+            ('results/lstdq', 'LSTD Q'),
+            ('results/lstdq-safe', 'GP-safe LSTD Q'),
+            ('results/pk', 'PK')
         ]
     funcs = [
         plot.performance,
@@ -46,7 +43,7 @@ if __name__ == '__main__':
 
         # load data
         results = io.load_results(filename)
-        agents: list[RecordLearningData] = results.pop('agents')
+        agents = results.pop('agents')
 
         # print summary
         print(f'p{n}) {filename}\n',
