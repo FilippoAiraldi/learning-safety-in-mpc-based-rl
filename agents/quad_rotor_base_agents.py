@@ -8,7 +8,9 @@ from gym.utils.seeding import np_random
 from envs import QuadRotorEnv
 from mpc import QuadRotorMPC, QuadRotorMPCConfig, Solution
 from mpc.wrappers import DifferentiableMPC
+from util.casadi import is_casadi_object
 from util.configurations import init_config
+from util.io import is_pickleable
 from util.errors import MPCSolverError, UpdateError
 from util.math import NormalizationService
 from util.rl import RLParameter, RLParameterCollection
@@ -293,6 +295,14 @@ class QuadRotorBaseAgent(ABC):
             return [seed + i for i in range(n)]
         assert len(seed) == n, 'Seed sequence with invalid length.'
         return seed
+
+    def __getstate__(self) -> dict[str, Any]:
+        '''Returns the instance's state to be pickled.'''
+        state = self.__dict__.copy()
+        for attr, val in self.__dict__.items():
+            if not is_pickleable(val) or is_casadi_object(val):
+                state.pop(attr)
+        return state
 
 
 class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):

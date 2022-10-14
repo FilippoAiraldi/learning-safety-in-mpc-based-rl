@@ -1,9 +1,6 @@
-from copy import copy
 from typing import Generic, TypeVar, Any
 import numpy as np
 from agents.quad_rotor_base_agents import QuadRotorBaseLearningAgent
-from util.casadi import is_casadi_object
-from util.io import is_pickleable
 
 
 AgentType = TypeVar('AgentType', bound=QuadRotorBaseLearningAgent)
@@ -57,25 +54,12 @@ class RecordLearningData(Generic[AgentType]):
         for n, w in self.weights_history.items():
             w.append(weights[n])
 
-    def __getattr__(self, name) -> Any:
+    def __getattr__(self, name: str) -> Any:
         '''Reroutes attributes to the wrapped agent instance.'''
+        if name.startswith('_'):
+            raise AttributeError(
+                f'accessing private attribute \'{name}\' is prohibited.')
         return getattr(self.agent, name)
-
-    def __getstate__(self) -> dict[str, Any]:
-        '''Returns the instance's state to be pickled.'''
-        state = self.__dict__.copy()
-        agent = copy(self.agent)
-        for attr, value in agent.__dict__.copy().items():
-            if not is_pickleable(value) or is_casadi_object(value):
-                delattr(agent, attr)
-        state['agent'] = agent
-        return state
-
-    def __setstate__(self, state: dict[str, Any]) -> None:
-        '''Sets the instance's state after loading from pickle.'''
-        self.agent = None
-        for attr, val in state.items():
-            self.__setattr__(attr, val)
 
     def __str__(self) -> str:
         '''Returns the wrapper name and the unwrapped agent string.'''
