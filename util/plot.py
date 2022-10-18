@@ -28,6 +28,65 @@ MATLAB_COLORS = [
 ]
 
 
+def _set_axes3d_equal(ax):
+    x_limits = ax.get_xlim3d()
+    y_limits = ax.get_ylim3d()
+    z_limits = ax.get_zlim3d()
+    x_range = abs(np.diff(x_limits))
+    x_middle = np.mean(x_limits)
+    y_range = abs(np.diff(y_limits))
+    y_middle = np.mean(y_limits)
+    z_range = abs(np.diff(z_limits))
+    z_middle = np.mean(z_limits)
+    plot_radius = 0.5 * max(x_range, y_range, z_range)
+    ax.set_xlim3d([x_middle - plot_radius, x_middle + plot_radius])
+    ax.set_ylim3d([y_middle - plot_radius, y_middle + plot_radius])
+    ax.set_zlim3d([z_middle - plot_radius, z_middle + plot_radius])
+
+
+def _plot_population(
+    ax: Axes,
+    x: np.ndarray,
+    y: np.ndarray,
+    y_mean: np.ndarray = None,
+    y_std: np.ndarray = None,
+    color: str = None,
+    linestyle: str = None,
+    label: str = None,
+    xlabel: str = None,
+    ylabel: str = None,
+    method: str = 'plot',
+    legendloc: str = 'upper right'
+) -> None:
+    func = getattr(ax, method)
+    if y_mean is None and y is not None:
+        y_mean = np.nanmean(y, axis=0)
+    if method != 'errorbar':
+        if y is not None:
+            func(x, y.T, linewidth=LINEWIDTHS[0], color=color,
+                 linestyle=linestyle)
+        if y_mean is not None:
+            func(x, y_mean, linewidth=LINEWIDTHS[1], color=color,
+                 linestyle=linestyle, label=label)
+    else:
+        y_std = y_std if y_std is not None else np.nanstd(y, axis=0)
+        func(x, y_mean, yerr=y_std, linewidth=LINEWIDTHS[1], color=color,
+             linestyle=linestyle, label=label, errorevery=x.size // 10,
+             capsize=5)
+
+    if xlabel is not None and len(ax.get_xlabel()) == 0:
+        ax.set_xlabel(xlabel)
+    if ylabel is not None and len(ax.get_ylabel()) == 0:
+        ax.set_ylabel(ylabel)
+    if label is not None:
+        ax.legend(loc=legendloc)
+    if not isinstance(ax.xaxis.get_major_locator(), MaxNLocator):
+        ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+
+
+def _set_empty_axis_off(axs: Iterable[Axes]) -> None:
+    (ax.set_axis_off() for ax in axs if len(ax.get_lines()) == 0)
+
 def spy(H: Union[cs.SX, cs.MX, cs.DM, np.ndarray], **spy_kwargs) -> Figure:
     '''See `matplotlib.pyplot.spy`.'''
     # try convert to numerical; if it fails, then use symbolic method from cs
@@ -67,22 +126,6 @@ def set_mpl_defaults(matlab_colors: bool = True) -> None:
         mpl.rcParams['axes.prop_cycle'] = cycler('color', MATLAB_COLORS)
     mpl.rcParams['lines.linewidth'] = 1
     mpl.rcParams['savefig.dpi'] = 900
-
-
-def _set_axes3d_equal(ax):
-    x_limits = ax.get_xlim3d()
-    y_limits = ax.get_ylim3d()
-    z_limits = ax.get_zlim3d()
-    x_range = abs(np.diff(x_limits))
-    x_middle = np.mean(x_limits)
-    y_range = abs(np.diff(y_limits))
-    y_middle = np.mean(y_limits)
-    z_range = abs(np.diff(z_limits))
-    z_middle = np.mean(z_limits)
-    plot_radius = 0.5 * max(x_range, y_range, z_range)
-    ax.set_xlim3d([x_middle - plot_radius, x_middle + plot_radius])
-    ax.set_ylim3d([y_middle - plot_radius, y_middle + plot_radius])
-    ax.set_zlim3d([z_middle - plot_radius, z_middle + plot_radius])
 
 
 def trajectory_3d(env: RecordData, traj_num: int) -> Figure:
@@ -232,50 +275,6 @@ def trajectory_time(env: RecordData, traj_num: int) -> Figure:
 
     ax.set_xlim([t[0], t[-1]])
     return fig
-
-
-def _plot_population(
-    ax: Axes,
-    x: np.ndarray,
-    y: np.ndarray,
-    y_mean: np.ndarray = None,
-    y_std: np.ndarray = None,
-    color: str = None,
-    linestyle: str = None,
-    label: str = None,
-    xlabel: str = None,
-    ylabel: str = None,
-    method: str = 'plot',
-    legendloc: str = 'upper right'
-) -> None:
-    func = getattr(ax, method)
-    if y_mean is None and y is not None:
-        y_mean = np.nanmean(y, axis=0)
-    if method != 'errorbar':
-        if y is not None:
-            func(x, y.T, linewidth=LINEWIDTHS[0], color=color,
-                 linestyle=linestyle)
-        if y_mean is not None:
-            func(x, y_mean, linewidth=LINEWIDTHS[1], color=color,
-                 linestyle=linestyle, label=label)
-    else:
-        y_std = y_std if y_std is not None else np.nanstd(y, axis=0)
-        func(x, y_mean, yerr=y_std, linewidth=LINEWIDTHS[1], color=color,
-             linestyle=linestyle, label=label, errorevery=x.size // 10,
-             capsize=5)
-
-    if xlabel is not None and len(ax.get_xlabel()) == 0:
-        ax.set_xlabel(xlabel)
-    if ylabel is not None and len(ax.get_ylabel()) == 0:
-        ax.set_ylabel(ylabel)
-    if label is not None:
-        ax.legend(loc=legendloc)
-    if not isinstance(ax.xaxis.get_major_locator(), MaxNLocator):
-        ax.xaxis.set_major_locator(MaxNLocator(integer=True))
-
-
-def _set_empty_axis_off(axs: Iterable[Axes]) -> None:
-    (ax.set_axis_off() for ax in axs if len(ax.get_lines()) == 0)
 
 
 def performance(
