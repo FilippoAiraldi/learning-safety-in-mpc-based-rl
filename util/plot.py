@@ -22,8 +22,9 @@ AGENTTYPE = Union[
     QuadRotorPKAgent,
     RecordLearningData[Union[QuadRotorLSTDQAgent, QuadRotorGPSafeLSTDQAgent]]
 ]
-SMALL_ALPHA = 0.1
-SMALLER_LW_FACTOR = 50
+PAPERMODE = False
+SMALL_ALPHA = {False: 0.5, True: 0.05}
+SMALLER_LW_FACTOR = {False: 50, True: 100}
 MATLAB_COLORS = [
     '#0072BD', '#D95319', '#EDB120', '#7E2F8E', '#77AC30', '#4DBEEE', '#A2142F'
 ]
@@ -50,6 +51,7 @@ def _plot_population(
     x: np.ndarray,
     y: np.ndarray,
     y_mean: np.ndarray = None,
+    use_median: bool = False,
     y_std: np.ndarray = None,
     color: str = None,
     linestyle: str = None,
@@ -60,14 +62,14 @@ def _plot_population(
     legendloc: str = 'upper right'
 ) -> None:
     if y_mean is None and y is not None:
-        y_mean = np.nanmean(y, axis=0)
+        y_mean = (np.nanmedian if use_median else np.nanmean)(y, axis=0)
     lw = mpl.rcParams['lines.linewidth']
-    lw_small = lw / SMALLER_LW_FACTOR
+    lw_small = lw / SMALLER_LW_FACTOR[PAPERMODE]
     func = getattr(ax, method)
     if method != 'errorbar':
         if y is not None:
             func(x, y.T, lw=lw_small, color=color, linestyle=linestyle,
-                 alpha=SMALL_ALPHA)
+                 alpha=SMALL_ALPHA[PAPERMODE])
         if y_mean is not None:
             func(x, y_mean, lw=lw, color=color, linestyle=linestyle,
                  label=label)
@@ -132,6 +134,8 @@ def spy(H: Union[cs.SX, cs.MX, cs.DM, np.ndarray], **spy_kwargs) -> Figure:
 def set_mpl_defaults(
         matlab_colors: bool = False, papermode: bool = False) -> None:
     '''Sets the default options for Matplotlib.'''
+    global PAPERMODE
+    PAPERMODE = papermode
     np.set_printoptions(precision=4)
     mpl.style.use('seaborn-darkgrid')
     # mpl.rcParams['font.family'] = 'serif'
@@ -310,13 +314,11 @@ def performance(
         ax = fig.axes[0]
 
     rewards: np.ndarray = jaggedstack([a.env.cum_rewards for a in agents])
-    y = np.nanmean(rewards, axis=0)
-    # y = np.nanmedian(rewards, axis=0)
     episodes = np.arange(rewards.shape[1]) + 1
 
     _plot_population(
-        ax, episodes, rewards,
-        y_mean=y, color=color, label=label, xlabel='Episode',
+        ax, episodes, rewards, use_median=False,
+        color=color, label=label, xlabel='Episode',
         ylabel='Cumulative cost')
     return fig
 
@@ -507,9 +509,11 @@ def paperplots(agents: dict[str, list[AGENTTYPE]]) -> tuple[Figure, ...]:
             [a.env.cum_rewards for a in lstdq_safe_agents])
         episodes = np.arange(lstdq_perf.shape[1]) + 1
         _plot_population(
-            ax, episodes, lstdq_perf, color=colors[0], label=labels[0])
+            ax, episodes, lstdq_perf, use_median=False,
+            color=colors[0], label=labels[0])
         _plot_population(
-            ax, episodes, lstdq_safe_perf, color=colors[1], label=labels[1],
+            ax, episodes, lstdq_safe_perf, use_median=False,
+            color=colors[1], label=labels[1],
             xlabel='Learning Episode', ylabel=r'$J(\pi_\theta)$')
         ax.axhline(y=baseline, color='k', lw=1, ls='--', label=labels[2])
         ax.set_xlim(episodes[0], episodes[-1] // 2)
@@ -541,18 +545,18 @@ def paperplots(agents: dict[str, list[AGENTTYPE]]) -> tuple[Figure, ...]:
         episodes = np.arange(cumsum_unsafe_episodes[0].shape[1]) + 1
         ax = next(axs)
         _plot_population(
-            ax, episodes, cumsum_unsafe_episodes[0],
+            ax, episodes, cumsum_unsafe_episodes[0], use_median=False,
             color=colors[0], label=labels[0])
         _plot_population(
-            ax, episodes, cumsum_unsafe_episodes[1],
+            ax, episodes, cumsum_unsafe_episodes[1], use_median=False,
             color=colors[1], label=labels[1], legendloc='upper left',
             ylabel=r'Cumulative Number of\\Unsafe Episodes')
         ax = next(axs)
         _plot_population(
-            ax, episodes, altitude_violations[0],
+            ax, episodes, altitude_violations[0], use_median=False,
             color=colors[0], label=labels[0])
         _plot_population(
-            ax, episodes, altitude_violations[1],
+            ax, episodes, altitude_violations[1], use_median=False,
             color=colors[1], label=labels[1],
             xlabel='Learning Episode', ylabel='Altitude Violation')
         ax.set_xlim(episodes[0], episodes[-1])
@@ -565,7 +569,7 @@ def paperplots(agents: dict[str, list[AGENTTYPE]]) -> tuple[Figure, ...]:
             [a.backtracked_gp_pars_history for a in lstdq_safe_agents]))
         episodes = np.arange(betas.shape[1]) + 1
         _plot_population(
-            ax, episodes, betas, color=colors[1],
+            ax, episodes, betas, color=colors[1], use_median=False,
             xlabel='Learning Episode', ylabel=r'Backtracked $\beta$')
         ax.set_xlim(episodes[0], episodes[-1])
         ax.set_ylim(bottom=0.33)
