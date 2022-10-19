@@ -100,7 +100,11 @@ def _save2tikz(*figs: Figure) -> None:
     '''
     import tikzplotlib
     for fig in figs:
-        tikzplotlib.save(f'figure_{fig.number}.tex', figure=fig)
+        tikzplotlib.save(
+            f'figure_{fig.number}.tex',
+            figure=fig,
+            extra_axis_parameters={r'tick scale binop=\times'}
+        )
 
 
 def spy(H: Union[cs.SX, cs.MX, cs.DM, np.ndarray], **spy_kwargs) -> Figure:
@@ -499,7 +503,7 @@ def paperplots(agents: dict[str, list[AGENTTYPE]]) -> tuple[Figure, ...]:
     pk_agents = agents['pk']
     colors = [c['color'] for c in mpl.rcParams['axes.prop_cycle']]
     labels = ('LSTDQ', 'Safe LSTDQ', 'Baseline')
-    use_median = False
+    use_median = True
 
     def figure1() -> Figure:
         fig, ax = plt.subplots(1, 1, constrained_layout=True)
@@ -551,7 +555,7 @@ def paperplots(agents: dict[str, list[AGENTTYPE]]) -> tuple[Figure, ...]:
         _plot_population(
             ax, episodes, cumsum_unsafe_episodes[1], use_median=use_median,
             color=colors[1], label=labels[1], legendloc='upper left',
-            ylabel=r'Cumulative Number of\\Unsafe Episodes')
+            ylabel='# of Unsafe Episodes')
         ax = next(axs)
         _plot_population(
             ax, episodes, altitude_violations[0], use_median=use_median,
@@ -559,7 +563,7 @@ def paperplots(agents: dict[str, list[AGENTTYPE]]) -> tuple[Figure, ...]:
         _plot_population(
             ax, episodes, altitude_violations[1], use_median=True,
             color=colors[1], label=labels[1],
-            xlabel='Learning Episode', ylabel='Altitude Violation')
+            xlabel='Learning Episode', ylabel='Altitude Constraint')
         ax.set_xlim(episodes[0], episodes[-1])
         ax.set_ylim(-1, 5)
         return fig
