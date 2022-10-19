@@ -499,6 +499,7 @@ def paperplots(agents: dict[str, list[AGENTTYPE]]) -> tuple[Figure, ...]:
     pk_agents = agents['pk']
     colors = [c['color'] for c in mpl.rcParams['axes.prop_cycle']]
     labels = ('LSTDQ', 'Safe LSTDQ', 'Baseline')
+    use_median = False
 
     def figure1() -> Figure:
         fig, ax = plt.subplots(1, 1, constrained_layout=True)
@@ -509,10 +510,10 @@ def paperplots(agents: dict[str, list[AGENTTYPE]]) -> tuple[Figure, ...]:
             [a.env.cum_rewards for a in lstdq_safe_agents])
         episodes = np.arange(lstdq_perf.shape[1]) + 1
         _plot_population(
-            ax, episodes, lstdq_perf, use_median=False,
+            ax, episodes, lstdq_perf, use_median=use_median,
             color=colors[0], label=labels[0])
         _plot_population(
-            ax, episodes, lstdq_safe_perf, use_median=False,
+            ax, episodes, lstdq_safe_perf, use_median=use_median,
             color=colors[1], label=labels[1],
             xlabel='Learning Episode', ylabel=r'$J(\pi_\theta)$')
         ax.axhline(y=baseline, color='k', lw=1, ls='--', label=labels[2])
@@ -545,18 +546,18 @@ def paperplots(agents: dict[str, list[AGENTTYPE]]) -> tuple[Figure, ...]:
         episodes = np.arange(cumsum_unsafe_episodes[0].shape[1]) + 1
         ax = next(axs)
         _plot_population(
-            ax, episodes, cumsum_unsafe_episodes[0], use_median=False,
+            ax, episodes, cumsum_unsafe_episodes[0], use_median=use_median,
             color=colors[0], label=labels[0])
         _plot_population(
-            ax, episodes, cumsum_unsafe_episodes[1], use_median=False,
+            ax, episodes, cumsum_unsafe_episodes[1], use_median=use_median,
             color=colors[1], label=labels[1], legendloc='upper left',
             ylabel=r'Cumulative Number of\\Unsafe Episodes')
         ax = next(axs)
         _plot_population(
-            ax, episodes, altitude_violations[0], use_median=False,
+            ax, episodes, altitude_violations[0], use_median=use_median,
             color=colors[0], label=labels[0])
         _plot_population(
-            ax, episodes, altitude_violations[1], use_median=False,
+            ax, episodes, altitude_violations[1], use_median=True,
             color=colors[1], label=labels[1],
             xlabel='Learning Episode', ylabel='Altitude Violation')
         ax.set_xlim(episodes[0], episodes[-1])
@@ -564,12 +565,12 @@ def paperplots(agents: dict[str, list[AGENTTYPE]]) -> tuple[Figure, ...]:
         return fig
 
     def figure3() -> Figure:
-        fig, ax = plt.subplots(1, 1, constrained_layout=True)
+        fig, ax = plt.subplots(1, 1, constrained_layout=use_median)
         betas = np.squeeze(np.stack(
             [a.backtracked_gp_pars_history for a in lstdq_safe_agents]))
         episodes = np.arange(betas.shape[1]) + 1
         _plot_population(
-            ax, episodes, betas, color=colors[1], use_median=False,
+            ax, episodes, betas, color=colors[1], use_median=use_median,
             xlabel='Learning Episode', ylabel=r'Backtracked $\beta$')
         ax.set_xlim(episodes[0], episodes[-1])
         ax.set_ylim(bottom=0.33)
