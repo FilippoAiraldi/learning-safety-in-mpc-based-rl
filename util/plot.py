@@ -503,7 +503,7 @@ def paperplots(agents: dict[str, list[AGENTTYPE]]) -> tuple[Figure, ...]:
     pk_agents = agents['pk']
     colors = [c['color'] for c in mpl.rcParams['axes.prop_cycle']]
     labels = ('LSTDQ', 'Safe LSTDQ', 'Baseline')
-    use_median = True
+    use_median = False
 
     def figure1() -> Figure:
         fig, ax = plt.subplots(1, 1, constrained_layout=True)
@@ -555,7 +555,7 @@ def paperplots(agents: dict[str, list[AGENTTYPE]]) -> tuple[Figure, ...]:
         _plot_population(
             ax, episodes, cumsum_unsafe_episodes[1], use_median=use_median,
             color=colors[1], label=labels[1], legendloc='upper left',
-            ylabel='# of Unsafe Episodes')
+            ylabel=r'\# of Unsafe Episodes')
         ax = next(axs)
         _plot_population(
             ax, episodes, altitude_violations[0], use_median=use_median,
