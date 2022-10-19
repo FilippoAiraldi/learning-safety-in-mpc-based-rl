@@ -1,4 +1,4 @@
-from itertools import product
+from itertools import chain, product
 from typing import Iterable, Union
 import casadi as cs
 import matplotlib as mpl
@@ -22,7 +22,8 @@ AGENTTYPE = Union[
     QuadRotorPKAgent,
     RecordLearningData[Union[QuadRotorLSTDQAgent, QuadRotorGPSafeLSTDQAgent]]
 ]
-LINEWIDTHS = (0.01, 2.0)
+SMALL_ALPHA = 0.1
+SMALLER_LW_FACTOR = 50
 MATLAB_COLORS = [
     '#0072BD', '#D95319', '#EDB120', '#7E2F8E', '#77AC30', '#4DBEEE', '#A2142F'
 ]
@@ -58,19 +59,21 @@ def _plot_population(
     method: str = 'plot',
     legendloc: str = 'upper right'
 ) -> None:
-    func = getattr(ax, method)
     if y_mean is None and y is not None:
         y_mean = np.nanmean(y, axis=0)
+    lw = mpl.rcParams['lines.linewidth']
+    lw_small = lw / SMALLER_LW_FACTOR
+    func = getattr(ax, method)
     if method != 'errorbar':
         if y is not None:
-            func(x, y.T, linewidth=LINEWIDTHS[0], color=color,
-                 linestyle=linestyle)
+            func(x, y.T, lw=lw_small, color=color, linestyle=linestyle,
+                 alpha=SMALL_ALPHA)
         if y_mean is not None:
-            func(x, y_mean, linewidth=LINEWIDTHS[1], color=color,
-                 linestyle=linestyle, label=label)
+            func(x, y_mean, lw=lw, color=color, linestyle=linestyle,
+                 label=label)
     else:
         y_std = y_std if y_std is not None else np.nanstd(y, axis=0)
-        func(x, y_mean, yerr=y_std, linewidth=LINEWIDTHS[1], color=color,
+        func(x, y_mean, yerr=y_std, color=color, lw=lw,
              linestyle=linestyle, label=label, errorevery=x.size // 10,
              capsize=5)
 
@@ -86,6 +89,17 @@ def _plot_population(
 
 def _set_empty_axis_off(axs: Iterable[Axes]) -> None:
     (ax.set_axis_off() for ax in axs if len(ax.get_lines()) == 0)
+
+
+def _save2tikz(*figs: Figure) -> None:
+    '''
+    Saves the figure to a tikz file. 
+    See https://pypi.org/project/tikzplotlib/.
+    '''
+    import tikzplotlib
+    for fig in figs:
+        tikzplotlib.save(f'figure_{fig.number}.tex', figure=fig)
+
 
 def spy(H: Union[cs.SX, cs.MX, cs.DM, np.ndarray], **spy_kwargs) -> Figure:
     '''See `matplotlib.pyplot.spy`.'''
@@ -115,17 +129,21 @@ def spy(H: Union[cs.SX, cs.MX, cs.DM, np.ndarray], **spy_kwargs) -> Figure:
     return fig
 
 
-def set_mpl_defaults(matlab_colors: bool = True) -> None:
+def set_mpl_defaults(
+        matlab_colors: bool = False, papermode: bool = False) -> None:
     '''Sets the default options for Matplotlib.'''
     np.set_printoptions(precision=4)
     mpl.style.use('seaborn-darkgrid')
     # mpl.rcParams['font.family'] = 'serif'
     # mpl.rcParams['text.usetex'] = True
     # mpl.rcParams['pgf.rcfonts'] = False
+    if papermode:
+        mpl.rcParams['lines.linewidth'] = 5
+    else:
+        mpl.rcParams['savefig.dpi'] = 600
+        mpl.rcParams['lines.linewidth'] = 3
     if matlab_colors:
         mpl.rcParams['axes.prop_cycle'] = cycler('color', MATLAB_COLORS)
-    mpl.rcParams['lines.linewidth'] = 1
-    mpl.rcParams['savefig.dpi'] = 900
 
 
 def trajectory_3d(env: RecordData, traj_num: int) -> Figure:
@@ -296,8 +314,10 @@ def performance(
     # y = np.nanmedian(rewards, axis=0)
     episodes = np.arange(rewards.shape[1]) + 1
 
-    _plot_population(ax, episodes, rewards, y_mean=y, color=color, label=label,
-                     xlabel='Episode', ylabel='Cumulative cost')
+    _plot_population(
+        ax, episodes, rewards,
+        y_mean=y, color=color, label=label, xlabel='Episode',
+        ylabel='Cumulative cost')
     return fig
 
 
@@ -465,3 +485,91 @@ def safety(
                              xlabel='Update', ylabel='GP parameters')
     _set_empty_axis_off(axs)
     return fig
+
+
+def paperplots(agents: dict[str, list[AGENTTYPE]]) -> tuple[Figure, ...]:
+    '''
+    Produces and saves to .tex the plots for the paper. For more details and 
+    comments on the inner workings, see standard visualization functions above.
+    '''
+    lstdq_agents = agents['lstdq']
+    lstdq_safe_agents = agents['lstdq-safe']
+    pk_agents = agents['pk']
+    colors = [c['color'] for c in mpl.rcParams['axes.prop_cycle']]
+    labels = ('LSTDQ', 'Safe LSTDQ', 'Baseline')
+
+    def figure1() -> Figure:
+        fig, ax = plt.subplots(1, 1, constrained_layout=True)
+        baseline = np.mean(
+            list(chain.from_iterable(a.env.cum_rewards for a in pk_agents)))
+        lstdq_perf = np.stack([a.env.cum_rewards for a in lstdq_agents])
+        lstdq_safe_perf = np.stack(
+            [a.env.cum_rewards for a in lstdq_safe_agents])
+        episodes = np.arange(lstdq_perf.shape[1]) + 1
+        _plot_population(
+            ax, episodes, lstdq_perf, color=colors[0], label=labels[0])
+        _plot_population(
+            ax, episodes, lstdq_safe_perf, color=colors[1], label=labels[1],
+            xlabel='Learning Episode', ylabel=r'$J(\pi_\theta)$')
+        ax.axhline(y=baseline, color='k', lw=1, ls='--', label=labels[2])
+        ax.set_xlim(episodes[0], episodes[-1] // 2)
+        ax.set_ylim(0, 30000)
+        # ax.legend()
+        return fig
+
+    def figure2() -> Figure:
+        fig, axs = plt.subplots(2, 1, constrained_layout=True, sharex=True)
+        axs = iter(axs)
+
+        altitude_violations = []
+        cumsum_unsafe_episodes = []
+        for agents in (lstdq_agents, lstdq_safe_agents):
+            observations = np.transpose(jaggedstack(
+                [jaggedstack(a.env.observations) for a in agents]))
+            actions = np.transpose(jaggedstack(
+                [jaggedstack(a.env.actions) for a in agents]))
+            x_bnd = agents[0].env.config.x_bounds
+            u_bnd = agents[0].env.config.u_bounds
+            cv_obs, cv_act = (
+                cv.max(axis=(1, 2))
+                for cv in cv_((observations, x_bnd), (actions, u_bnd))
+            )
+            altitude_violations.append(cv_obs[2].T)
+            max_cv = np.concatenate((cv_obs, cv_act), axis=0).max(axis=0)
+            cumsum_unsafe_episodes.append(np.cumsum((max_cv > 0.0), axis=0).T)
+
+        episodes = np.arange(cumsum_unsafe_episodes[0].shape[1]) + 1
+        ax = next(axs)
+        _plot_population(
+            ax, episodes, cumsum_unsafe_episodes[0],
+            color=colors[0], label=labels[0])
+        _plot_population(
+            ax, episodes, cumsum_unsafe_episodes[1],
+            color=colors[1], label=labels[1], legendloc='upper left',
+            ylabel=r'Cumulative Number of\\Unsafe Episodes')
+        ax = next(axs)
+        _plot_population(
+            ax, episodes, altitude_violations[0],
+            color=colors[0], label=labels[0])
+        _plot_population(
+            ax, episodes, altitude_violations[1],
+            color=colors[1], label=labels[1],
+            xlabel='Learning Episode', ylabel='Altitude Violation')
+        ax.set_xlim(episodes[0], episodes[-1])
+        ax.set_ylim(-1, 5)
+        return fig
+
+    def figure3() -> Figure:
+        fig, ax = plt.subplots(1, 1, constrained_layout=True)
+        betas = np.squeeze(np.stack(
+            [a.backtracked_gp_pars_history for a in lstdq_safe_agents]))
+        episodes = np.arange(betas.shape[1]) + 1
+        _plot_population(
+            ax, episodes, betas, color=colors[1],
+            xlabel='Learning Episode', ylabel=r'Backtracked $\beta$')
+        ax.set_xlim(episodes[0], episodes[-1])
+        ax.set_ylim(bottom=0.33)
+        return fig
+
+    _save2tikz(*(fcn() for k, fcn in locals().items()
+                 if k.startswith('figure') and callable(fcn)))

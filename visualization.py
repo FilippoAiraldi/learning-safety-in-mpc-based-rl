@@ -1,28 +1,17 @@
 import argparse
-import warnings
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from util import io, plot
 
 
-if __name__ == '__main__':
-    plot.set_mpl_defaults(matlab_colors=False)
-    warnings.filterwarnings('ignore', category=RuntimeWarning)
-
-    # parse arguments
-    parser = argparse.ArgumentParser(description='Visualization script')
-    parser.add_argument(
-        'filenames', type=str, nargs='*', help='Data to be visualized.')
-    parser.add_argument(
-        '-p', '--plots', type=int, nargs='*', help='Enables the i-th plot.')
-    args = parser.parse_args()
-
+def visualization(args):
+    '''Runs standard visualization.'''
     # prepare args and plot functions
     if len(args.filenames) == 0:
         args.filenames = [
             ('sim/lstdq', 'LSTD Q'),
             ('sim/lstdq-safe', 'GP-safe LSTD Q'),
-            ('sim/pk', 'PK')
+            # ('sim/pk', 'PK')
         ]
     funcs = [
         plot.performance,
@@ -59,3 +48,33 @@ if __name__ == '__main__':
                     label=label
                 )
     plt.show()
+
+
+def paper() -> None:
+    '''Produces and saves to .tex the plots for the paper.'''
+    filenames = {
+        'lstdq': 'sim/lstdq',
+        'lstdq-safe': 'sim/lstdq-safe',
+        'pk': 'sim/pk'
+    }
+    agents = {n: io.load_results(fn)['agents'] for n, fn in filenames.items()}
+    plot.paperplots(agents)
+    # plt.show()
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Visualization script')
+    group = parser.add_argument_group('Visualization')
+    group.add_argument('filenames', type=str, nargs='*',
+                       help='Data to be visualized.')
+    group.add_argument('-p', '--plots', type=int, nargs='*',
+                       help='Enables the i-th plot.')
+    group = parser.add_argument_group('Paper')
+    group.add_argument('-pm', '--papermode', action='store_true',
+                       help='Switches to paper plots (hardcoded).')
+    args = parser.parse_args()
+    plot.set_mpl_defaults(papermode=args.papermode)
+    if args.papermode:
+        paper()
+    else:
+        visualization(args)
