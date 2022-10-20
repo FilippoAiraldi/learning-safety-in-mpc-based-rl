@@ -81,9 +81,8 @@ def parse_args() -> argparse.Namespace:
              'over episodes in the same epoch.')
 
     args = parser.parse_args()
-    assert (
-        args.lstdq + args.safe_lstdq + args.pk == 1
-    )
+    assert args.lstdq + args.safe_lstdq + args.pk == 1, \
+        'Must specify one and only one type of agent to simulate.'
     if args.agents == 1:
         args.n_jobs = 1  # don't parallelize
     if args.safe and (args.n_jobs == -1 or args.n_jobs > 1):
