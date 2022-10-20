@@ -502,12 +502,12 @@ def paperplots(agents: dict[str, list[AGENTTYPE]]) -> tuple[Figure, ...]:
     lstdq_safe_agents = agents['lstdq-safe']
     pk_agents = agents['pk']
     colors = [c['color'] for c in mpl.rcParams['axes.prop_cycle']]
-    labels = ('LSTDQ', 'Safe LSTDQ', 'Baseline')
+    labels = ('LSTD Q', 'Safe LSTD Q', 'Baseline')
     use_median = False
 
     def figure1() -> Figure:
         fig, ax = plt.subplots(1, 1, constrained_layout=True)
-        baseline = np.mean(
+        baseline = np.nanmean(
             list(chain.from_iterable(a.env.cum_rewards for a in pk_agents)))
         lstdq_perf = jstack([a.env.cum_rewards for a in lstdq_agents])
         lstdq_safe_perf = jstack(
@@ -523,7 +523,6 @@ def paperplots(agents: dict[str, list[AGENTTYPE]]) -> tuple[Figure, ...]:
         ax.axhline(y=baseline, color='k', lw=1, ls='--', label=labels[2])
         ax.set_xlim(episodes[0], episodes[-1] // 2)
         ax.set_ylim(0, 30000)
-        # ax.legend()
         return fig
 
     def figure2() -> Figure:
@@ -531,7 +530,7 @@ def paperplots(agents: dict[str, list[AGENTTYPE]]) -> tuple[Figure, ...]:
         axs = iter(axs)
 
         altitude_violations = []
-        cumsum_unsafe_episodes = []
+        unsafe_episodes = []
         for agents in (lstdq_agents, lstdq_safe_agents):
             observations = np.transpose(
                 jstack([jstack(a.env.observations) for a in agents]))
@@ -540,20 +539,20 @@ def paperplots(agents: dict[str, list[AGENTTYPE]]) -> tuple[Figure, ...]:
             x_bnd = agents[0].env.config.x_bounds
             u_bnd = agents[0].env.config.u_bounds
             cv_obs, cv_act = (
-                cv.max(axis=(1, 2))
+                np.nanmax(cv, axis=(1, 2))
                 for cv in cv_((observations, x_bnd), (actions, u_bnd))
             )
             altitude_violations.append(cv_obs[2].T)
             max_cv = np.concatenate((cv_obs, cv_act), axis=0).max(axis=0)
-            cumsum_unsafe_episodes.append(np.cumsum((max_cv > 0.0), axis=0).T)
+            unsafe_episodes.append(np.nancumsum(max_cv > 0.0, axis=0).T)
 
-        episodes = np.arange(cumsum_unsafe_episodes[0].shape[1]) + 1
+        episodes = np.arange(unsafe_episodes[0].shape[1]) + 1
         ax = next(axs)
         _plot_population(
-            ax, episodes, cumsum_unsafe_episodes[0], use_median=use_median,
+            ax, episodes, unsafe_episodes[0], use_median=use_median,
             color=colors[0], label=labels[0])
         _plot_population(
-            ax, episodes, cumsum_unsafe_episodes[1], use_median=use_median,
+            ax, episodes, unsafe_episodes[1], use_median=use_median,
             color=colors[1], label=labels[1], legendloc='upper left',
             ylabel=r'\# of Unsafe Episodes')
         ax = next(axs)
@@ -575,7 +574,7 @@ def paperplots(agents: dict[str, list[AGENTTYPE]]) -> tuple[Figure, ...]:
         episodes = np.arange(betas.shape[1]) + 1
         _plot_population(
             ax, episodes, betas, color=colors[1], use_median=use_median,
-            xlabel='Learning Episode', ylabel=r'Backtracked $\beta$')
+            xlabel='Learning Episode', ylabel=r'$\beta$')
         ax.set_xlim(episodes[0], episodes[-1])
         ax.set_ylim(bottom=0.33)
         return fig
