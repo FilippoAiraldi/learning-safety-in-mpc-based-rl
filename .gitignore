@@ -2,5 +2,3 @@
 /_*
 __pycache__
 venv
-results/10ep.pkl
-tuning/memmap

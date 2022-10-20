@@ -141,7 +141,7 @@ def set_mpl_defaults(
     global PAPERMODE
     PAPERMODE = papermode
     np.set_printoptions(precision=4)
-    mpl.style.use('seaborn-darkgrid')
+    mpl.style.use('bmh')  # 'seaborn-darkgrid'
     # mpl.rcParams['font.family'] = 'serif'
     # mpl.rcParams['text.usetex'] = True
     # mpl.rcParams['pgf.rcfonts'] = False
@@ -561,7 +561,7 @@ def paperplots(agents: dict[str, list[AGENTTYPE]]) -> tuple[Figure, ...]:
             ax, episodes, altitude_violations[0], use_median=use_median,
             color=colors[0], label=labels[0])
         _plot_population(
-            ax, episodes, altitude_violations[1], use_median=True,
+            ax, episodes, altitude_violations[1], use_median=use_median,
             color=colors[1], label=labels[1],
             xlabel='Learning Episode', ylabel='Altitude Constraint')
         ax.set_xlim(episodes[0], episodes[-1])
