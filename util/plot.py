@@ -15,7 +15,8 @@ from agents import \
     QuadRotorPKAgent, QuadRotorLSTDQAgent, QuadRotorGPSafeLSTDQAgent
 from agents.wrappers import RecordLearningData
 from envs.wrappers import RecordData
-from util.math import constraint_violation as cv_, jaggedstack, logmean
+from util.math import \
+    constraint_violation as cv_, jaggedstack as jstack, logmean
 
 
 AGENTTYPE = Union[
@@ -24,7 +25,7 @@ AGENTTYPE = Union[
 ]
 PAPERMODE = False
 SMALL_ALPHA = {False: 0.5, True: 0.05}
-SMALLER_LW_FACTOR = {False: 50, True: 100}
+SMALLER_LW_FACTOR = {False: 40, True: 50}
 MATLAB_COLORS = [
     '#0072BD', '#D95319', '#EDB120', '#7E2F8E', '#77AC30', '#4DBEEE', '#A2142F'
 ]
@@ -317,7 +318,7 @@ def performance(
     else:
         ax = fig.axes[0]
 
-    rewards: np.ndarray = jaggedstack([a.env.cum_rewards for a in agents])
+    rewards: np.ndarray = jstack([a.env.cum_rewards for a in agents])
     episodes = np.arange(rewards.shape[1]) + 1
 
     _plot_population(
@@ -353,10 +354,9 @@ def constraint_violation(
         axs = fig.axes
 
     # [nx(nu), max_ep_len, Nep, Nenv]
-    observations = np.transpose(jaggedstack(
-        [jaggedstack(a.env.observations) for a in agents]))
-    actions = np.transpose(jaggedstack(
-        [jaggedstack(a.env.actions) for a in agents]))
+    observations = np.transpose(jstack(
+        [jstack(a.env.observations) for a in agents]))
+    actions = np.transpose(jstack([jstack(a.env.actions) for a in agents]))
     episodes = np.arange(observations.shape[2]) + 1
 
     # apply 2 reductions: first merge lb and ub in a single constraint (since
@@ -408,7 +408,7 @@ def learned_weights(
     axs = iter(axs)
     ax = next(axs)
     norms = np.sqrt(np.square(np.ma.masked_invalid(
-        jaggedstack([agent.update_gradient for agent in agents]))).sum(axis=-1)
+        jstack([agent.update_gradient for agent in agents]))).sum(axis=-1)
     )
     mean_norm = logmean(norms, axis=0)
     updates = np.arange(norms.shape[1] + 1)
@@ -419,7 +419,7 @@ def learned_weights(
     # plot each weight's history
     for ax, name in zip(axs, weightnames):
         # get history and average it
-        weights = jaggedstack(
+        weights = jstack(
             [np.squeeze(agent.weights_history[name]) for agent in agents])
         lbl = f'Parameter ${name}$'
         if weights.ndim > 2:
@@ -447,10 +447,10 @@ def safety(
 
     axs = iter(axs)
     # [nx(nu), max_ep_len, Nep, Nenv]
-    observations = np.transpose(jaggedstack(
-        [jaggedstack(a.env.observations) for a in agents]))
-    actions = np.transpose(jaggedstack(
-        [jaggedstack(a.env.actions) for a in agents]))
+    observations = np.transpose(jstack(
+        [jstack(a.env.observations) for a in agents]))
+    actions = np.transpose(jstack(
+        [jstack(a.env.actions) for a in agents]))
     episodes = np.arange(observations.shape[2]) + 1
 
     # compute constraint violations and apply 2 reductions: first merge lb
@@ -477,7 +477,7 @@ def safety(
     )
     if agents is not None and all(
             a is not None and hasattr(a, attr) for a in agents):
-        pars = jaggedstack([getattr(a, attr) for a in agents])
+        pars = jstack([getattr(a, attr) for a in agents])
         updates = np.arange(pars.shape[1]) + 1
 
         parnames = ['$\\beta$', '$\\mu_0$', ]
@@ -509,8 +509,8 @@ def paperplots(agents: dict[str, list[AGENTTYPE]]) -> tuple[Figure, ...]:
         fig, ax = plt.subplots(1, 1, constrained_layout=True)
         baseline = np.mean(
             list(chain.from_iterable(a.env.cum_rewards for a in pk_agents)))
-        lstdq_perf = np.stack([a.env.cum_rewards for a in lstdq_agents])
-        lstdq_safe_perf = np.stack(
+        lstdq_perf = jstack([a.env.cum_rewards for a in lstdq_agents])
+        lstdq_safe_perf = jstack(
             [a.env.cum_rewards for a in lstdq_safe_agents])
         episodes = np.arange(lstdq_perf.shape[1]) + 1
         _plot_population(
@@ -533,10 +533,10 @@ def paperplots(agents: dict[str, list[AGENTTYPE]]) -> tuple[Figure, ...]:
         altitude_violations = []
         cumsum_unsafe_episodes = []
         for agents in (lstdq_agents, lstdq_safe_agents):
-            observations = np.transpose(jaggedstack(
-                [jaggedstack(a.env.observations) for a in agents]))
-            actions = np.transpose(jaggedstack(
-                [jaggedstack(a.env.actions) for a in agents]))
+            observations = np.transpose(
+                jstack([jstack(a.env.observations) for a in agents]))
+            actions = np.transpose(
+                jstack([jstack(a.env.actions) for a in agents]))
             x_bnd = agents[0].env.config.x_bounds
             u_bnd = agents[0].env.config.u_bounds
             cv_obs, cv_act = (
@@ -570,7 +570,7 @@ def paperplots(agents: dict[str, list[AGENTTYPE]]) -> tuple[Figure, ...]:
 
     def figure3() -> Figure:
         fig, ax = plt.subplots(1, 1, constrained_layout=use_median)
-        betas = np.squeeze(np.stack(
+        betas = np.squeeze(jstack(
             [a.backtracked_gp_pars_history for a in lstdq_safe_agents]))
         episodes = np.arange(betas.shape[1]) + 1
         _plot_population(
