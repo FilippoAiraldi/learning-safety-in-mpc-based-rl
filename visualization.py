@@ -7,12 +7,6 @@ from util import io, plot
 def visualization(args):
     '''Runs standard visualization.'''
     # prepare args and plot functions
-    if len(args.filenames) == 0:
-        args.filenames = [
-            ('sim/lstdq', 'LSTD Q'),
-            ('sim/lstdq-safe', 'GP-safe LSTD Q'),
-            # ('sim/pk', 'PK')
-        ]
     funcs = [
         plot.performance,
         plot.constraint_violation,
@@ -23,13 +17,10 @@ def visualization(args):
     colors = mpl.rcParams['axes.prop_cycle']
     if args.plots is None:
         args.plots = range(len(funcs))
+    args.plots = set(args.plots)
 
     # plot each data
     for n, (filename, color) in enumerate(zip(args.filenames, colors)):
-        # if label is not passed, set it to None
-        filename, label = \
-            filename if isinstance(filename, tuple) else (filename, f'p{n}')
-
         # load data
         results = io.load_results(filename)
         agents = results.pop('agents')
@@ -45,7 +36,7 @@ def visualization(args):
                     agents=agents,
                     fig=figs[i],
                     color=color['color'],
-                    label=label
+                    label=f'p{n}'
                 )
     plt.show()
 
@@ -63,7 +54,10 @@ def paper() -> None:
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Visualization script')
+    parser = argparse.ArgumentParser(
+        description='Visualization script',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
     group = parser.add_argument_group('Visualization')
     group.add_argument('filenames', type=str, nargs='*',
                        help='Data to be visualized.')
@@ -73,7 +67,9 @@ if __name__ == '__main__':
     group.add_argument('-pm', '--papermode', action='store_true',
                        help='Switches to paper plots (hardcoded).')
     args = parser.parse_args()
+
     plot.set_mpl_defaults(papermode=args.papermode)
+    
     if args.papermode:
         paper()
     else:

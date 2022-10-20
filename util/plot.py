@@ -124,9 +124,7 @@ def set_mpl_defaults(
     PAPERMODE = papermode
     np.set_printoptions(precision=4)
     mpl.style.use('bmh')  # 'seaborn-darkgrid'
-    # mpl.rcParams['font.family'] = 'serif'
-    # mpl.rcParams['text.usetex'] = True
-    # mpl.rcParams['pgf.rcfonts'] = False
+    mpl.rcParams['lines.solid_capstyle'] = 'round'
     if papermode:
         mpl.rcParams['lines.linewidth'] = 5
     else:
