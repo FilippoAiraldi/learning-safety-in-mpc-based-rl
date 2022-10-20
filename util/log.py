@@ -32,8 +32,8 @@ def tqdm_joblib(*args, **kwargs):
     '''
     Context manager to patch joblib to report into tqdm progress bar
     given as argument.
+    Thanks to https://stackoverflow.com/questions/24983493/tracking-progress-of-joblib-parallel-execution/58936697#58936697
     '''
-    # https://stackoverflow.com/questions/24983493/tracking-progress-of-joblib-parallel-execution/58936697#58936697
     tqdm_object = tqdm(*args, **kwargs)
 
     class TqdmBatchCompletionCallback(joblib.parallel.BatchCompletionCallBack):

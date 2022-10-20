@@ -7,6 +7,7 @@ import agents
 import envs
 from util import io, log
 from util.math import NormalizationService
+from util.configurations import parse_args
 
 
 def eval_pk_agent(
@@ -132,70 +133,8 @@ def train_lstdq_agent(
 
 
 if __name__ == '__main__':
-    # parse arguments
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--runname', type=str, default=None,
-                        help='Name of the simulation run.')
-    parser.add_argument('--agents', type=int, default=100,
-                        help='Number of parallel agent to train.')
-    parser.add_argument('--epochs', type=int, default=50,
-                        help='Number of training epochs.')
-    parser.add_argument('--episodes', type=int, default=1,
-                        help='Number of training episodes per epoch.')
-    parser.add_argument('--max_ep_steps', type=int, default=50,
-                        help='Maximum number of steps per episode.')
-    parser.add_argument('--gamma', type=float, default=0.9792,
-                        help='Discount factor.')
-    parser.add_argument('--lr', type=float, nargs='+',
-                        default=[0.498],  # [3e-2, 3e-2, 1e-3, 1e-3, 1e-3],
-                        help='Learning rate. Can be a single float, '
-                             'or one per parameter type, or one per '
-                             'parameter vector entry.')
-    parser.add_argument('--max_perc_update', type=float, default=float('inf'),
-                        help='Maximum percentage update of agent weigths.')
-    parser.add_argument('--replay_mem_maxlen_factor', type=int, default=1,
-                        help='Replay memory maximum length factor.')
-    parser.add_argument('--replay_mem_sample_size', type=float, default=1.0,
-                        help='Replay memory sample size (percentage).')
-    parser.add_argument('--perturbation_decay', type=float, default=0.885,
-                        help='Exploration perturbance decay.')
-    parser.add_argument('--seed', type=int, default=1909, help='RNG seed.')
-    parser.add_argument('--eval_pk', action='store_true',
-                        help='If passed, evaluates a PK agent.')
-    parser.add_argument('--normalized', action='store_true',
-                        help='Whether to use a normalized variant of env.')
-    parser.add_argument('--n_jobs', type=int, default=-1,
-                        help='joblib parallel jobs.')
-    parser.add_argument('--verbose', action='store_true')
-    # only relevant for safe variant of algorithm
-    parser.add_argument('--safe', action='store_true',
-                        help='Whether to use a safe variant of agent.')
-    parser.add_argument('--gp_alpha', type=float, default=1e-10,
-                        help='Measurement noise of the GP data.')
-    parser.add_argument('--gp_kernel_type', choices=('RBF', 'Matern'),
-                        default='RBF', help='Kernel core of GP function.')
-    parser.add_argument('--average_violation', action='store_true',
-                        help='Reduce GP data by averaging violations.')
-    args = parser.parse_args()
-
     # prepare to launch
-    args.runname = io.get_runname(candidate=args.runname)
-    agent_config = {
-        'gamma': args.gamma,
-        'lr': args.lr,
-        'max_perc_update': args.max_perc_update,
-        'replay_maxlen': args.episodes * args.replay_mem_maxlen_factor,
-        'replay_sample_size': args.replay_mem_sample_size,
-        'replay_include_last': args.episodes,
-        'alpha': args.gp_alpha,
-        'kernel_cls': args.gp_kernel_type,
-        'average_violation': args.average_violation,
-    }
-    if args.agents == 1:
-        args.n_jobs = 1  # don't parallelize
-    if args.safe and (args.n_jobs == -1 or args.n_jobs > 1):
-        import os
-        os.environ['PYTHONWARNINGS'] = 'ignore'  # ignore warnings
+    args = parse_args()
     tot_episodes = args.epochs * args.episodes
     if args.eval_pk:
         func = lambda n: eval_pk_agent(
@@ -211,7 +150,17 @@ if __name__ == '__main__':
             epochs=args.epochs,
             train_episodes=args.episodes,
             max_ep_steps=args.max_ep_steps,
-            agent_config=agent_config,
+            agent_config={
+                'gamma': args.gamma,
+                'lr': args.lr,
+                'max_perc_update': args.max_perc_update,
+                'replay_maxlen': args.episodes * args.replay_mem_maxlen_factor,
+                'replay_sample_size': args.replay_mem_sample_size,
+                'replay_include_last': args.episodes,
+                'alpha': args.gp_alpha,
+                'kernel_cls': args.gp_kernel_type,
+                'average_violation': args.average_violation,
+            },
             perturbation_decay=args.perturbation_decay,
             runname=args.runname,
             normalized_env=args.normalized,
@@ -222,14 +171,13 @@ if __name__ == '__main__':
     date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     start = time.perf_counter()
 
-    # launch training/evaluation - perform simulations until the required
-    # number of agents has been succesfully simulated
+    # launch simulations until the required number of agents has been simulated
     print(f'[Simulation {args.runname.upper()} started at {date}]\n',
           f'Args: {args}')
     data: list[dict[str, Any]] = []
     sim_iter, agent_cnt = 0, 0
     while len(data) < args.agents:
-        n_agents = max(args.agents - len(data), 10 if args.safe else 1)
+        n_agents = args.agents - len(data)
         with log.tqdm_joblib(desc=f'Simulation {sim_iter}', total=n_agents):
             batch = jl.Parallel(n_jobs=args.n_jobs)(
                 jl.delayed(func)(agent_cnt + n) for n in range(n_agents)
@@ -239,7 +187,6 @@ if __name__ == '__main__':
         agent_cnt += n_agents
 
     # save results
-    args.agents = len(data)
     print(f'[Simulated {agent_cnt} agents: {agent_cnt - args.agents} failed]')
     fn = io.save_results(
         filename=args.runname,
