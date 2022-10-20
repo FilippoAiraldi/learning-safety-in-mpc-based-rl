@@ -24,10 +24,6 @@ def parse_args() -> argparse.Namespace:
     group.add_argument('--pk', action='store_true',
                        help='If passed, evaluates a non-learning PK agent.')
 
-    group = parser.add_argument_group('Env')
-    group.add_argument('--normalized', action='store_true',
-                       help='Whether to use a normalized variant of env.')
-
     group = parser.add_argument_group('RL algorithm hyperparameters')
     group.add_argument('--gamma', type=float, default=0.9792,
                        help='Discount factor.')

@@ -129,7 +129,6 @@ if __name__ == '__main__':
             agent_n=n,
             episodes=tot_episodes,
             max_ep_steps=args.max_ep_steps,
-            normalized_env=args.normalized,
             seed=args.seed + (tot_episodes + 1) * n
         )
     else:
