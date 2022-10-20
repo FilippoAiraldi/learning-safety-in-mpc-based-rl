@@ -1,4 +1,3 @@
-import numpy as np
 from agents.quad_rotor_base_agents import QuadRotorBaseAgent
 from envs import QuadRotorEnv
 
@@ -10,13 +9,6 @@ class QuadRotorPKAgent(QuadRotorBaseAgent):
     reason, the PK agent is often the baseline controller. Rather obviously, 
     this agent does not implement any RL parameter update paradigm. 
     '''
-
-    normalization_ranges: dict[str, np.ndarray] = {
-        'w_x': np.array([0, 1e2]),
-        'w_u': np.array([0, 1e1]),
-        'w_s': np.array([0, 1e3]),
-        'backoff': np.array([0, 1])
-    }
 
     def __init__(self, env: QuadRotorEnv, *args, **kwargs) -> None:
         '''
@@ -41,15 +33,5 @@ class QuadRotorPKAgent(QuadRotorBaseAgent):
             'backoff': 0.10,
             'perturbation': 0,  # no random perturbation for this agent
         }
-        if not env.normalized:
-            fixed_pars = env_pars | ctrl_pars
-        else:
-            # just normalize the control pars, since env pars have been already
-            # normalized
-            N = env.normalization
-            N.register(self.normalization_ranges)
-            fixed_pars = env_pars | {
-                n: N.normalize(n, p) if N.can_normalize(n) else p
-                for n, p in ctrl_pars.items()
-            }
+        fixed_pars = env_pars | ctrl_pars
         super().__init__(*args, env=env, fixed_pars=fixed_pars, **kwargs)
