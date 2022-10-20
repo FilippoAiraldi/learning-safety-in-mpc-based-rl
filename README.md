@@ -60,7 +60,7 @@ Note that only one can be simulated at a time. Results will be saved under the f
 
 To visualize simulation results, simply run
 ```bash
-python visualization.py `${runname1}.pkl` ... `${runnameN}.pkl`
+python visualization.py ${runname1}.pkl ... ${runnameN}.pkl
 ```
 You can additionally pass `--papermode`, which will cause the paper figures to be created (in this case, the simulation results filepaths are hardcoded).
 
