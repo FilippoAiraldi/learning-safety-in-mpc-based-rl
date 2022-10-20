@@ -77,10 +77,15 @@ class QuadRotorMPC(GenericMPC):
         lbx, ubx = lbx[not_red].reshape(-1, 1), ubx[not_red].reshape(-1, 1)
 
         # 1) create variables - states are softly constrained
-        nx, nu, ns = env.nx, env.nu, not_red_idx.size + env.nu
+        nx, nu = env.nx, env.nu
         x, _, _ = self.add_var('x', nx, N)
         u, _, _ = self.add_var('u', nu, N)
-        s, _, _ = self.add_var('slack', ns, N, lb=0)
+
+        # create slacks (no slack for first state)
+        ns = not_red_idx.size + nu
+        s, _, _ = self.add_var('slack', ns * N - not_red_idx.size, 1, lb=0)
+        sx: cs.SX = s[:not_red_idx.size * (N - 1)].reshape((-1, N - 1))
+        su: cs.SX = s[-nu * N:].reshape((-1, N))
 
         # 2) create model parameters
         for name in ('g', 'thrust_coeff', 'pitch_d', 'pitch_dd', 'pitch_gain',
@@ -109,7 +114,7 @@ class QuadRotorMPC(GenericMPC):
         self.add_con('dyn', x_[:, 1:], '==', A @ x_[:, :-1] + B @ u + e)
 
         # 3) constraint on state (soft, backed off, without infinity in g, and
-        # removing redundant entries)
+        # removing redundant entries, no constraint on first state)
         # constraint backoff parameter and bounds
         bo = self.add_par('backoff', 1, 1)
         if env.normalized:
@@ -118,14 +123,12 @@ class QuadRotorMPC(GenericMPC):
         # set the state constraints as
         #  - soft-backedoff minimum constraint: (1+back)*lb - slack <= x
         #  - soft-backedoff maximum constraint: x <= (1-back)*ub + slack
-        s_x = s[:-env.nu, :]
-        self.add_con('x_min', (1 + bo) * lbx - s_x, '<=', x[not_red_idx, :])
-        self.add_con('x_max', x[not_red_idx, :], '<=', (1 - bo) * ubx + s_x)
+        self.add_con('x_min', (1 + bo) * lbx - sx, '<=', x[not_red_idx, 1:])
+        self.add_con('x_max', x[not_red_idx, 1:], '<=', (1 - bo) * ubx + sx)
 
         # 4) constraint on input (soft)
-        s_u = s[-env.nu:, :]
-        self.add_con('u_min', env.config.u_bounds[:, 0] - s_u, '<=', u)
-        self.add_con('u_max', u, '<=', env.config.u_bounds[:, 1] + s_u)
+        self.add_con('u_min', env.config.u_bounds[:, 0] - su, '<=', u)
+        self.add_con('u_max', u, '<=', env.config.u_bounds[:, 1] + su)
 
         # ========= #
         # Objective #
@@ -135,6 +138,7 @@ class QuadRotorMPC(GenericMPC):
         J = 0  # (no initial state cost not required since it is not economic)
 
         # 2) stage cost
+        s = cs.blockcat([[cs.SX.zeros(sx.size1(), 1), sx], [su]])
         xf = self.add_par('xf', nx, 1)
         uf = cs.vertcat(0, 0, self.pars['g'])
         w_x = self.add_par('w_x', nx, 1)    # weights for stage/final state
