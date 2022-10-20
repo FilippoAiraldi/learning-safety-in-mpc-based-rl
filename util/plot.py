@@ -493,7 +493,10 @@ def safety(
     return fig
 
 
-def paperplots(agents: dict[str, list[AGENTTYPE]]) -> tuple[Figure, ...]:
+def paperplots(
+    agents: dict[str, list[AGENTTYPE]],
+    save2tikz: bool = False
+) -> list[Figure]:
     '''
     Produces and saves to .tex the plots for the paper. For more details and 
     comments on the inner workings, see standard visualization functions above.
@@ -579,5 +582,8 @@ def paperplots(agents: dict[str, list[AGENTTYPE]]) -> tuple[Figure, ...]:
         ax.set_ylim(bottom=0.33)
         return fig
 
-    _save2tikz(*(fcn() for k, fcn in locals().items()
-                 if k.startswith('figure') and callable(fcn)))
+    figs = [fcn() for k, fcn in locals().items()
+            if k.startswith('figure') and callable(fcn)]
+    if save2tikz:
+        _save2tikz(*figs)
+    return figs
