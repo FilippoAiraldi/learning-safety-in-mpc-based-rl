@@ -67,7 +67,7 @@ def train_lstdq_agent(
     runname: str,
     seed: int,
     normalized_env: bool,
-    safe_agent: bool,
+    safe: bool,
     verbose: bool
 ) -> dict[str, Any]:
     '''
@@ -94,7 +94,7 @@ def train_lstdq_agent(
         RNG seed.
     normalized_env : bool
         Whether to train on a normalized version of the environment.
-    safe_agent : bool
+    safe : bool
         Whether to train an unsafe or safe version of the agent.
     verbose : bool
         Whether intermediate results should be logged.
@@ -113,7 +113,7 @@ def train_lstdq_agent(
     )
     agent = agents.wrappers.RecordLearningData(
         (agents.QuadRotorGPSafeLSTDQAgent
-         if safe_agent else
+         if safe else
          agents.QuadRotorLSTDQAgent)(
             env=env,
             agentname=f'LSTDQ_{agent_n}',
@@ -135,7 +135,7 @@ if __name__ == '__main__':
     # prepare to launch
     args = parse_args()
     tot_episodes = args.epochs * args.episodes
-    if args.eval_pk:
+    if args.pk:
         func = lambda n: eval_pk_agent(
             agent_n=n,
             episodes=tot_episodes,
@@ -144,26 +144,27 @@ if __name__ == '__main__':
             seed=args.seed + (tot_episodes + 1) * n
         )
     else:
+        agent_config = {
+            'gamma': args.gamma,
+            'lr': args.lr,
+            'max_perc_update': args.max_perc_update,
+            'replay_maxlen': args.episodes * args.replay_mem_size,
+            'replay_sample_size': args.replay_mem_sample,
+            'replay_include_last': args.episodes,
+            'alpha': args.gp_alpha,
+            'kernel_cls': args.gp_kernel_type,
+            'average_violation': args.average_violation,
+        }
         func = lambda n: train_lstdq_agent(
             agent_n=n,
             epochs=args.epochs,
             train_episodes=args.episodes,
             max_ep_steps=args.max_ep_steps,
-            agent_config={
-                'gamma': args.gamma,
-                'lr': args.lr,
-                'max_perc_update': args.max_perc_update,
-                'replay_maxlen': args.episodes * args.replay_mem_maxlen_factor,
-                'replay_sample_size': args.replay_mem_sample_size,
-                'replay_include_last': args.episodes,
-                'alpha': args.gp_alpha,
-                'kernel_cls': args.gp_kernel_type,
-                'average_violation': args.average_violation,
-            },
+            agent_config=agent_config,
             perturbation_decay=args.perturbation_decay,
             runname=args.runname,
             normalized_env=args.normalized,
-            safe_agent=args.safe,
+            safe=args.safe_lstdq,
             seed=args.seed + (tot_episodes + 1) * n,
             verbose=args.verbose
         )

@@ -18,7 +18,7 @@ def parse_args() -> argparse.Namespace:
         help='If passed, trains the LSTD Q-learning agent WITHOUT the safety '
              'mechanism.')
     group.add_argument(
-        '--safe-lstdq', action='store_true',
+        '--safe_lstdq', action='store_true',
         help='If passed, trains the LSTD Q-learning agent WITH the safety '
              'mechanism.')
     group.add_argument('--pk', action='store_true',
@@ -83,11 +83,11 @@ def parse_args() -> argparse.Namespace:
     args = parser.parse_args()
     assert args.lstdq + args.safe_lstdq + args.pk == 1, \
         'Must specify one and only one type of agent to simulate.'
-    if args.agents == 1:
-        args.n_jobs = 1  # don't parallelize
-    if args.safe and (args.n_jobs == -1 or args.n_jobs > 1):
+    if args.safe_lstdq and (args.n_jobs == -1 or args.n_jobs > 1):
         import os
         os.environ['PYTHONWARNINGS'] = 'ignore'  # ignore warnings
+    if args.agents == 1:
+        args.n_jobs = 1  # don't parallelize
     args.runname = get_runname(candidate=args.runname)
 
     return args
