@@ -6,7 +6,6 @@ import joblib as jl
 import agents
 import envs
 from util import io, log
-from util.math import NormalizationService
 
 
 def eval_pk_agent(
@@ -14,7 +13,6 @@ def eval_pk_agent(
     episodes: int,
     max_ep_steps: int,
     seed: int,
-    normalized_env: bool
 ) -> dict[str, Any]:
     '''
     Evaluation of a single perfect-knowledge (PK) agent.
@@ -29,19 +27,15 @@ def eval_pk_agent(
         Maximum number of time steps simulated per each episode.
     seed : int
         RNG seed.
-    normalized_env : bool
-        Whether to train on a normalized version of the environment.
 
     Returns
     -------
     dict[str, Any]
         Data resulting from the simulation.
     '''
-    normalization = NormalizationService() if normalized_env else None
     env = envs.QuadRotorEnv.get_wrapped(
         max_episode_steps=max_ep_steps,
-        normalize_reward=(False,),
-        normalization=normalization
+        normalize_reward=(False,)
     )
     agent = agents.QuadRotorPKAgent(
         env=env,
@@ -66,7 +60,6 @@ def train_lstdq_agent(
     perturbation_decay: float,
     runname: str,
     seed: int,
-    normalized_env: bool,
     safe_agent: bool,
     verbose: bool
 ) -> dict[str, Any]:
@@ -92,8 +85,6 @@ def train_lstdq_agent(
         The name of this run.
     seed : int
         RNG seed.
-    normalized_env : bool
-        Whether to train on a normalized version of the environment.
     safe_agent : bool
         Whether to train an unsafe or safe version of the agent.
     verbose : bool
@@ -105,11 +96,9 @@ def train_lstdq_agent(
         Data resulting from the simulation.
     '''
     logger = log.create_logger(runname, to_file=False) if verbose else None
-    normalization = NormalizationService() if normalized_env else None
     env = envs.QuadRotorEnv.get_wrapped(
         max_episode_steps=max_ep_steps,
-        normalize_reward=(True, agent_config['gamma']),
-        normalization=normalization
+        normalize_reward=(True, agent_config['gamma'])
     )
     agent = agents.wrappers.RecordLearningData(
         (agents.QuadRotorGPSafeLSTDQAgent
@@ -162,8 +151,6 @@ if __name__ == '__main__':
     parser.add_argument('--seed', type=int, default=1909, help='RNG seed.')
     parser.add_argument('--eval_pk', action='store_true',
                         help='If passed, evaluates a PK agent.')
-    parser.add_argument('--normalized', action='store_true',
-                        help='Whether to use a normalized variant of env.')
     parser.add_argument('--n_jobs', type=int, default=-1,
                         help='joblib parallel jobs.')
     parser.add_argument('--verbose', action='store_true')
@@ -202,7 +189,6 @@ if __name__ == '__main__':
             agent_n=n,
             episodes=tot_episodes,
             max_ep_steps=args.max_ep_steps,
-            normalized_env=args.normalized,
             seed=args.seed + (tot_episodes + 1) * n
         )
     else:
@@ -214,7 +200,6 @@ if __name__ == '__main__':
             agent_config=agent_config,
             perturbation_decay=args.perturbation_decay,
             runname=args.runname,
-            normalized_env=args.normalized,
             safe_agent=args.safe,
             seed=args.seed + (tot_episodes + 1) * n,
             verbose=args.verbose

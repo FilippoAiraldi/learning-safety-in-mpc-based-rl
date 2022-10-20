@@ -12,7 +12,6 @@ from util.casadi import is_casadi_object
 from util.configurations import init_config
 from util.io import is_pickleable
 from util.errors import MPCSolverError, UpdateError
-from util.math import NormalizationService
 from util.rl import RLParameter, RLParameterCollection
 
 
@@ -75,16 +74,6 @@ class QuadRotorBaseAgent(ABC):
     def unwrapped(self) -> 'QuadRotorBaseAgent':
         '''Returns the unwrapped instance of the agent.'''
         return self
-
-    @property
-    def normalized(self) -> bool:
-        '''Returns whether the agent's env is normalized.'''
-        return self.env.normalization is not None
-
-    @property
-    def normalization(self) -> Optional[NormalizationService]:
-        '''Returns the agent's env normalization.'''
-        return self.env.normalization
 
     @property
     def V(self) -> QuadRotorMPC:

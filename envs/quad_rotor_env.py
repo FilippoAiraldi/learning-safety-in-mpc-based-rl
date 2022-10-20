@@ -5,7 +5,6 @@ import numpy as np
 from gym import spaces
 from envs.base_env import BaseEnv
 from util.configurations import BaseConfig, init_config
-from util.math import NormalizationService
 
 
 @dataclass
@@ -59,35 +58,6 @@ class QuadRotorEnvConfig(BaseConfig):
     # termination conditions
     termination_N: int = 5
     termination_error: float = 0.5
-
-    # normalization ranges (only relevant if NormalizationService is not None)
-    normalization_ranges: dict[str, np.ndarray] = field(
-        default_factory=lambda: {
-            # model parameters
-            'g': np.array([0, 20]),
-            'thrust_coeff': np.array([0, 4]),
-            'pitch_d': np.array([0, 200]),
-            'pitch_dd': np.array([0, 200]),
-            'pitch_gain': np.array([0, 20]),
-            'roll_d': np.array([0, 20]),
-            'roll_dd': np.array([0, 20]),
-            'roll_gain': np.array([0, 20]),
-            # system states
-            'x': np.array([[-1, 5],
-                           [-1, 5],
-                           [-1, 5],
-                           [-4, 4],
-                           [-4, 4],
-                           [-4, 4],
-                           [np.deg2rad(-30), np.deg2rad(30)],
-                           [np.deg2rad(-30), np.deg2rad(30)],
-                           [-3, 3],
-                           [-3, 3]]),
-            # system control actions
-            'u': np.array([[-np.pi, np.pi],
-                           [-np.pi, np.pi],
-                           [0, 20]]),
-        })
 
 
 class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
@@ -158,8 +128,7 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
 
     def __init__(
         self,
-        config: Union[dict, QuadRotorEnvConfig] = None,
-        normalization: NormalizationService = None
+        config: Union[dict, QuadRotorEnvConfig] = None
     ) -> None:
         '''
         This environment simulates a 10-state quadrotor system with limited 
@@ -174,9 +143,8 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
         '''
 
         super().__init__()
-        config = self._init_config(config, normalization)
+        config = init_config(config, QuadRotorEnvConfig)
         self.config = config
-        self.normalization = normalization
 
         # create dynamics matrices
         self._A, self._B, self._C, self._e = self.get_dynamics(
@@ -211,14 +179,6 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
         self._Wx = np.ones(self.nx)
         self._Wu = np.ones(self.nu)
         self._Wv = np.array([1e2, 1e2, 3e2, 3e2])
-        if self.normalized:
-            self._Wx *= 20
-            self._Wu /= 5
-            self._Wv *= 20
-
-    @property
-    def normalized(self) -> bool:
-        return self.normalization is not None
 
     @property
     def A(self) -> np.ndarray:
@@ -420,18 +380,6 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
             nw = len(winds)
             wind_mag = np.array(list(winds.values()))
 
-        # if normalized, first denormalize the parameters
-        if self.normalized:
-            N = self.normalization
-            g = N.denormalize('g', g)
-            thrust_coeff = N.denormalize('thrust_coeff', thrust_coeff)
-            pitch_d = N.denormalize('pitch_d', pitch_d)
-            pitch_dd = N.denormalize('pitch_dd', pitch_dd)
-            pitch_gain = N.denormalize('pitch_gain', pitch_gain)
-            roll_d = N.denormalize('roll_d', roll_d)
-            roll_dd = N.denormalize('roll_dd', roll_dd)
-            roll_gain = N.denormalize('roll_gain', roll_gain)
-
         # build the actual matrices
         A = T * block([
             [np.zeros((3, 3)), np.eye(3), np.zeros((3, 4))],
@@ -464,53 +412,4 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
             [- T * g],
             [np.zeros((4, 1))]
         ])
-
-        # if normalization is not required, just return
-        if not self.normalized:
-            return (A, B, e) if is_casadi else (A, B, C, e)
-
-        # compute the scaling matrices T and offsets M
-        rx = N['x']
-        Tx = np.diag(1 / (rx[:, 1] - rx[:, 0]))
-        Tx_inv = np.diag(rx[:, 1] - rx[:, 0])
-        Mx = - (Tx @ rx[:, 0]).reshape(-1, 1)
-        ru = N['u']
-        Tu = np.diag(1 / (ru[:, 1] - ru[:, 0]))
-        Tu_inv = np.diag(ru[:, 1] - ru[:, 0])
-        Mu = - (Tu @ ru[:, 0]).reshape(-1, 1)
-
-        # apply scaling
-        As = Tx @ A @ Tx_inv
-        Bs = Tx @ B @ Tu_inv
-        if not is_casadi:
-            Cs = Tx @ C
-        es = (
-            Tx @ e +
-            (np.eye(Tx.shape[0]) - Tx @ A @ Tx_inv) @ Mx -
-            Tx @ B @ Tu_inv @ Mu
-        )
-        return (As, Bs, es) if is_casadi else (As, Bs, Cs, es)
-
-    def _init_config(
-        self,
-        config: QuadRotorEnvConfig,
-        normalization: Optional[NormalizationService]
-    ) -> QuadRotorEnvConfig:
-        '''Initializes the env configuration (does not save to self).'''
-        C = init_config(config, QuadRotorEnvConfig)
-        if normalization is None:
-            return C
-        N = normalization
-        N.register(C.normalization_ranges)
-
-        for par in ['g', 'thrust_coeff', 'pitch_d', 'pitch_dd', 'pitch_gain',
-                    'roll_d', 'roll_dd', 'roll_gain']:
-            setattr(C, par, N.normalize(par, getattr(C, par)))
-
-        for par, n in [('x_bounds', 'x'), ('x0', 'x'),
-                       ('xf', 'x'), ('u_bounds', 'u')]:
-            setattr(C, par, N.normalize(n, getattr(C, par).T).T)
-
-        fro_norm = np.linalg.norm(np.diff(N['x']).flatten()**-2)
-        C.termination_error = C.termination_error / fro_norm / self.nx
-        return C
+        return (A, B, e) if is_casadi else (A, B, C, e)

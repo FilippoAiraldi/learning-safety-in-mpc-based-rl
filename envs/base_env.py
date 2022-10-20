@@ -2,7 +2,7 @@ from abc import ABC
 from typing import Type, TypeVar
 import gym
 from gym.wrappers import TimeLimit, OrderEnforcing, NormalizeReward
-from envs.wrappers import RecordData, ClipActionIfClose
+from envs.wrappers import RecordData
 
 
 ObsType = TypeVar('ObsType')
@@ -20,7 +20,6 @@ class BaseEnv(gym.Env[ObsType, ActType], ABC):
         record_data: bool = True,
         normalize_reward: tuple[bool, float] = (False,),
         deque_size: int = None,
-        clip_action: bool = False,
         enforce_order: bool = True,
         **env_kwargs,
     ) -> SuperEnvType:
@@ -31,7 +30,6 @@ class BaseEnv(gym.Env[ObsType, ActType], ABC):
 
         The wrappers are (from in to outward)
             - `OrderEnforcing`
-            - `ClipActionIfClose`
             - `RecordData`
             - `NormalizeReward`
             - `TimeLimit`
@@ -47,9 +45,6 @@ class BaseEnv(gym.Env[ObsType, ActType], ABC):
         normalize_reward : tuple[bool, gamma], optional
             Whether to apply reward normalization or not 
             (see `NormalizeReward`). `gamma` is the discount factor.
-        clip_action : bool, optional
-            Whether to clip actions that violates the action space
-            (see `ClipActionIfClose`).
         enforce_order : bool, optional
             Whether to apply order enforcing or not (see `OrderEnforcing`).
         env_kwargs : dict
@@ -63,8 +58,6 @@ class BaseEnv(gym.Env[ObsType, ActType], ABC):
         # wrap the environment. The last wrapper is the first to be executed,
         # so put the data-recording close to the env, after possible
         # modifications by outer wrappers
-        # NOTE: RecordData must be done after ClipActionIfClose. TimeLimit must
-        # be done after RecordData
         env = cls(**env_kwargs)
         if max_episode_steps is not None:
             env = TimeLimit(env, max_episode_steps=max_episode_steps)
@@ -72,9 +65,6 @@ class BaseEnv(gym.Env[ObsType, ActType], ABC):
             env = RecordData(env, deque_size=deque_size)
         if normalize_reward[0]:
             env = NormalizeReward(env, gamma=normalize_reward[1])
-        if clip_action and (env.action_space.bounded_below.any() or
-                            env.action_space.bounded_above.any()):
-            env = ClipActionIfClose(env)
         if enforce_order:
             env = OrderEnforcing(env)
         return env

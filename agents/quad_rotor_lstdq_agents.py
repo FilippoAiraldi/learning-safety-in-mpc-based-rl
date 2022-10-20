@@ -15,8 +15,7 @@ from util.casadi import norm_ppf
 from util.configurations import BaseConfig, init_config
 from util.errors import MPCSolverError, UpdateError
 from util.gp import MultitGaussianProcessRegressor, CasadiKernels
-from util.math import NormalizationService, \
-    cholesky_added_multiple_identities, constraint_violation
+from util.math import cholesky_added_multiple_identities, constraint_violation
 from util.rl import ReplayMemory
 
 
@@ -56,16 +55,6 @@ class QuadRotorLSTDQAgentConfig(BaseConfig):
     gamma: float = 1.0
     lr: float = 1e-1
     max_perc_update: float = np.inf
-
-    # normalization ranges for stage costs (for other pars ranges are taken
-    # from env)
-    normalization_ranges: dict[str, np.ndarray] = field(
-        default_factory=lambda: {
-            'w_x': np.array([0, 1e2]),
-            'w_u': np.array([0, 1e1]),
-            'w_s': np.array([0, 1e3]),
-            'backoff': np.array([0, 1])
-        })
 
 
 class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
@@ -107,10 +96,10 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
             Seed for the random number generator.
         '''
         # create base agent
-        agent_config = self._init_config(agent_config, env.normalization)
+        agent_config = init_config(agent_config, self.config_cls)
         fixed_pars, init_pars = agent_config.fixed_pars, agent_config.init_pars
         fixed_pars.update({
-            'xf': env.config.xf,  # already normalized
+            'xf': env.config.xf,
             'perturbation': np.nan
         })
         super().__init__(
@@ -268,25 +257,6 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
             returns
         )
 
-    def _init_config(
-        self,
-        config: Optional[QuadRotorLSTDQAgentConfig],
-        normalization: Optional[NormalizationService]
-    ) -> QuadRotorLSTDQAgentConfig:
-        '''
-        Initializes the agent configuration and fixed and initial pars (does
-        not save to self).
-        '''
-        C = init_config(config, self.config_cls)
-        N = normalization
-        if N is not None:
-            N.register(C.normalization_ranges)
-            for k, v in C.fixed_pars.items():
-                C.fixed_pars[k] = N.normalize(k, v)
-            for k, v in C.init_pars.items():
-                C.init_pars[k] = (N.normalize(k, v[0]), N.normalize(k, v[1]))
-        return C
-
     def _init_derivative_symbols(self) -> None:
         '''Computes symbolical derivatives needed for Q learning.'''
         theta = self.weights.symQ()
@@ -354,8 +324,7 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
 
         # run QP solver (backtrack on beta if necessary) and update weights
         theta = self.weights.values()
-        candidates = np.linspace(theta, theta - cfg.lr * p, cfg.n_opti) + \
-            self.np_random.normal(size=(cfg.n_opti, theta.size), scale=0.0)
+        candidates = np.linspace(theta, theta - cfg.lr * p, cfg.n_opti)
         beta = cfg.beta
         pars = np.block([theta, p, cfg.lr, cfg.mu0, beta])
         lb, ub = self._get_percentage_bounds(
@@ -503,12 +472,6 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
             n_restarts_optimizer=cfg.n_opti,
             random_state=self.seed
         )
-        # if np.isnan(cfg.mu0):
-        #     # initiliaze GP prior so that all thetas are safe at start
-        #     prior_mu, prior_std = 0, np.sqrt(
-        #         CasadiKernels.sklearn2func(kernel)(np.zeros(1), diag=True)
-        #     ).item()
-        #     cfg.mu0 = prior_mu + norm_ppf(cfg.beta) * prior_std
         self._gpr_dataset: list[tuple[np.ndarray, np.ndarray]] = []
         self.backtracked_gp_pars_history: list[tuple[float, ...]] = []
 
