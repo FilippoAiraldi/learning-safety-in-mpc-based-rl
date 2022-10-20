@@ -29,9 +29,9 @@ def init_config(
 ) -> ConfigType:
     '''
     Initializes the configuration, by
-        - returning it if valid
-        - converting from a dict to a dataclass
-        - instantiating the default configuration.
+        - returning it, if valid
+        - converting from a dict to a dataclass, if a dict is provided
+        - instantiating the default configuration, if None is passed.
     '''
     if config is None:
         return cls()

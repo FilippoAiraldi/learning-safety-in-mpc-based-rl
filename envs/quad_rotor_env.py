@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Optional, Union
+from typing import Union
 import casadi as cs
 import numpy as np
 from gym import spaces
@@ -16,6 +16,7 @@ class QuadRotorEnvConfig(BaseConfig):
     with each gust's altitude and strength. Also the bounds on state and action
     are included.
     '''
+
     # model parameters
     T: float = 0.1
     g: float = 9.81
@@ -150,6 +151,7 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
     The episode ends if the state approaches the final one within the specified
     error and stays within this error bound for the specified amount of steps.
     '''
+
     spec: dict = None
     nx: int = 10
     nu: int = 3
@@ -169,11 +171,8 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
         config : {dict, QuadRotorPars}, optional
             A set of parameters for the quadrotor model and disturbances. If 
             not given, the default ones are used.
-        normalization : NormalizationService, optional
-            An optional service that allows to normalize parameters and
-            quantities in the environment. If `None`, no normalization is 
-            performed.
         '''
+
         super().__init__()
         config = self._init_config(config, normalization)
         self.config = config

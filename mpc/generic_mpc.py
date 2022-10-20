@@ -11,6 +11,8 @@ import numpy as _np
 
 
 class MPCDebug:
+    '''MPC debug class for information about variables and constraints.'''
+
     types: dict[str, str] = {
         'x': 'Decision variable',
         'g': 'Equality constraint',
@@ -60,6 +62,7 @@ class MPCDebug:
 @dataclass(frozen=True)
 class Solution:
     '''A class containing information on the solution of an MPC run.'''
+
     f: float
     vars: dict[str, cs.SX]
     vals: dict[str, _np.ndarray]
