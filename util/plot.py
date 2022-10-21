@@ -520,7 +520,7 @@ def paperplots(
         _plot_population(
             ax, episodes, lstdq_safe_perf, use_median=use_median,
             color=colors[1], label=labels[1],
-            xlabel='Learning Episode', ylabel=r'$J(\pi_\theta)$')
+            xlabel='Learning episode', ylabel=r'$J(\pi_\theta)$')
         ax.axhline(y=baseline, color='k', lw=1, ls='--', label=labels[2])
         ax.set_xlim(episodes[0], episodes[-1] // 2)
         ax.set_ylim(0, 30000)
@@ -559,7 +559,7 @@ def paperplots(
         _plot_population(
             ax, episodes, unsafe_episodes[1], use_median=use_median,
             color=colors[1], label=labels[1], legendloc='upper left',
-            ylabel=r'\# of Unsafe Episodes')
+            ylabel=r'\# of unsafe episodes')
         ax = next(axs)
         _plot_population(
             ax, episodes, altitude_violations[0], use_median=use_median,
@@ -567,7 +567,7 @@ def paperplots(
         _plot_population(
             ax, episodes, altitude_violations[1], use_median=use_median,
             color=colors[1], label=labels[1],
-            xlabel='Learning Episode', ylabel='Altitude Constraint')
+            xlabel='Learning episode', ylabel='Altitude constraint')
         ax.set_xlim(episodes[0], episodes[-1])
         ax.set_ylim(-1, 5)
         return fig
@@ -579,7 +579,7 @@ def paperplots(
         episodes = np.arange(betas.shape[1]) + 1
         _plot_population(
             ax, episodes, betas, color=colors[1], use_median=use_median,
-            xlabel='Learning Episode', ylabel=r'$\beta$')
+            xlabel='Learning episode', ylabel=r'$\beta$')
         ax.set_xlim(episodes[0], episodes[-1])
         ax.set_ylim(bottom=0.33)
         return fig
