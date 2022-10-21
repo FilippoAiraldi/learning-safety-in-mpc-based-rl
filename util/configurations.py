@@ -86,12 +86,21 @@ def parse_args() -> argparse.Namespace:
         '--average-violation', '--average_violation', action='store_true',
         help='Attempts to reduce GP training data by averaging violations '
              'over episodes in the same epoch.')
+    group.add_argument(
+        '--prior', type=str, default=None,
+        help='Loads prior knowledge on safety from the specified simulation '
+             'data (must be a pickled file of safe-lstdq agents)')
 
     args = parser.parse_args()
 
     # perform some checks
     assert args.lstdq + args.safe_lstdq + args.pk == 1, \
         'Must specify one and only one type of agent to simulate.'
+    if args.prior is not None:
+        assert args.safe_lstdq, \
+            'Prior safety knowledge can only be specified for safe algorithm'
+
+    # set some defaults
     if args.safe_lstdq and (args.n_jobs == -1 or args.n_jobs > 1):
         import os
         os.environ['PYTHONWARNINGS'] = 'ignore'  # ignore warnings

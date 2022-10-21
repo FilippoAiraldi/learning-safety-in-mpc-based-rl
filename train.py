@@ -1,12 +1,13 @@
 import time
 from datetime import datetime
-from typing import Any
+from typing import Any, Optional
 import joblib as jl
 import agents
 import envs
 from util import io, log
-from util.math import NormalizationService
 from util.configurations import parse_args
+from util.gp import PriorSafetyKnowledge
+from util.math import NormalizationService
 
 
 def eval_pk_agent(
@@ -68,6 +69,7 @@ def train_lstdq_agent(
     seed: int,
     normalized_env: bool,
     safe: bool,
+    prior_knowledge: Optional[PriorSafetyKnowledge],
     verbose: bool
 ) -> dict[str, Any]:
     '''
@@ -96,6 +98,8 @@ def train_lstdq_agent(
         Whether to train on a normalized version of the environment.
     safe : bool
         Whether to train an unsafe or safe version of the agent.
+    prior_knowledge : PriorSafetyKnowledge
+        Dataset of prior knowledge from some previous safe-lstdq simulation.
     verbose : bool
         Whether intermediate results should be logged.
 
@@ -120,6 +124,8 @@ def train_lstdq_agent(
             agent_config=agent_config,
             seed=seed
         ))
+    if safe and prior_knowledge is not None:
+        agent.unwrapped.gpr_dataset.extend(prior_knowledge.get(size=0.1))
     success = agent.learn(
         n_epochs=epochs,
         n_episodes=train_episodes,
@@ -135,6 +141,11 @@ if __name__ == '__main__':
     # prepare to launch
     args = parse_args()
     tot_episodes = args.epochs * args.episodes
+    prior_knowledge = (
+        None
+        if args.prior is None else
+        PriorSafetyKnowledge.from_sim(args.prior, seed=args.seed)
+    )
     if args.pk:
         func = lambda n: eval_pk_agent(
             agent_n=n,
@@ -165,6 +176,7 @@ if __name__ == '__main__':
             runname=args.runname,
             normalized_env=args.normalized,
             safe=args.safe_lstdq,
+            prior_knowledge=prior_knowledge,
             seed=args.seed + (tot_episodes + 1) * n,
             verbose=args.verbose
         )

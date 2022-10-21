@@ -1,12 +1,15 @@
 import math
+from collections import UserDict
 from typing import Callable, Optional, Union
 import casadi as cs
 import numpy as np
+from gym.utils.seeding import np_random
 from joblib import Parallel
 from sklearn.gaussian_process import GaussianProcessRegressor, kernels
 from sklearn.multioutput import MultiOutputRegressor
 from sklearn.utils.fixes import delayed
 from sklearn.utils.validation import check_is_fitted
+from util.io import load_results
 
 
 KERNEL_PARAMS_DICT = {
@@ -202,3 +205,81 @@ class MultitGaussianProcessRegressor(MultiOutputRegressor):
         if return_std or return_cov:
             return tuple(np.array(o).T for o in zip(*y))
         return np.asarray(y).T
+
+
+class PriorSafetyKnowledge(UserDict[int, list[tuple[np.ndarray, np.ndarray]]]):
+    '''
+    Class for storing prior information on safety in the form of a list of 
+    tuples of `(theta, safety)`, where `safety` is negative if `theta` yielded 
+    a safe controller; otherwise, negative.
+    '''
+
+    def __init__(self, data, seed: int = None) -> None:
+        super().__init__(data)
+        self.seed = seed
+        self.np_random, _ = np_random(seed)
+
+    def get(
+        self,
+        target_seed: int = None,
+        notfound_ok: bool = False,
+        size: Union[int, float] = None
+    ) -> list[tuple[np.ndarray, np.ndarray]]:
+        '''
+        Gets the safety knowledge from previous simulation data.
+
+        Parameters
+        ----------
+        target_seed : int, optional
+            Searches knowledge from a specific seed.
+        notfound_ok : bool, optional
+            If `true`, raises if `target_seed` is not found; otherwise, picks
+            information from another seed picked at random from avaiable ones.
+        size : int or float, optional
+            How much samples from the information to return. If `None`, all 
+            information is returned. If float, then it must be between 0 and 1.
+
+        Returns
+        -------
+        list[tuple[np.ndarray, np.ndarray]]
+            A list of tuples `(theta, safety)`, representing safety knowlegde.
+
+        Raises
+        ------
+        KeyError
+            Raises in case `target_seed` is not found and `notfound_ok=False`.
+        '''
+        if target_seed is None or (
+                target_seed not in self.data and notfound_ok):
+            target_seed = self.np_random.choice(list(self.data.keys()))
+        elif target_seed not in self.data:
+            raise KeyError(
+                f'No prior simulation found with seed={target_seed}')
+        prior = self.data[target_seed]
+        if size is None:
+            return prior
+        L = len(prior)
+        if isinstance(size, float):
+            size = int(L * size)
+        size = np.clip(size, 0, L)
+        return [prior[i]
+                for i in self.np_random.choice(L, size, replace=False)]
+
+    @classmethod
+    def from_sim(cls, name: str, seed: int = None) -> 'PriorSafetyKnowledge':
+        '''
+        Loads knowledge on safety from a previous simulation.
+
+        Parameters
+        ----------
+        name : str
+            Name of the simulation filename. Must be a pickle file.
+        '''
+        agents = load_results(name)['agents']
+        data = {}
+        for agent in agents:
+            agent = agent.unwrapped
+            if not hasattr(agent, 'gpr_dataset'):
+                raise ValueError('No knowledge to load from current agent.')
+            data[agent.seed] = agent.gpr_dataset
+        return cls(data, seed=seed)
