@@ -45,7 +45,7 @@ def paper() -> None:
     '''Produces and saves to .tex the plots for the paper.'''
     filenames = {
         'lstdq': 'sim/lstdq',
-        'lstdq-safe': 'sim/lstdq-safe',
+        'lstdq-safe': 'sim/safe-lstdq',
         'pk': 'sim/pk'
     }
     agents = {n: io.load_results(fn)['agents'] for n, fn in filenames.items()}

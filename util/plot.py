@@ -547,6 +547,10 @@ def paperplots(
             max_cv = np.concatenate((cv_obs, cv_act), axis=0).max(axis=0)
             unsafe_episodes.append(np.nancumsum(max_cv > 0.0, axis=0).T)
 
+        unsafe_tot_avg = [eps[:, -1].mean() for eps in unsafe_episodes]
+        p = (unsafe_tot_avg[0] - unsafe_tot_avg[1]) / unsafe_tot_avg[0]
+        print(f'Unsafe episode reduction = {p * 100:.2f}%')
+
         episodes = np.arange(unsafe_episodes[0].shape[1]) + 1
         ax = next(axs)
         _plot_population(
