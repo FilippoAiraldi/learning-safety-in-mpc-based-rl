@@ -504,7 +504,7 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
             random_state=self.seed
         )
         self.gpr_dataset: list[tuple[np.ndarray, np.ndarray]] = []
-        self.backtracked_betas: list[tuple[float, ...]] = []
+        self.backtracked_betas: list[float] = []
 
         # compute symbols that do not depend on GP
         theta: cs.SX = cs.SX.sym('theta', n_theta, 1)

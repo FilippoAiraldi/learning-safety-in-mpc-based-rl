@@ -468,25 +468,16 @@ def safety(
                      xlabel='Episode', ylabel='Number of unsafe episodes',
                      legendloc='upper left')
 
-    attr = (
-        'backtracked_gp_pars_history'
-        if hasattr(agents[0], 'backtracked_gp_pars_history') else
-        'agent_backtracked_gp_pars_history'
-    )
+    attr = 'backtracked_betas'
     if agents is not None and all(
             a is not None and hasattr(a, attr) for a in agents):
-        pars = jstack([getattr(a, attr) for a in agents])
-        updates = np.arange(pars.shape[1]) + 1
+        betas = jstack([getattr(a, attr) for a in agents])
+        updates = np.arange(betas.shape[1]) + 1
 
-        parnames = ['$\\beta$', '$\\mu_0$', ]
-        styles = ['-', '--', ':']
         ax = next(axs)
         ax.set_axis_on()
-        for i, name, ls in zip(range(pars.shape[-1]), parnames, styles):
-            name = name if label is None else f'{label}: {name}'
-            _plot_population(ax, updates, pars[..., i], color=color,
-                             linestyle=ls, label=name,
-                             xlabel='Update', ylabel='GP parameters')
+        _plot_population(ax, updates, betas, color=color, label=r'$\beta$',
+                         xlabel='Update', ylabel='GP parameters')
     _set_empty_axis_off(axs)
     return fig
 
