@@ -24,7 +24,7 @@ AGENTTYPE = Union[
     RecordLearningData[Union[QuadRotorLSTDQAgent, QuadRotorGPSafeLSTDQAgent]]
 ]
 PAPERMODE = False
-SMALL_ALPHA = {False: 0.5, True: 0.05}
+SMALL_ALPHA = {False: 0.5, True: 0.25}
 SMALLER_LW_FACTOR = {False: 40, True: 50}
 MATLAB_COLORS = [
     '#0072BD', '#D95319', '#EDB120', '#7E2F8E', '#77AC30', '#4DBEEE', '#A2142F'
@@ -60,25 +60,32 @@ def _plot_population(
     xlabel: str = None,
     ylabel: str = None,
     method: str = 'plot',
-    legendloc: str = 'upper right'
+    legendloc: str = 'upper right',
+    **kwargs
 ) -> None:
     if y_mean is None and y is not None:
         y_mean = (np.nanmedian if use_median else np.nanmean)(y, axis=0)
     lw = mpl.rcParams['lines.linewidth']
     lw_small = lw / SMALLER_LW_FACTOR[PAPERMODE]
     func = getattr(ax, method)
-    if method != 'errorbar':
-        if y is not None:
-            func(x, y.T, lw=lw_small, color=color, linestyle=linestyle,
-                 alpha=SMALL_ALPHA[PAPERMODE])
-        if y_mean is not None:
-            func(x, y_mean, lw=lw, color=color, linestyle=linestyle,
-                 label=label)
-    else:
+    if method == 'errorbar':
         y_std = y_std if y_std is not None else np.nanstd(y, axis=0)
         func(x, y_mean, yerr=y_std, color=color, lw=lw,
              linestyle=linestyle, label=label, errorevery=x.size // 10,
-             capsize=5)
+             capsize=5, **kwargs)
+    elif method == 'fill_between':
+        y_std = y_std if y_std is not None else np.nanstd(y, axis=0)
+        func(x, y_mean - y_std, y_mean + y_std, alpha=SMALL_ALPHA[PAPERMODE], 
+             color=color)
+        ax.plot(x, y_mean, lw=lw, color=color, linestyle=linestyle,
+                label=label, **kwargs)
+    else:
+        if y is not None:
+            func(x, y.T, lw=lw_small, color=color, linestyle=linestyle,
+                 alpha=SMALL_ALPHA[PAPERMODE], **kwargs)
+        if y_mean is not None:
+            func(x, y_mean, lw=lw, color=color, linestyle=linestyle,
+                 label=label, **kwargs)
 
     if xlabel is not None and len(ax.get_xlabel()) == 0:
         ax.set_xlabel(xlabel)
@@ -506,13 +513,14 @@ def paperplots(
         performances = [jstack([a.env.cum_rewards for a in agents])
                         for agents in learning_agents]
         episodes = np.arange(performances[0].shape[1]) + 1
+        L = 25
         for performance, clr, lbl in zip(performances, colors, labels):
             _plot_population(
-                ax, episodes, performance, use_median=use_median,
-                color=clr, label=lbl,
+                ax, episodes[:L], performance[:, :L], use_median=use_median,
+                color=clr, label=lbl, method='fill_between',
                 xlabel='Learning episode', ylabel=r'$J(\pi_\theta)$')
         ax.axhline(y=baseline, color='k', lw=1, ls='--')
-        ax.set_xlim(episodes[0], episodes[-1] // 2)
+        ax.set_xlim(episodes[0], episodes[L])
         ax.set_ylim(0, 30000)
         return fig
 
@@ -546,11 +554,11 @@ def paperplots(
                 unsafe_episodes, altitude_violations, colors, labels):
             _plot_population(
                 axs[0], episodes, ue, use_median=use_median,
-                color=clr, label=lbl, legendloc='upper left',
-                ylabel=r'\# of unsafe episodes')
+                color=clr, label=lbl, method='fill_between',
+                ylabel=r'\# of unsafe episodes', legendloc='upper left')
             _plot_population(
                 axs[1], episodes, av, use_median=use_median,
-                color=clr, label=lbl,
+                color=clr, label=lbl, method='fill_between',
                 xlabel='Learning episode', ylabel='Altitude constraint')
         axs[0].set_xlim(episodes[0], episodes[-1])
         axs[1].set_ylim(-1, 5)
@@ -564,10 +572,11 @@ def paperplots(
             episodes = np.arange(betas.shape[1]) + 1
             _plot_population(
                 ax, episodes, betas, use_median=use_median,
-                color=clr, label=lbl,
+                color=clr, label=lbl, legendloc='lower right',
+                method='fill_between',
                 xlabel='Learning episode', ylabel=r'$\beta$')
         ax.set_xlim(episodes[0], episodes[-1])
-        ax.set_ylim(bottom=0.43)
+        ax.set_ylim(0.43, 1.1)
         return fig
 
     figs = [fcn() for k, fcn in locals().items()

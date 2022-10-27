@@ -50,8 +50,8 @@ def paper() -> None:
         'pk': 'sim/pk'
     }
     agents = {n: io.load_results(fn)['agents'] for n, fn in filenames.items()}
-    plot.paperplots(agents, save2tikz=True)
-    # plt.show()
+    plot.paperplots(agents, save2tikz=False)
+    plt.show()
 
 
 if __name__ == '__main__':
