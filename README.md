@@ -1,27 +1,3 @@
-# learning-safe-set
-Learning the Safe Set from data in MPC-based RL
+# Learning safely in MPC-based Reinforcement Learning using Gaussian Processes
 
-
----
-## Installation
-
----
-## Problem and Methods
-
-### Definition
-
-### Methodology
-
-### Structure
-
----
-## License
-The repository is provided under the GNU General Public License. See the LICENSE file included with this repository. 
-
---
-## Citation
-The work provided in this repository can be cited as TODO
-
----
-## Author
-Filippo Airaldi [filippoairaldi@gmail.com | f.airaldi@tudelft.nl]
+This is the development `dev` branch of the project. Please, move to the `release` branch for a README with more information.
