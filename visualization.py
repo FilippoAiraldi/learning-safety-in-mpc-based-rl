@@ -45,12 +45,13 @@ def paper() -> None:
     '''Produces and saves to .tex the plots for the paper.'''
     filenames = {
         'lstdq': 'sim/lstdq',
-        'lstdq-safe': 'sim/lstdq-safe',
+        'safe-lstdq': 'sim/safe-lstdq',
+        'safe-lstdq-prior': 'sim/safe-lstdq-prior',
         'pk': 'sim/pk'
     }
     agents = {n: io.load_results(fn)['agents'] for n, fn in filenames.items()}
-    plot.paperplots(agents, save2tikz=True)
-    # plt.show()
+    plot.paperplots(agents, save2tikz=False)
+    plt.show()
 
 
 if __name__ == '__main__':
@@ -69,7 +70,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     plot.set_mpl_defaults(papermode=args.papermode)
-    
+
     if args.papermode:
         paper()
     else:

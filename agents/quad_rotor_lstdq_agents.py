@@ -309,7 +309,7 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
 
     config_cls: type = QuadRotorGPSafeLSTDQAgentConfig
 
-    def update(self) -> tuple[np.ndarray, tuple[float, ...], float]:
+    def update(self) -> tuple[np.ndarray, float, float]:
         cfg: QuadRotorGPSafeLSTDQAgentConfig = self.config
         self._solver, gp_fit_time = self._init_qp_solver()
 
@@ -342,7 +342,7 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
             # either apply the successful update or backtrack
             if best_sol is not None:
                 self.weights.update_values(best_sol['x'].full().flatten())
-                return p, (beta,), gp_fit_time
+                return p, beta, gp_fit_time
             else:
                 beta *= cfg.beta_backtracking
                 pars[-1] = beta
@@ -406,18 +406,18 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
         # and perform RL update and reduce exploration strength and chance
         theta = self.weights.values()
         if self.config.average_violation:
-            self._gpr_dataset.append((theta, np.mean(violations, axis=0)))
+            self.gpr_dataset.append((theta, np.mean(violations, axis=0)))
         else:
-            self._gpr_dataset.extend(((theta, v) for v in violations))
-        update_grad, backtracked_gp_pars, gp_fit_time = self.update()
-        self.backtracked_gp_pars_history.append(backtracked_gp_pars)
+            self.gpr_dataset.extend(((theta, v) for v in violations))
+        update_grad, backtracked_beta, gp_fit_time = self.update()
+        self.backtracked_betas.append(backtracked_beta)
         self.perturbation_strength *= perturbation_decay
         self.perturbation_chance *= perturbation_decay
 
         # log training outcomes and return cumulative returns
         logger.debug(f'{self.name}|{epoch_n}: J_mean={returns.mean():,.3f}; '
                      f'||p||={np.linalg.norm(update_grad):.3e}; ' +
-                     f'beta={backtracked_gp_pars[0] * 100:.1f}%' +
+                     f'beta={backtracked_beta * 100:.2f}%' +
                      f'GP fit time={gp_fit_time:.2}s' +
                      self.weights.values2str())
         return (
@@ -472,8 +472,8 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
             n_restarts_optimizer=cfg.n_opti,
             random_state=self.seed
         )
-        self._gpr_dataset: list[tuple[np.ndarray, np.ndarray]] = []
-        self.backtracked_gp_pars_history: list[tuple[float, ...]] = []
+        self.gpr_dataset: list[tuple[np.ndarray, np.ndarray]] = []
+        self.backtracked_betas: list[float] = []
 
         # compute symbols that do not depend on GP
         theta: cs.SX = cs.SX.sym('theta', n_theta, 1)
@@ -507,7 +507,7 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
     def _fit_gpr_and_create_qp_solver(self) -> tuple[cs.Function, float]:
         # regressor initialization (other branch) has been done, so we can
         # move to fitting the GP and creating the QP constraints
-        theta, cv = (np.stack(o, axis=0) for o in zip(*self._gpr_dataset))
+        theta, cv = (np.stack(o, axis=0) for o in zip(*self.gpr_dataset))
         start = time.perf_counter()
         self._gpr.fit(theta, cv)
         fit_time = time.perf_counter() - start

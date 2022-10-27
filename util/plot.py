@@ -21,7 +21,7 @@ AGENTTYPE = Union[
     RecordLearningData[Union[QuadRotorLSTDQAgent, QuadRotorGPSafeLSTDQAgent]]
 ]
 PAPERMODE = False
-SMALL_ALPHA = {False: 0.5, True: 0.05}
+SMALL_ALPHA = {False: 0.5, True: 0.25}
 SMALLER_LW_FACTOR = {False: 40, True: 50}
 MATLAB_COLORS = [
     '#0072BD', '#D95319', '#EDB120', '#7E2F8E', '#77AC30', '#4DBEEE', '#A2142F'
@@ -41,25 +41,32 @@ def _plot_population(
     xlabel: str = None,
     ylabel: str = None,
     method: str = 'plot',
-    legendloc: str = 'upper right'
+    legendloc: str = 'upper right',
+    **kwargs
 ) -> None:
     if y_mean is None and y is not None:
         y_mean = (np.nanmedian if use_median else np.nanmean)(y, axis=0)
     lw = mpl.rcParams['lines.linewidth']
     lw_small = lw / SMALLER_LW_FACTOR[PAPERMODE]
     func = getattr(ax, method)
-    if method != 'errorbar':
-        if y is not None:
-            func(x, y.T, lw=lw_small, color=color, linestyle=linestyle,
-                 alpha=SMALL_ALPHA[PAPERMODE])
-        if y_mean is not None:
-            func(x, y_mean, lw=lw, color=color, linestyle=linestyle,
-                 label=label)
-    else:
+    if method == 'errorbar':
         y_std = y_std if y_std is not None else np.nanstd(y, axis=0)
         func(x, y_mean, yerr=y_std, color=color, lw=lw,
              linestyle=linestyle, label=label, errorevery=x.size // 10,
-             capsize=5)
+             capsize=5, **kwargs)
+    elif method == 'fill_between':
+        y_std = y_std if y_std is not None else np.nanstd(y, axis=0)
+        func(x, y_mean - y_std, y_mean + y_std, alpha=SMALL_ALPHA[PAPERMODE], 
+             color=color)
+        ax.plot(x, y_mean, lw=lw, color=color, linestyle=linestyle,
+                label=label, **kwargs)
+    else:
+        if y is not None:
+            func(x, y.T, lw=lw_small, color=color, linestyle=linestyle,
+                 alpha=SMALL_ALPHA[PAPERMODE], **kwargs)
+        if y_mean is not None:
+            func(x, y_mean, lw=lw, color=color, linestyle=linestyle,
+                 label=label, **kwargs)
 
     if xlabel is not None and len(ax.get_xlabel()) == 0:
         ax.set_xlabel(xlabel)
@@ -300,25 +307,16 @@ def safety(
                      xlabel='Episode', ylabel='Number of unsafe episodes',
                      legendloc='upper left')
 
-    attr = (
-        'backtracked_gp_pars_history'
-        if hasattr(agents[0], 'backtracked_gp_pars_history') else
-        'agent_backtracked_gp_pars_history'
-    )
+    attr = 'backtracked_betas'
     if agents is not None and all(
             a is not None and hasattr(a, attr) for a in agents):
-        pars = jstack([getattr(a, attr) for a in agents])
-        updates = np.arange(pars.shape[1]) + 1
+        betas = jstack([getattr(a, attr) for a in agents])
+        updates = np.arange(betas.shape[1]) + 1
 
-        parnames = ['$\\beta$', '$\\mu_0$', ]
-        styles = ['-', '--', ':']
         ax = next(axs)
         ax.set_axis_on()
-        for i, name, ls in zip(range(pars.shape[-1]), parnames, styles):
-            name = name if label is None else f'{label}: {name}'
-            _plot_population(ax, updates, pars[..., i], color=color,
-                             linestyle=ls, label=name,
-                             xlabel='Update', ylabel='GP parameters')
+        _plot_population(ax, updates, betas, color=color, label=r'$\beta$',
+                         xlabel='Update', ylabel='GP parameters')
     _set_empty_axis_off(axs)
     return fig
 
@@ -331,40 +329,39 @@ def paperplots(
     Produces and saves to .tex the plots for the paper. For more details and 
     comments on the inner workings, see standard visualization functions above.
     '''
-    lstdq_agents = agents['lstdq']
-    lstdq_safe_agents = agents['lstdq-safe']
-    pk_agents = agents['pk']
+    lstdq = agents['lstdq']
+    safe_lstdq = agents['safe-lstdq']
+    safe_lstdq_prior = agents['safe-lstdq-prior']
+    learning_agents = (lstdq, safe_lstdq, safe_lstdq_prior)
+    pk = agents['pk']
     colors = [c['color'] for c in mpl.rcParams['axes.prop_cycle']]
-    labels = ('LSTD Q', 'Safe LSTD Q', 'Baseline')
+    labels = ('LSTD Q', 'Safe LSTD Q', 'Safe LSTD Q (prior knowledge)')
     use_median = False
 
     def figure1() -> Figure:
         fig, ax = plt.subplots(1, 1, constrained_layout=True)
         baseline = np.nanmean(
-            list(chain.from_iterable(a.env.cum_rewards for a in pk_agents)))
-        lstdq_perf = jstack([a.env.cum_rewards for a in lstdq_agents])
-        lstdq_safe_perf = jstack(
-            [a.env.cum_rewards for a in lstdq_safe_agents])
-        episodes = np.arange(lstdq_perf.shape[1]) + 1
-        _plot_population(
-            ax, episodes, lstdq_perf, use_median=use_median,
-            color=colors[0], label=labels[0])
-        _plot_population(
-            ax, episodes, lstdq_safe_perf, use_median=use_median,
-            color=colors[1], label=labels[1],
-            xlabel='Learning Episode', ylabel=r'$J(\pi_\theta)$')
-        ax.axhline(y=baseline, color='k', lw=1, ls='--', label=labels[2])
-        ax.set_xlim(episodes[0], episodes[-1] // 2)
+            list(chain.from_iterable(a.env.cum_rewards for a in pk)))
+        performances = [jstack([a.env.cum_rewards for a in agents])
+                        for agents in learning_agents]
+        episodes = np.arange(performances[0].shape[1]) + 1
+        L = 25
+        for performance, clr, lbl in zip(performances, colors, labels):
+            _plot_population(
+                ax, episodes[:L], performance[:, :L], use_median=use_median,
+                color=clr, label=lbl, method='fill_between',
+                xlabel='Learning episode', ylabel=r'$J(\pi_\theta)$')
+        ax.axhline(y=baseline, color='k', lw=1, ls='--')
+        ax.set_xlim(episodes[0], episodes[L])
         ax.set_ylim(0, 30000)
         return fig
 
     def figure2() -> Figure:
         fig, axs = plt.subplots(2, 1, constrained_layout=True, sharex=True)
-        axs = iter(axs)
 
         altitude_violations = []
         unsafe_episodes = []
-        for agents in (lstdq_agents, lstdq_safe_agents):
+        for agents in learning_agents:
             observations = np.transpose(
                 jstack([jstack(a.env.observations) for a in agents]))
             actions = np.transpose(
@@ -379,37 +376,39 @@ def paperplots(
             max_cv = np.concatenate((cv_obs, cv_act), axis=0).max(axis=0)
             unsafe_episodes.append(np.nancumsum(max_cv > 0.0, axis=0).T)
 
+        UE_avg = [eps[:, -1].mean() for eps in unsafe_episodes]
+        percs = [(UE_avg[0] - ue) / UE_avg[0] * 100 for ue in UE_avg[1:]]
+        print('Unsafe episodes average reduction =',
+              ', '.join(f'{p:.2f}%' for p in percs))
+
         episodes = np.arange(unsafe_episodes[0].shape[1]) + 1
-        ax = next(axs)
-        _plot_population(
-            ax, episodes, unsafe_episodes[0], use_median=use_median,
-            color=colors[0], label=labels[0])
-        _plot_population(
-            ax, episodes, unsafe_episodes[1], use_median=use_median,
-            color=colors[1], label=labels[1], legendloc='upper left',
-            ylabel=r'\# of Unsafe Episodes')
-        ax = next(axs)
-        _plot_population(
-            ax, episodes, altitude_violations[0], use_median=use_median,
-            color=colors[0], label=labels[0])
-        _plot_population(
-            ax, episodes, altitude_violations[1], use_median=use_median,
-            color=colors[1], label=labels[1],
-            xlabel='Learning Episode', ylabel='Altitude Constraint')
-        ax.set_xlim(episodes[0], episodes[-1])
-        ax.set_ylim(-1, 5)
+        for ue, av, clr, lbl in zip(
+                unsafe_episodes, altitude_violations, colors, labels):
+            _plot_population(
+                axs[0], episodes, ue, use_median=use_median,
+                color=clr, label=lbl, method='fill_between',
+                ylabel=r'\# of unsafe episodes', legendloc='upper left')
+            _plot_population(
+                axs[1], episodes, av, use_median=use_median,
+                color=clr, label=lbl, method='fill_between',
+                xlabel='Learning episode', ylabel='Altitude constraint')
+        axs[0].set_xlim(episodes[0], episodes[-1])
+        axs[1].set_ylim(-1, 5)
         return fig
 
     def figure3() -> Figure:
-        fig, ax = plt.subplots(1, 1, constrained_layout=use_median)
-        betas = np.squeeze(jstack(
-            [a.backtracked_gp_pars_history for a in lstdq_safe_agents]))
-        episodes = np.arange(betas.shape[1]) + 1
-        _plot_population(
-            ax, episodes, betas, color=colors[1], use_median=use_median,
-            xlabel='Learning Episode', ylabel=r'$\beta$')
+        fig, ax = plt.subplots(1, 1, constrained_layout=True)
+        for agents, clr, lbl in zip(
+                learning_agents[1:], colors[1:], labels[1:]):
+            betas = jstack([a.backtracked_betas for a in agents])
+            episodes = np.arange(betas.shape[1]) + 1
+            _plot_population(
+                ax, episodes, betas, use_median=use_median,
+                color=clr, label=lbl, legendloc='lower right',
+                method='fill_between',
+                xlabel='Learning episode', ylabel=r'$\beta$')
         ax.set_xlim(episodes[0], episodes[-1])
-        ax.set_ylim(bottom=0.33)
+        ax.set_ylim(0.43, 1.1)
         return fig
 
     figs = [fcn() for k, fcn in locals().items()
