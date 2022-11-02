@@ -2,10 +2,10 @@
 ![Python 3.9.5](https://img.shields.io/badge/python-3.9.5-green.svg)
 
 
-# Learning safely in MPC-based Reinforcement Learning using Gaussian Processes
+# Learning safety in model-based Reinforcement Learning using MPC and Gaussian Processes
 
 <div align="center">
-  <img src="./resources/img.png" height="300">
+  <img src="./resources/img.png" height="200">
 </div>
 
 This repository contains the source code used to produce the results obtained in our 2023 IFAC paper [here the paper](https://theuselessweb.com/).
