@@ -8,7 +8,7 @@
   <img src="./resources/img.png" height="200">
 </div>
 
-This repository contains the source code used to produce the results obtained in our 2023 IFAC paper [here the paper](https://theuselessweb.com/).
+This repository contains the source code used to produce the results obtained in our 2023 IFAC paper [here the paper](https://arxiv.org/abs/2211.01860/).
 
 In this work, we propose a straightforward yet effective algorithm for enabling safety in the context of Safe Reinforcement Learning (RL) using Model Predictive Control (MPC) as function approximation. The unknown constraints encoding safety are learnt from observed MPC trajectories via Gaussian Process (GP) regression, and are then enforced onto the RL agent to guarantee that the MPC controller is safe with high probability.
  
