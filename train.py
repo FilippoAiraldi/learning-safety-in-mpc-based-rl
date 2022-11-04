@@ -163,7 +163,7 @@ if __name__ == '__main__':
             'replay_sample_size': args.replay_mem_sample,
             'replay_include_last': args.episodes,
             'alpha': args.gp_alpha,
-            'kernel_cls': args.gp_kernel_type,
+            'kernel_cls': args.gp_kernel,
             'average_violation': args.average_violation,
         }
         func = lambda n: train_lstdq_agent(
