@@ -14,7 +14,14 @@ In this work, we propose a straightforward yet effective algorithm for enabling 
  
 If you find the paper or this repository helpful in your publications, please consider citing it.
 ```
-@InProceedings{
+article{airaldi2022learning,
+  author = {Airaldi, Filippo and De Schutter, Bart and Dabiri, Azita},
+  title = {Learning safety in model-based Reinforcement Learning using MPC and Gaussian Processes},
+  publisher = {arXiv},
+  journal={arXiv preprint arXiv:2211.01860},
+  year = {2022},
+  doi = {10.48550/ARXIV.2211.01860},
+  url = {https://arxiv.org/abs/2211.01860}
 }
 ```
 
