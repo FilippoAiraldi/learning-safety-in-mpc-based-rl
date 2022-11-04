@@ -30,7 +30,7 @@ article{airaldi2022learning,
 
 The code was created with `Python 3.9.5`. To access it, clone the repository
 ```bash
-git clone https://github.com/FilippoAiraldi/learning-safely.git
+git clone https://github.com/FilippoAiraldi/learning-safety-in-mpc-based-rl.git
 cd learning-safely
 ```
 and then install the required packages by, e.g., running
