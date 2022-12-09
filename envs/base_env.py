@@ -1,17 +1,18 @@
 from abc import ABC
 from typing import Type, TypeVar
+
 import gym
-from gym.wrappers import TimeLimit, OrderEnforcing, NormalizeReward
-from envs.wrappers import RecordData
+from gym.wrappers import NormalizeReward, OrderEnforcing, TimeLimit
 
+from envs.wrappers.record_data import RecordData
 
-ObsType = TypeVar('ObsType')
-ActType = TypeVar('ActType')
-SuperEnvType = TypeVar('SuperEnvType')
+ObsType = TypeVar("ObsType")
+ActType = TypeVar("ActType")
+SuperEnvType = TypeVar("SuperEnvType")
 
 
 class BaseEnv(gym.Env[ObsType, ActType], ABC):
-    '''Base abstract class for gym environments.'''
+    """Base abstract class for gym environments."""
 
     @classmethod
     def get_wrapped(
@@ -23,11 +24,8 @@ class BaseEnv(gym.Env[ObsType, ActType], ABC):
         enforce_order: bool = True,
         **env_kwargs,
     ) -> SuperEnvType:
-        '''
-        Returns the environment properly encapsulated in some useful wrappers. 
-        Passing `None` to an argument disables the corresponding wrapper, aside
-        from `OrderEnforcing` and .
-
+        """
+        Returns the environment properly encapsulated in some useful wrappers.
         The wrappers are (from in to outward)
             - `OrderEnforcing`
             - `RecordData`
@@ -43,8 +41,8 @@ class BaseEnv(gym.Env[ObsType, ActType], ABC):
         deque_size : int, optional
             Maximum number of episodic data saved (see `RecordData`).
         normalize_reward : tuple[bool, gamma], optional
-            Whether to apply reward normalization or not 
-            (see `NormalizeReward`). `gamma` is the discount factor.
+            Whether to apply reward normalization or not (see `NormalizeReward`).
+            `gamma` is the discount factor.
         enforce_order : bool, optional
             Whether to apply order enforcing or not (see `OrderEnforcing`).
         env_kwargs : dict
@@ -54,7 +52,7 @@ class BaseEnv(gym.Env[ObsType, ActType], ABC):
         -------
         env : wrapped gym.Env
             The environment wrapped in wrappers.
-        '''
+        """
         # wrap the environment. The last wrapper is the first to be executed,
         # so put the data-recording close to the env, after possible
         # modifications by outer wrappers
@@ -70,9 +68,9 @@ class BaseEnv(gym.Env[ObsType, ActType], ABC):
         return env
 
     def __str__(self) -> str:
-        '''Returns the environment string.'''
-        return f'<{type(self).__name__}>'
+        """Returns the environment string."""
+        return f"<{type(self).__name__}>"
 
     def __repr__(self) -> str:
-        '''Returns the string representation of the environment.'''
+        """Returns the string representation of the environment."""
         return str(self)
