@@ -6,13 +6,13 @@ from gym.wrappers import NormalizeReward, OrderEnforcing, TimeLimit
 
 from envs.wrappers import ClipActionIfClose, RecordData
 
-ObsType = TypeVar('ObsType')
-ActType = TypeVar('ActType')
-SuperEnvType = TypeVar('SuperEnvType')
+ObsType = TypeVar("ObsType")
+ActType = TypeVar("ActType")
+SuperEnvType = TypeVar("SuperEnvType")
 
 
 class BaseEnv(gym.Env[ObsType, ActType], ABC):
-    '''Base abstract class for gym environments.'''
+    """Base abstract class for gym environments."""
 
     @classmethod
     def get_wrapped(
@@ -25,8 +25,8 @@ class BaseEnv(gym.Env[ObsType, ActType], ABC):
         enforce_order: bool = True,
         **env_kwargs,
     ) -> SuperEnvType:
-        '''
-        Returns the environment properly encapsulated in some useful wrappers. 
+        """
+        Returns the environment properly encapsulated in some useful wrappers.
         Passing `None` to an argument disables the corresponding wrapper, aside
         from `OrderEnforcing` and .
 
@@ -46,7 +46,7 @@ class BaseEnv(gym.Env[ObsType, ActType], ABC):
         deque_size : int, optional
             Maximum number of episodic data saved (see `RecordData`).
         normalize_reward : tuple[bool, gamma], optional
-            Whether to apply reward normalization or not 
+            Whether to apply reward normalization or not
             (see `NormalizeReward`). `gamma` is the discount factor.
         clip_action : bool, optional
             Whether to clip actions that violates the action space
@@ -60,7 +60,7 @@ class BaseEnv(gym.Env[ObsType, ActType], ABC):
         -------
         env : wrapped gym.Env
             The environment wrapped in wrappers.
-        '''
+        """
         # wrap the environment. The last wrapper is the first to be executed,
         # so put the data-recording close to the env, after possible
         # modifications by outer wrappers
@@ -73,17 +73,18 @@ class BaseEnv(gym.Env[ObsType, ActType], ABC):
             env = RecordData(env, deque_size=deque_size)
         if normalize_reward[0]:
             env = NormalizeReward(env, gamma=normalize_reward[1])
-        if clip_action and (env.action_space.bounded_below.any() or
-                            env.action_space.bounded_above.any()):
+        if clip_action and (
+            env.action_space.bounded_below.any() or env.action_space.bounded_above.any()
+        ):
             env = ClipActionIfClose(env)
         if enforce_order:
             env = OrderEnforcing(env)
         return env
 
     def __str__(self) -> str:
-        '''Returns the environment string.'''
-        return f'<{type(self).__name__}>'
+        """Returns the environment string."""
+        return f"<{type(self).__name__}>"
 
     def __repr__(self) -> str:
-        '''Returns the string representation of the environment.'''
+        """Returns the string representation of the environment."""
         return str(self)

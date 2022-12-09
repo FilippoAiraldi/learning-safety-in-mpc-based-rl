@@ -12,12 +12,12 @@ from util.math import NormalizationService
 
 @dataclass
 class QuadRotorEnvConfig(BaseConfig):
-    '''
-    Quadrotor environment configuration parameters. The model parameters must 
-    be nonnegative, whereas the disturbance parameter `winds` is a dictionary 
+    """
+    Quadrotor environment configuration parameters. The model parameters must
+    be nonnegative, whereas the disturbance parameter `winds` is a dictionary
     with each gust's altitude and strength. Also the bounds on state and action
     are included.
-    '''
+    """
 
     # model parameters
     T: float = 0.1
@@ -31,32 +31,39 @@ class QuadRotorEnvConfig(BaseConfig):
     roll_gain: float = 10
 
     # disturbance parameters
-    winds: dict[float, float] = field(
-        default_factory=lambda: {1: 1.0, 2: 0.7, 3: 0.85})
+    winds: dict[float, float] = field(default_factory=lambda: {1: 1.0, 2: 0.7, 3: 0.85})
 
     # simulation
-    x0: np.ndarray = field(default_factory=lambda: np.array(
-        [0, 0, 3.5, 0, 0, 0, 0, 0, 0, 0]))
-    xf: np.ndarray = field(default_factory=lambda: np.array(
-        [3, 3, 0.2, 0, 0, 0, 0, 0, 0, 0]))
+    x0: np.ndarray = field(
+        default_factory=lambda: np.array([0, 0, 3.5, 0, 0, 0, 0, 0, 0, 0])
+    )
+    xf: np.ndarray = field(
+        default_factory=lambda: np.array([3, 3, 0.2, 0, 0, 0, 0, 0, 0, 0])
+    )
 
     # constraints
     soft_constraints: bool = True
     x_bounds: np.ndarray = field(
-        default_factory=lambda: np.array([[-0.5, 3.5],
-                                          [-0.5, 3.5],
-                                          [-0.175, 4],
-                                          [-np.inf, np.inf],
-                                          [-np.inf, np.inf],
-                                          [-np.inf, np.inf],
-                                          [np.deg2rad(-30), np.deg2rad(30)],
-                                          [np.deg2rad(-30), np.deg2rad(30)],
-                                          [-np.inf, np.inf],
-                                          [-np.inf, np.inf]]))
+        default_factory=lambda: np.array(
+            [
+                [-0.5, 3.5],
+                [-0.5, 3.5],
+                [-0.175, 4],
+                [-np.inf, np.inf],
+                [-np.inf, np.inf],
+                [-np.inf, np.inf],
+                [np.deg2rad(-30), np.deg2rad(30)],
+                [np.deg2rad(-30), np.deg2rad(30)],
+                [-np.inf, np.inf],
+                [-np.inf, np.inf],
+            ]
+        )
+    )
     u_bounds: np.ndarray = field(
-        default_factory=lambda: np.array([[-np.pi, np.pi],
-                                          [-np.pi, np.pi],
-                                          [0, 2 * 9.81]]))
+        default_factory=lambda: np.array(
+            [[-np.pi, np.pi], [-np.pi, np.pi], [0, 2 * 9.81]]
+        )
+    )
 
     # termination conditions
     termination_N: int = 5
@@ -66,44 +73,47 @@ class QuadRotorEnvConfig(BaseConfig):
     normalization_ranges: dict[str, np.ndarray] = field(
         default_factory=lambda: {
             # model parameters
-            'g': np.array([0, 20]),
-            'thrust_coeff': np.array([0, 4]),
-            'pitch_d': np.array([0, 200]),
-            'pitch_dd': np.array([0, 200]),
-            'pitch_gain': np.array([0, 20]),
-            'roll_d': np.array([0, 20]),
-            'roll_dd': np.array([0, 20]),
-            'roll_gain': np.array([0, 20]),
+            "g": np.array([0, 20]),
+            "thrust_coeff": np.array([0, 4]),
+            "pitch_d": np.array([0, 200]),
+            "pitch_dd": np.array([0, 200]),
+            "pitch_gain": np.array([0, 20]),
+            "roll_d": np.array([0, 20]),
+            "roll_dd": np.array([0, 20]),
+            "roll_gain": np.array([0, 20]),
             # system states
-            'x': np.array([[-1, 5],
-                           [-1, 5],
-                           [-1, 5],
-                           [-4, 4],
-                           [-4, 4],
-                           [-4, 4],
-                           [np.deg2rad(-30), np.deg2rad(30)],
-                           [np.deg2rad(-30), np.deg2rad(30)],
-                           [-3, 3],
-                           [-3, 3]]),
+            "x": np.array(
+                [
+                    [-1, 5],
+                    [-1, 5],
+                    [-1, 5],
+                    [-4, 4],
+                    [-4, 4],
+                    [-4, 4],
+                    [np.deg2rad(-30), np.deg2rad(30)],
+                    [np.deg2rad(-30), np.deg2rad(30)],
+                    [-3, 3],
+                    [-3, 3],
+                ]
+            ),
             # system control actions
-            'u': np.array([[-np.pi, np.pi],
-                           [-np.pi, np.pi],
-                           [0, 20]]),
-        })
+            "u": np.array([[-np.pi, np.pi], [-np.pi, np.pi], [0, 20]]),
+        }
+    )
 
 
 class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
-    '''
+    """
     ### Description
     The QuadRotorEnv consists in control problem whose goal is to drive a
-    quadrotor to a specific terminal location. Altitude-dependent winds 
-    stochastically disturb the dynamics. The model is most accurate when the 
-    pitch and roll do not exceed 30° in both directions. However, these 
+    quadrotor to a specific terminal location. Altitude-dependent winds
+    stochastically disturb the dynamics. The model is most accurate when the
+    pitch and roll do not exceed 30° in both directions. However, these
     constraints can be momentarily violated, so no hard limit is imposed within
     the environment itself. On the contrary, the control authority is limited.
 
     ### Observation Space
-    The observation is a `ndarray` with shape `(10,)` where the elements 
+    The observation is a `ndarray` with shape `(10,)` where the elements
     correspond to the following states of the quadrotor:
     | N | Observation                          | Min    | Max | Unit          |
     |---|--------------------------------------|--------|-----|---------------|
@@ -117,7 +127,7 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
     | 7 | roll                                 | -30°   | 30° | angle (rad)   |
     | 8 | pitch rate                           | -Inf   | Inf | speed (rad/s) |
     | 8 | roll rate                            | -Inf   | Inf | speed (rad/s) |
-    The constraints can be changed, as well as made soft with the appropriate 
+    The constraints can be changed, as well as made soft with the appropriate
     flag. In this case, the observation space becomes unbounded.
 
     ### Action Space
@@ -134,25 +144,25 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
     ```
     x+ = A*x + B*u + C*phi(s[2])*w + e
     ```
-    where `x` and `x+` are the current and next state, `u` is the control 
-    action, `phi` is a nonlinear term modulating wind disturbance strength and 
-    `w` is a uniformly distributed random variable. `A`, `B`, `C` and `e` are 
+    where `x` and `x+` are the current and next state, `u` is the control
+    action, `phi` is a nonlinear term modulating wind disturbance strength and
+    `w` is a uniformly distributed random variable. `A`, `B`, `C` and `e` are
     system elements.
 
     ### Cost:
-    The cost consists of three source: positional error (proportional to the 
+    The cost consists of three source: positional error (proportional to the
     distance of the quadrotor to the final position), control action usage (
-    proportional to the magnitude of the control action), and constraint 
+    proportional to the magnitude of the control action), and constraint
     violation (proportional to violations of both state and action bounds).
 
     ### Initial And Final State
-    The initial and final states are constant across resets, unless manually 
+    The initial and final states are constant across resets, unless manually
     specified.
 
     ### Episode End
     The episode ends if the state approaches the final one within the specified
     error and stays within this error bound for the specified amount of steps.
-    '''
+    """
 
     spec: dict = None
     nx: int = 10
@@ -161,19 +171,19 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
     def __init__(
         self,
         config: Union[dict, QuadRotorEnvConfig] = None,
-        normalization: NormalizationService = None
+        normalization: NormalizationService = None,
     ) -> None:
-        '''
-        This environment simulates a 10-state quadrotor system with limited 
-        input authority whose goal is to reach a target position, from an 
+        """
+        This environment simulates a 10-state quadrotor system with limited
+        input authority whose goal is to reach a target position, from an
         initial position.
 
         Parameters
         ----------
         config : {dict, QuadRotorPars}, optional
-            A set of parameters for the quadrotor model and disturbances. If 
+            A set of parameters for the quadrotor model and disturbances. If
             not given, the default ones are used.
-        '''
+        """
 
         super().__init__()
         config = self._init_config(config, normalization)
@@ -190,7 +200,7 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
             roll_d=config.roll_d,
             roll_dd=config.roll_dd,
             roll_gain=config.roll_gain,
-            winds=config.winds
+            winds=config.winds,
         )
 
         # create spaces
@@ -200,14 +210,12 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
         else:
             low_x, high_w = config.x_bounds[:, 0], config.x_bounds[:, 1]
             low_u, high_u = config.u_bounds[:, 0], config.u_bounds[:, 0]
-        self.observation_space = spaces.Box(low=low_x,
-                                            high=high_w,
-                                            shape=(self.nx,),
-                                            dtype=np.float64)
-        self.action_space = spaces.Box(low=low_u,
-                                       high=high_u,
-                                       shape=(self.nu,),
-                                       dtype=np.float64)
+        self.observation_space = spaces.Box(
+            low=low_x, high=high_w, shape=(self.nx,), dtype=np.float64
+        )
+        self.action_space = spaces.Box(
+            low=low_u, high=high_u, shape=(self.nu,), dtype=np.float64
+        )
 
         # weight for positional, control action usage and violation errors
         self._Wx = np.ones(self.nx)
@@ -224,56 +232,56 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
 
     @property
     def A(self) -> np.ndarray:
-        '''Returns a copy of the dynamics `A` matrix.'''
+        """Returns a copy of the dynamics `A` matrix."""
         return self._A.copy()
 
     @property
     def B(self) -> np.ndarray:
-        '''Returns a copy of the dynamics `B` matrix.'''
+        """Returns a copy of the dynamics `B` matrix."""
         return self._B.copy()
 
     @property
     def C(self) -> np.ndarray:
-        '''Returns a copy of the dynamics `C` matrix.'''
+        """Returns a copy of the dynamics `C` matrix."""
         return self._C.copy()
 
     @property
     def e(self) -> np.ndarray:
-        '''Returns a copy of the dynamics `e` vector.'''
+        """Returns a copy of the dynamics `e` vector."""
         return self._e.copy()
 
     @property
     def x(self) -> np.ndarray:
-        '''Gets a copy of the current state of the quadrotor.'''
+        """Gets a copy of the current state of the quadrotor."""
         return self._x.copy()
 
     @x.setter
     def x(self, val: np.ndarray) -> None:
-        '''Sets the current state of the quadrotor.'''
-        assert self.observation_space.contains(val), f'Invalid state {val}.'
+        """Sets the current state of the quadrotor."""
+        assert self.observation_space.contains(val), f"Invalid state {val}."
         self._x = val.copy()
 
     def position_error(self, x: np.ndarray) -> float:
-        '''Error of the given state w.r.t. the final position.'''
+        """Error of the given state w.r.t. the final position."""
         return (np.square((x - self.config.xf)) * self._Wx).sum(axis=-1)
 
     def control_usage(self, u: np.ndarray) -> float:
-        '''Error of the given action related to its norm.'''
+        """Error of the given action related to its norm."""
         return (np.square(u) * self._Wu).sum(axis=-1)
 
     def constraint_violations(self, x: np.ndarray, u: np.ndarray) -> float:
-        '''Error of the given state and action w.r.t. constraint violations.'''
+        """Error of the given state and action w.r.t. constraint violations."""
         W = self._Wv
         return (
-            W[0] * np.maximum(0, self.config.x_bounds[:, 0] - x).sum(axis=-1) +
-            W[1] * np.maximum(0, x - self.config.x_bounds[:, 1]).sum(axis=-1) +
-            W[2] * np.maximum(0, self.config.u_bounds[:, 0] - u).sum(axis=-1) +
-            W[3] * np.maximum(0, u - self.config.u_bounds[:, 1]).sum(axis=-1)
+            W[0] * np.maximum(0, self.config.x_bounds[:, 0] - x).sum(axis=-1)
+            + W[1] * np.maximum(0, x - self.config.x_bounds[:, 1]).sum(axis=-1)
+            + W[2] * np.maximum(0, self.config.u_bounds[:, 0] - u).sum(axis=-1)
+            + W[3] * np.maximum(0, u - self.config.u_bounds[:, 1]).sum(axis=-1)
         )
 
     def phi(self, alt: Union[float, np.ndarray]) -> np.ndarray:
-        '''
-        Computes the wind disturbance's radial basis functions at the given 
+        """
+        Computes the wind disturbance's radial basis functions at the given
         altitude.
 
         # Parameters
@@ -285,37 +293,32 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
         -------
         y : array_like
             The value of the functions.
-        '''
+        """
         if isinstance(alt, np.ndarray):
             alt = alt.squeeze()
-            assert alt.ndim == 1, 'Altitudes must be a vector'
+            assert alt.ndim == 1, "Altitudes must be a vector"
 
-        return np.vstack([
-            np.exp(-np.square(alt - h)) for h in self.config.winds
-        ])
+        return np.vstack([np.exp(-np.square(alt - h)) for h in self.config.winds])
 
     def reset(
-        self,
-        seed: int = None,
-        x0: np.ndarray = None,
-        xf: np.ndarray = None
+        self, seed: int = None, x0: np.ndarray = None, xf: np.ndarray = None
     ) -> np.ndarray:
-        '''
-        Resets the quadrotor environment. 
+        """
+        Resets the quadrotor environment.
 
         # Parameters
         ----------
         seed : int, optional
             Random number generator seed.
         x0, xf : array_like, optional
-            Sets the initial and terminal states of the simulation. If not 
+            Sets the initial and terminal states of the simulation. If not
             passed, the conditions are chosen from default.
 
         Returns
         -------
         x : array_like
             The value of the functions.
-        '''
+        """
         super().reset(seed=seed)
         self.observation_space.seed(seed=seed)
         self.action_space.seed(seed=seed)
@@ -323,19 +326,18 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
             x0 = self.config.x0
         if xf is None:
             xf = self.config.xf
-        assert (self.observation_space.contains(x0) and
-                self.observation_space.contains(xf)), \
-            'Invalid initial or final state.'
+        assert self.observation_space.contains(x0) and self.observation_space.contains(
+            xf
+        ), "Invalid initial or final state."
         self.x = x0
         self.config.x0 = x0
         self.config.xf = xf
         self._n_within_termination = 0
         return self.x
 
-    def step(
-            self, u: np.ndarray) -> tuple[np.ndarray, float, bool, bool, dict]:
-        '''
-        Steps the quadrotor environment. 
+    def step(self, u: np.ndarray) -> tuple[np.ndarray, float, bool, bool, dict]:
+        """
+        Steps the quadrotor environment.
 
         # Parameters
         ----------
@@ -344,26 +346,31 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
 
         Returns
         -------
-        new_state, cost, truncated, terminated, info : 
+        new_state, cost, truncated, terminated, info :
                                                 array_like, float, bool, dict
-            A tuple containing the new state of the quadrotor, the 
-            instantenuous cost of taking this action in this state, the 
+            A tuple containing the new state of the quadrotor, the
+            instantenuous cost of taking this action in this state, the
             truncation/termination flags and a dictionary of information.
-        '''
+        """
         u = u.squeeze()  # in case a row or col was passed
-        assert self.action_space.contains(u), 'Invalid action.'
+        assert self.action_space.contains(u), "Invalid action."
 
         # compute noise disturbance
-        wind = self._C @ self.phi(self.x[2]) * self.np_random.uniform(
-            low=[0, 0, -1, 0, 0, 0, -1, -1, 0, 0],
-            high=[1, 1, 0, 0, 0, 0, 1, 1, 0, 0]).reshape(self.nx, 1)
+        wind = (
+            self._C
+            @ self.phi(self.x[2])
+            * self.np_random.uniform(
+                low=[0, 0, -1, 0, 0, 0, -1, -1, 0, 0],
+                high=[1, 1, 0, 0, 0, 0, 1, 1, 0, 0],
+            ).reshape(self.nx, 1)
+        )
 
         # compute new state: x+ = A*x + B*u + e + C*phi(s[2])*w
         self.x = (
-            self._A @ self.x.reshape((-1, 1)) +
-            self._B @ u.reshape((-1, 1)) +
-            self._e +
-            wind
+            self._A @ self.x.reshape((-1, 1))
+            + self._B @ u.reshape((-1, 1))
+            + self._e
+            + wind
         ).flatten()
 
         # compute cost
@@ -373,18 +380,20 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
         cost = float(error + usage + violations)
 
         # check if terminated
-        within_bounds = ((self.config.x_bounds[:, 0] <= self._x) &
-                         (self._x <= self.config.x_bounds[:, 1])).all()
+        within_bounds = (
+            (self.config.x_bounds[:, 0] <= self._x)
+            & (self._x <= self.config.x_bounds[:, 1])
+        ).all()
         if error <= self.config.termination_error and within_bounds:
             self._n_within_termination += 1
         else:
             self._n_within_termination = 0
         terminated = self._n_within_termination >= self.config.termination_N
         #
-        return self.x, cost, terminated, False, {'error': error}
+        return self.x, cost, terminated, False, {"error": error}
 
     def render(self):
-        raise NotImplementedError('Render method unavailable.')
+        raise NotImplementedError("Render method unavailable.")
 
     def get_dynamics(
         self,
@@ -396,90 +405,100 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
         roll_d: Union[float, cs.SX],
         roll_dd: Union[float, cs.SX],
         roll_gain: Union[float, cs.SX],
-        winds: dict[float, float] = None
+        winds: dict[float, float] = None,
     ) -> Union[
         tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray],
-        tuple[cs.SX, cs.SX, cs.SX]
+        tuple[cs.SX, cs.SX, cs.SX],
     ]:
-        '''
-        If arguments are all numerical, returns the matrices of the system's 
+        """
+        If arguments are all numerical, returns the matrices of the system's
         dynamics `A`, `B`, `C` and `e`; otherwise, returns the `A`, `B` and `e`
         in symbolical form.
-        '''
+        """
         T = self.config.T
 
         # prepare either numerical or symbolical methods
-        is_casadi = any(isinstance(o, (cs.SX, cs.MX, cs.DM))
-                        for o in [g, thrust_coeff, pitch_d, pitch_dd,
-                                  pitch_gain, roll_d, roll_dd, roll_gain])
+        is_casadi = any(
+            isinstance(o, (cs.SX, cs.MX, cs.DM))
+            for o in [
+                g,
+                thrust_coeff,
+                pitch_d,
+                pitch_dd,
+                pitch_gain,
+                roll_d,
+                roll_dd,
+                roll_gain,
+            ]
+        )
         if is_casadi:
             diag = lambda o: cs.diag(cs.vertcat(*o))
             block = cs.blockcat
         else:
             diag = np.diag
             block = np.block
-            assert winds is not None, 'Winds are required to compute matrix C.'
+            assert winds is not None, "Winds are required to compute matrix C."
             nw = len(winds)
             wind_mag = np.array(list(winds.values()))
 
         # if normalized, first denormalize the parameters
         if self.normalized:
             N = self.normalization
-            g = N.denormalize('g', g)
-            thrust_coeff = N.denormalize('thrust_coeff', thrust_coeff)
-            pitch_d = N.denormalize('pitch_d', pitch_d)
-            pitch_dd = N.denormalize('pitch_dd', pitch_dd)
-            pitch_gain = N.denormalize('pitch_gain', pitch_gain)
-            roll_d = N.denormalize('roll_d', roll_d)
-            roll_dd = N.denormalize('roll_dd', roll_dd)
-            roll_gain = N.denormalize('roll_gain', roll_gain)
+            g = N.denormalize("g", g)
+            thrust_coeff = N.denormalize("thrust_coeff", thrust_coeff)
+            pitch_d = N.denormalize("pitch_d", pitch_d)
+            pitch_dd = N.denormalize("pitch_dd", pitch_dd)
+            pitch_gain = N.denormalize("pitch_gain", pitch_gain)
+            roll_d = N.denormalize("roll_d", roll_d)
+            roll_dd = N.denormalize("roll_dd", roll_dd)
+            roll_gain = N.denormalize("roll_gain", roll_gain)
 
         # build the actual matrices
-        A = T * block([
-            [np.zeros((3, 3)), np.eye(3), np.zeros((3, 4))],
-            [np.zeros((2, 6)), np.eye(2) * g, np.zeros((2, 2))],
-            [np.zeros((1, 10))],
-            [np.zeros((2, 6)), -diag((pitch_d, roll_d)),
-             np.eye(2)],
-            [np.zeros((2, 6)), -diag((pitch_dd, roll_dd)),
-             np.zeros((2, 2))]
-        ]) + np.eye(10)
-        B = T * block([
-            [np.zeros((5, 3))],
-            [0, 0, thrust_coeff],
-            [np.zeros((2, 3))],
-            [pitch_gain, 0, 0],
-            [0, roll_gain, 0]
-        ])
+        A = T * block(
+            [
+                [np.zeros((3, 3)), np.eye(3), np.zeros((3, 4))],
+                [np.zeros((2, 6)), np.eye(2) * g, np.zeros((2, 2))],
+                [np.zeros((1, 10))],
+                [np.zeros((2, 6)), -diag((pitch_d, roll_d)), np.eye(2)],
+                [np.zeros((2, 6)), -diag((pitch_dd, roll_dd)), np.zeros((2, 2))],
+            ]
+        ) + np.eye(10)
+        B = T * block(
+            [
+                [np.zeros((5, 3))],
+                [0, 0, thrust_coeff],
+                [np.zeros((2, 3))],
+                [pitch_gain, 0, 0],
+                [0, roll_gain, 0],
+            ]
+        )
         if not is_casadi:
-            C = T * block([
-                [wind_mag],
-                [wind_mag],
-                [wind_mag],
-                [np.zeros((3, nw))],
-                [wind_mag],
-                [wind_mag],
-                [np.zeros((2, nw))]
-            ])
-        e = block([
-            [np.zeros((5, 1))],
-            [- T * g],
-            [np.zeros((4, 1))]
-        ])
+            C = T * block(
+                [
+                    [wind_mag],
+                    [wind_mag],
+                    [wind_mag],
+                    [np.zeros((3, nw))],
+                    [wind_mag],
+                    [wind_mag],
+                    [np.zeros((2, nw))],
+                ]
+            )
+        e = block([[np.zeros((5, 1))], [-T * g], [np.zeros((4, 1))]])
 
         # if normalization is not required, just return
         if not self.normalized:
             return (A, B, e) if is_casadi else (A, B, C, e)
 
         # compute the scaling matrices T and offsets M
-        rx = N['x']
+        rx = N["x"]
         Tx = np.diag(1 / (rx[:, 1] - rx[:, 0]))
         Tx_inv = np.diag(rx[:, 1] - rx[:, 0])
-        Mx = - (Tx @ rx[:, 0]).reshape(-1, 1)
-        ru = N['u']
+        Mx = -(Tx @ rx[:, 0]).reshape(-1, 1)
+        ru = N["u"]
         Tu = np.diag(1 / (ru[:, 1] - ru[:, 0]))
         Tu_inv = np.diag(ru[:, 1] - ru[:, 0])
-        Mu = - (Tu @ ru[:, 0]).reshape(-1, 1)
+        Mu = -(Tu @ ru[:, 0]).reshape(-1, 1)
 
         # apply scaling
         As = Tx @ A @ Tx_inv
@@ -487,32 +506,35 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
         if not is_casadi:
             Cs = Tx @ C
         es = (
-            Tx @ e +
-            (np.eye(Tx.shape[0]) - Tx @ A @ Tx_inv) @ Mx -
-            Tx @ B @ Tu_inv @ Mu
+            Tx @ e + (np.eye(Tx.shape[0]) - Tx @ A @ Tx_inv) @ Mx - Tx @ B @ Tu_inv @ Mu
         )
         return (As, Bs, es) if is_casadi else (As, Bs, Cs, es)
 
     def _init_config(
-        self,
-        config: QuadRotorEnvConfig,
-        normalization: Optional[NormalizationService]
+        self, config: QuadRotorEnvConfig, normalization: Optional[NormalizationService]
     ) -> QuadRotorEnvConfig:
-        '''Initializes the env configuration (does not save to self).'''
+        """Initializes the env configuration (does not save to self)."""
         C = init_config(config, QuadRotorEnvConfig)
         if normalization is None:
             return C
         N = normalization
         N.register(C.normalization_ranges)
 
-        for par in ['g', 'thrust_coeff', 'pitch_d', 'pitch_dd', 'pitch_gain',
-                    'roll_d', 'roll_dd', 'roll_gain']:
+        for par in [
+            "g",
+            "thrust_coeff",
+            "pitch_d",
+            "pitch_dd",
+            "pitch_gain",
+            "roll_d",
+            "roll_dd",
+            "roll_gain",
+        ]:
             setattr(C, par, N.normalize(par, getattr(C, par)))
 
-        for par, n in [('x_bounds', 'x'), ('x0', 'x'),
-                       ('xf', 'x'), ('u_bounds', 'u')]:
+        for par, n in [("x_bounds", "x"), ("x0", "x"), ("xf", "x"), ("u_bounds", "u")]:
             setattr(C, par, N.normalize(n, getattr(C, par).T).T)
 
-        fro_norm = np.linalg.norm(np.diff(N['x']).flatten()**-2)
+        fro_norm = np.linalg.norm(np.diff(N["x"]).flatten() ** -2)
         C.termination_error = C.termination_error / fro_norm / self.nx
         return C

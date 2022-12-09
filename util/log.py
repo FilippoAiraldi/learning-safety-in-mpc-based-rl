@@ -6,11 +6,11 @@ from tqdm import tqdm
 
 
 def create_logger(run_name: str, to_file: bool = True) -> logging.Logger:
-    '''Returns a logger that logs to both output and to a file.'''
+    """Returns a logger that logs to both output and to a file."""
     # create logger
     logger = logging.getLogger(run_name)
     logger.setLevel(logging.DEBUG)
-    formatter = logging.Formatter('%(message)s')
+    formatter = logging.Formatter("%(message)s")
 
     # create console handler
     ch = logging.StreamHandler()
@@ -20,7 +20,7 @@ def create_logger(run_name: str, to_file: bool = True) -> logging.Logger:
 
     # create file handler
     if to_file:
-        fh = logging.FileHandler(f'{run_name}.txt')
+        fh = logging.FileHandler(f"{run_name}.txt")
         fh.setLevel(logging.DEBUG)
         fh.setFormatter(formatter)
         logger.addHandler(fh)
@@ -30,11 +30,11 @@ def create_logger(run_name: str, to_file: bool = True) -> logging.Logger:
 
 @contextlib.contextmanager
 def tqdm_joblib(*args, **kwargs):
-    '''
+    """
     Context manager to patch joblib to report into tqdm progress bar
     given as argument.
     Thanks to https://stackoverflow.com/questions/24983493/tracking-progress-of-joblib-parallel-execution/58936697#58936697
-    '''
+    """
     tqdm_object = tqdm(*args, **kwargs)
 
     class TqdmBatchCompletionCallback(joblib.parallel.BatchCompletionCallBack):

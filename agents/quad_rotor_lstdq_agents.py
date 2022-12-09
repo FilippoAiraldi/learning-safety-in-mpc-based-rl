@@ -17,9 +17,11 @@ from util.casadi import norm_ppf
 from util.configurations import BaseConfig, init_config
 from util.errors import MPCSolverError, UpdateError
 from util.gp import CasadiKernels, MultitGaussianProcessRegressor
-from util.math import (NormalizationService,
-                       cholesky_added_multiple_identities,
-                       constraint_violation)
+from util.math import (
+    NormalizationService,
+    cholesky_added_multiple_identities,
+    constraint_violation,
+)
 from util.rl import ReplayMemory
 
 
@@ -28,27 +30,30 @@ class QuadRotorLSTDQAgentConfig(BaseConfig):
     # initial learnable RL weights and their bounds
     init_pars: dict[str, tuple[float, tuple[float, float]]] = field(
         default_factory=lambda: {
-            'g': (9.81, (1, 40)),
-            'thrust_coeff': (0.3, (0.1, 4)),
+            "g": (9.81, (1, 40)),
+            "thrust_coeff": (0.3, (0.1, 4)),
             # 'w_x': (1e1, (1e-3, np.inf)),
             # 'w_u': (1e0, (1e-3, np.inf)),
             # 'w_s': (1e2, (1e-3, np.inf)),
-            'backoff': (0.1, (1e-3, 0.5))
-        })
+            "backoff": (0.1, (1e-3, 0.5)),
+        }
+    )
 
     # fixed non-learnable weights
-    fixed_pars: dict[str, float] = field(default_factory=lambda: {
-        'pitch_d': 12,
-        'pitch_dd': 5,
-        'pitch_gain': 12,
-        'roll_d': 13,
-        'roll_dd': 6,
-        'roll_gain': 8,
-        # 'backoff': 0.05,
-        'w_x': 1e1,
-        'w_u': 1e0,
-        'w_s': 1e2
-    })
+    fixed_pars: dict[str, float] = field(
+        default_factory=lambda: {
+            "pitch_d": 12,
+            "pitch_dd": 5,
+            "pitch_gain": 12,
+            "roll_d": 13,
+            "roll_dd": 6,
+            "roll_gain": 8,
+            # 'backoff': 0.05,
+            "w_x": 1e1,
+            "w_u": 1e0,
+            "w_s": 1e2,
+        }
+    )
 
     # experience replay parameters
     replay_maxlen: float = 20
@@ -64,22 +69,23 @@ class QuadRotorLSTDQAgentConfig(BaseConfig):
     # from env)
     normalization_ranges: dict[str, np.ndarray] = field(
         default_factory=lambda: {
-            'w_x': np.array([0, 1e2]),
-            'w_u': np.array([0, 1e1]),
-            'w_s': np.array([0, 1e3]),
-            'backoff': np.array([0, 1])
-        })
+            "w_x": np.array([0, 1e2]),
+            "w_u": np.array([0, 1e1]),
+            "w_s": np.array([0, 1e3]),
+            "backoff": np.array([0, 1]),
+        }
+    )
 
 
 class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
-    '''
-    Least-Squares Temporal Difference-based Q-learning RL agent for the quad 
-    rotor environment. The agent adapts its MPC parameters/weights by value 
-    methods, averaging over batches of episodes via Least-Squares, with the 
+    """
+    Least-Squares Temporal Difference-based Q-learning RL agent for the quad
+    rotor environment. The agent adapts its MPC parameters/weights by value
+    methods, averaging over batches of episodes via Least-Squares, with the
     goal of improving performance/reducing cost of each episode.
 
     The RL update exploits a replay memory to spread out noise.
-    '''
+    """
 
     config_cls: type = QuadRotorLSTDQAgentConfig
 
@@ -89,9 +95,9 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
         agentname: str = None,
         agent_config: Union[dict, QuadRotorLSTDQAgentConfig] = None,
         mpc_config: Union[dict, QuadRotorMPCConfig] = None,
-        seed: int = None
+        seed: int = None,
     ) -> None:
-        '''
+        """
         Initializes a LSTDQ agent for the quad rotor env.
 
         Parameters
@@ -101,21 +107,20 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
         agentname : str, optional
             Name of the Q-learning agent.
         agent_config : dict, QuadRotorQLearningAgentConfig
-            A set of parameters for the quadrotor Q-learning agent. If not 
+            A set of parameters for the quadrotor Q-learning agent. If not
             given, the default ones are used.
         mpc_config : dict, QuadRotorMPCConfig
             A set of parameters for the agent's MPC. If not given, the default
             ones are used.
         seed : int, optional
             Seed for the random number generator.
-        '''
+        """
         # create base agent
         agent_config = self._init_config(agent_config, env.normalization)
         fixed_pars, init_pars = agent_config.fixed_pars, agent_config.init_pars
-        fixed_pars.update({
-            'xf': env.config.xf,  # already normalized
-            'perturbation': np.nan
-        })
+        fixed_pars.update(
+            {"xf": env.config.xf, "perturbation": np.nan}  # already normalized
+        )
         super().__init__(
             env,
             agentname=agentname,
@@ -123,7 +128,7 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
             fixed_pars=fixed_pars,
             init_learnable_pars=init_pars,
             mpc_config=mpc_config,
-            seed=seed
+            seed=seed,
         )
 
         # in order to learn, Q learning must sometime perturb the action
@@ -133,7 +138,8 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
         # initialize the replay memory. Per each episode the memory saves the
         # gradient and Hessian of Q at each instant
         self.replay_memory = ReplayMemory[list[tuple[np.ndarray, ...]]](
-            maxlen=self.config.replay_maxlen, seed=seed)
+            maxlen=self.config.replay_maxlen, seed=seed
+        )
         self._episode_buffer: list[tuple[np.ndarray, ...]] = []
 
         # initialize symbols for derivatives to be used later. Also initialize
@@ -141,13 +147,8 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
         self._init_derivative_symbols()
         self._init_qp_solver()
 
-    def save_transition(
-        self,
-        cost: float,
-        solQ: Solution,
-        solV: Solution
-    ) -> None:
-        '''
+    def save_transition(self, cost: float, solQ: Solution, solV: Solution) -> None:
+        """
         Schedules the current time-step data to be processed and saved into the
         experience replay memory.
 
@@ -156,11 +157,11 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
         cost : float
             Stage cost given by the environment at the current time step.
         solQ : mpc.Solution
-            MPC solution of Q(s,a) where s and a are the current state and 
+            MPC solution of Q(s,a) where s and a are the current state and
             action.
         solV : mpc.Solution
             MPC solution of V(s+) where s+ is the net state.
-        '''
+        """
         # compute td error
         target = cost + self.config.gamma * solV.f
         td_err = target - solQ.f
@@ -177,10 +178,10 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
         self._episode_buffer.append((g, H))
 
     def consolidate_episode_experience(self) -> None:
-        '''
-        At the end of an episode, computes the remaining operations and 
+        """
+        At the end of an episode, computes the remaining operations and
         saves results to the replay memory as arrays.
-        '''
+        """
         if len(self._episode_buffer) == 0:
             return
         self.replay_memory.append(self._episode_buffer.copy())
@@ -190,7 +191,8 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
         # sample the memory
         cfg: QuadRotorLSTDQAgentConfig = self.config
         sample = self.replay_memory.sample(
-            cfg.replay_sample_size, cfg.replay_include_last)
+            cfg.replay_sample_size, cfg.replay_include_last
+        )
 
         # sum over the batch of samples and compute update direction p
         g, H = (np.mean(o, axis=0) for o in zip(*chain.from_iterable(sample)))
@@ -201,11 +203,12 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
         theta = self.weights.values()
         pars = np.block([theta, p, cfg.lr])
         lb, ub = self._get_percentage_bounds(
-            theta, self.weights.bounds(), cfg.max_perc_update)
+            theta, self.weights.bounds(), cfg.max_perc_update
+        )
         sol = self._solver(p=pars, lbx=lb, ubx=ub, x0=theta - cfg.lr * p)
-        if not self._solver.stats()['success']:
-            raise UpdateError(f'RL update failed in epoch {self._epoch_n}.')
-        self.weights.update_values(sol['x'].full().flatten())
+        if not self._solver.stats()["success"]:
+            raise UpdateError(f"RL update failed in epoch {self._epoch_n}.")
+        self.weights.update_values(sol["x"].full().flatten())
         return p
 
     def learn_one_epoch(
@@ -214,12 +217,9 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
         perturbation_decay: float = 0.75,
         seed: Union[int, list[int]] = None,
         logger: logging.Logger = None,
-        return_info: bool = False
-    ) -> Union[
-        np.ndarray,
-        tuple[np.ndarray, np.ndarray, dict[str, np.ndarray]]
-    ]:
-        logger = logger or logging.getLogger('dummy')
+        return_info: bool = False,
+    ) -> Union[np.ndarray, tuple[np.ndarray, np.ndarray, dict[str, np.ndarray]]]:
+        logger = logger or logging.getLogger("dummy")
 
         env, name, epoch_n = self.env, self.name, self._epoch_n
         returns = np.zeros(n_episodes)
@@ -233,8 +233,8 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
 
             while not (truncated or terminated):
                 # compute Q(s, a)
-                self.fixed_pars.update({'u0': action})
-                solQ = self.solve_mpc('Q', state)
+                self.fixed_pars.update({"u0": action})
+                solQ = self.solve_mpc("Q", state)
 
                 # step the system
                 state, r, truncated, terminated, _ = env.step(action)
@@ -247,13 +247,12 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
                 if solQ.success and solV.success:
                     self.save_transition(r, solQ, solV)
                 else:
-                    raise MPCSolverError(
-                        f'{name}|{epoch_n}|{e}|{t}: MPC failed.')
+                    raise MPCSolverError(f"{name}|{epoch_n}|{e}|{t}: MPC failed.")
                 t += 1
 
             # when episode is done, consolidate its experience into memory
             self.consolidate_episode_experience()
-            logger.debug(f'{name}|{epoch_n}|{e}: J={returns[e]:,.3f}')
+            logger.debug(f"{name}|{epoch_n}|{e}: J={returns[e]:,.3f}")
 
         # when all m episodes are done, perform RL update and reduce
         # exploration strength and chance
@@ -262,24 +261,25 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
         self.perturbation_chance *= perturbation_decay
 
         # log training outcomes and return cumulative returns
-        logger.debug(f'{self.name}|{epoch_n}: J_mean={returns.mean():,.3f}; '
-                     f'||p||={np.linalg.norm(update_grad):.3e}; ' +
-                     self.weights.values2str())
+        logger.debug(
+            f"{self.name}|{epoch_n}: J_mean={returns.mean():,.3f}; "
+            f"||p||={np.linalg.norm(update_grad):.3e}; " + self.weights.values2str()
+        )
         return (
             (returns, update_grad, self.weights.values(as_dict=True))
-            if return_info else
-            returns
+            if return_info
+            else returns
         )
 
     def _init_config(
         self,
         config: Optional[QuadRotorLSTDQAgentConfig],
-        normalization: Optional[NormalizationService]
+        normalization: Optional[NormalizationService],
     ) -> QuadRotorLSTDQAgentConfig:
-        '''
+        """
         Initializes the agent configuration and fixed and initial pars (does
         not save to self).
-        '''
+        """
         C = init_config(config, self.config_cls)
         N = normalization
         if N is not None:
@@ -291,7 +291,7 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
         return C
 
     def _init_derivative_symbols(self) -> None:
-        '''Computes symbolical derivatives needed for Q learning.'''
+        """Computes symbolical derivatives needed for Q learning."""
         theta = self.weights.symQ()
         lagr = self.Q.lagrangian
         d2Qdtheta, dQdtheta = cs.hessian(lagr, theta)
@@ -302,20 +302,20 @@ class QuadRotorLSTDQAgent(QuadRotorBaseLearningAgent):
         n_theta = self.weights.n_theta
 
         # prepare symbols
-        theta: cs.SX = cs.SX.sym('theta', n_theta, 1)
-        theta_new: cs.SX = cs.SX.sym('theta+', n_theta, 1)
+        theta: cs.SX = cs.SX.sym("theta", n_theta, 1)
+        theta_new: cs.SX = cs.SX.sym("theta+", n_theta, 1)
         dtheta = theta_new - theta
-        p: cs.SX = cs.SX.sym('p', n_theta, 1)
-        lr: cs.SX = cs.SX.sym('lr', n_theta, 1)
+        p: cs.SX = cs.SX.sym("p", n_theta, 1)
+        lr: cs.SX = cs.SX.sym("lr", n_theta, 1)
 
         # prepare solver
         qp = {
-            'x': theta_new,
-            'f': 0.5 * dtheta.T @ dtheta + (lr * p).T @ dtheta,
-            'p': cs.vertcat(theta, p, lr)
+            "x": theta_new,
+            "f": 0.5 * dtheta.T @ dtheta + (lr * p).T @ dtheta,
+            "p": cs.vertcat(theta, p, lr),
         }
-        opts = {'print_iter': False, 'print_header': False}
-        self._solver = cs.qpsol(f'qpsol_{self.name}', 'qrqp', qp, opts)
+        opts = {"print_iter": False, "print_header": False}
+        self._solver = cs.qpsol(f"qpsol_{self.name}", "qrqp", qp, opts)
 
 
 @dataclass
@@ -325,7 +325,7 @@ class QuadRotorGPSafeLSTDQAgentConfig(QuadRotorLSTDQAgentConfig):
     average_violation: bool = True
 
     mu0: float = 0.0  # target constraint violation
-    beta: float = 0.9   # probability of target violation satisfaction
+    beta: float = 0.9  # probability of target violation satisfaction
 
     beta_backtracking: float = 0.95
     max_backtracking_iter: int = 35
@@ -338,7 +338,7 @@ class QuadRotorGPSafeLSTDQAgentConfig(QuadRotorLSTDQAgentConfig):
 
 
 class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
-    '''GP-based safe variant of the LSTDQ agent.'''
+    """GP-based safe variant of the LSTDQ agent."""
 
     config_cls: type = QuadRotorGPSafeLSTDQAgentConfig
 
@@ -348,7 +348,8 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
 
         # sample the memory
         sample = self.replay_memory.sample(
-            cfg.replay_sample_size, cfg.replay_include_last)
+            cfg.replay_sample_size, cfg.replay_include_last
+        )
 
         # sum over the batch of samples and compute update direction p
         g, H = [sum(o) for o in zip(*chain.from_iterable(sample))]
@@ -357,31 +358,34 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
 
         # run QP solver (backtrack on beta if necessary) and update weights
         theta = self.weights.values()
-        candidates = np.linspace(theta, theta - cfg.lr * p, cfg.n_opti) + \
-            self.np_random.normal(size=(cfg.n_opti, theta.size), scale=0.0)
+        candidates = np.linspace(
+            theta, theta - cfg.lr * p, cfg.n_opti
+        ) + self.np_random.normal(size=(cfg.n_opti, theta.size), scale=0.0)
         beta = cfg.beta
         pars = np.block([theta, p, cfg.lr, cfg.mu0, beta])
         lb, ub = self._get_percentage_bounds(
-            theta, self.weights.bounds(), cfg.max_perc_update)
+            theta, self.weights.bounds(), cfg.max_perc_update
+        )
         for _ in range(cfg.max_backtracking_iter):
             # run the solver for each candidate
             best_sol = None
             for x0 in candidates:
-                sol = self._solver(
-                    p=pars, lbx=lb, ubx=ub, lbg=-np.inf, ubg=0, x0=x0)
-                if self._solver.stats()['success'] and \
-                        (best_sol is None or sol['f'] < best_sol['f']):
+                sol = self._solver(p=pars, lbx=lb, ubx=ub, lbg=-np.inf, ubg=0, x0=x0)
+                if self._solver.stats()["success"] and (
+                    best_sol is None or sol["f"] < best_sol["f"]
+                ):
                     best_sol = sol
 
             # either apply the successful update or backtrack
             if best_sol is not None:
-                self.weights.update_values(best_sol['x'].full().flatten())
+                self.weights.update_values(best_sol["x"].full().flatten())
                 return p, beta, gp_fit_time
             else:
                 beta *= cfg.beta_backtracking
                 pars[-1] = beta
-        raise UpdateError(f'Update failed in epoch {self._epoch_n} '
-                          f'(beta={beta:.3f}).')
+        raise UpdateError(
+            f"Update failed in epoch {self._epoch_n} " f"(beta={beta:.3f})."
+        )
 
     def learn_one_epoch(
         self,
@@ -389,12 +393,9 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
         perturbation_decay: float = 0.75,
         seed: Union[int, list[int]] = None,
         logger: logging.Logger = None,
-        return_info: bool = False
-    ) -> Union[
-        np.ndarray,
-        tuple[np.ndarray, np.ndarray, dict[str, np.ndarray]]
-    ]:
-        logger = logger or logging.getLogger('dummy')
+        return_info: bool = False,
+    ) -> Union[np.ndarray, tuple[np.ndarray, np.ndarray, dict[str, np.ndarray]]]:
+        logger = logger or logging.getLogger("dummy")
 
         env, name, epoch_n = self.env, self.name, self._epoch_n
         returns = np.zeros(n_episodes)
@@ -410,8 +411,8 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
 
             while not (truncated or terminated):
                 # compute Q(s, a)
-                self.fixed_pars.update({'u0': action})
-                solQ = self.solve_mpc('Q', state)
+                self.fixed_pars.update({"u0": action})
+                solQ = self.solve_mpc("Q", state)
 
                 # step the system
                 state, r, truncated, terminated, _ = env.step(action)
@@ -426,14 +427,13 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
                 if solQ.success and solV.success:
                     self.save_transition(r, solQ, solV)
                 else:
-                    raise MPCSolverError(
-                        f'{name}|{epoch_n}|{e}|{t}: MPC failed.')
+                    raise MPCSolverError(f"{name}|{epoch_n}|{e}|{t}: MPC failed.")
                 t += 1
 
             # when episode is done, consolidate its experience into memory, and
             # compute its trajectories' constraint violations
             self.consolidate_episode_experience()
-            logger.debug(f'{name}|{epoch_n}|{e}: J={returns[e]:,.3f}')
+            logger.debug(f"{name}|{epoch_n}|{e}: J={returns[e]:,.3f}")
             violations.append(self._compute_violation(states, actions))
 
         # when all m episodes are done, append the violations for the GP to fit
@@ -449,15 +449,17 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
         self.perturbation_chance *= perturbation_decay
 
         # log training outcomes and return cumulative returns
-        logger.debug(f'{self.name}|{epoch_n}: J_mean={returns.mean():,.3f}; '
-                     f'||p||={np.linalg.norm(update_grad):.3e}; ' +
-                     f'beta={backtracked_beta * 100:.2f}%' +
-                     f'GP fit time={gp_fit_time:.2}s' +
-                     self.weights.values2str())
+        logger.debug(
+            f"{self.name}|{epoch_n}: J_mean={returns.mean():,.3f}; "
+            f"||p||={np.linalg.norm(update_grad):.3e}; "
+            + f"beta={backtracked_beta * 100:.2f}%"
+            + f"GP fit time={gp_fit_time:.2}s"
+            + self.weights.values2str()
+        )
         return (
             (returns, update_grad, self.weights.values(as_dict=True))
-            if return_info else
-            returns
+            if return_info
+            else returns
         )
 
     def _compute_violation(
@@ -474,8 +476,7 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
         # trajectory's violations to scalar by picking max violation (max
         # axis=2)
         x_cv, u_cv = (
-            cv.max(axis=(1, 2))
-            for cv in constraint_violation((x, x_bnd), (u, u_bnd))
+            cv.max(axis=(1, 2)) for cv in constraint_violation((x, x_bnd), (u, u_bnd))
         )
 
         # egress only over finite data
@@ -483,9 +484,11 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
         return cv[np.isfinite(cv)]
 
     def _init_qp_solver(self) -> Optional[tuple[cs.Function, float]]:
-        return (self._fit_gpr_and_create_qp_solver()
-                if hasattr(self, '_gpr') else
-                self._init_grp_and_qp_solver_symbols())
+        return (
+            self._fit_gpr_and_create_qp_solver()
+            if hasattr(self, "_gpr")
+            else self._init_grp_and_qp_solver_symbols()
+        )
 
     def _init_grp_and_qp_solver_symbols(self) -> None:
         # this is the first time the initilization gets called, so only the
@@ -495,47 +498,48 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
 
         # create regressor
         kernel = (
-            1**2 * cfg.kernel_cls(
-                length_scale=np.ones(n_theta),
-                length_scale_bounds=(1e-5, 1e6)) +
-            kernels.WhiteKernel()
+            1**2
+            * cfg.kernel_cls(
+                length_scale=np.ones(n_theta), length_scale_bounds=(1e-5, 1e6)
+            )
+            + kernels.WhiteKernel()
         )
         self._gpr = MultitGaussianProcessRegressor(
             kernel=kernel,
             alpha=cfg.alpha,
             n_restarts_optimizer=cfg.n_opti,
-            random_state=self.seed
+            random_state=self.seed,
         )
         self.gpr_dataset: list[tuple[np.ndarray, np.ndarray]] = []
         self.backtracked_betas: list[float] = []
 
         # compute symbols that do not depend on GP
-        theta: cs.SX = cs.SX.sym('theta', n_theta, 1)
-        theta_new: cs.SX = cs.SX.sym('theta+', n_theta, 1)
+        theta: cs.SX = cs.SX.sym("theta", n_theta, 1)
+        theta_new: cs.SX = cs.SX.sym("theta+", n_theta, 1)
         dtheta = theta_new - theta
-        p: cs.SX = cs.SX.sym('p', n_theta, 1)
-        lr: cs.SX = cs.SX.sym('lr', n_theta, 1)
-        mu0: cs.SX = cs.SX.sym('mu0', 1, 1)
-        beta: cs.SX = cs.SX.sym('beta', 1, 1)
+        p: cs.SX = cs.SX.sym("p", n_theta, 1)
+        lr: cs.SX = cs.SX.sym("lr", n_theta, 1)
+        mu0: cs.SX = cs.SX.sym("mu0", 1, 1)
+        beta: cs.SX = cs.SX.sym("beta", 1, 1)
         self._qp = {
-            'theta+': theta_new,
-            'mu0': mu0,
-            'beta': beta,
-            'f': 0.5 * dtheta.T @ dtheta + (lr * p).T @ dtheta,
-            'p': cs.vertcat(theta, p, lr, mu0, beta),
-            'g': None,
-            'opts': {
-                'expand': True,  # False when using callback
-                'print_time': False,
-                'ipopt': {
-                    'max_iter': 500,
-                    'sb': 'yes',
+            "theta+": theta_new,
+            "mu0": mu0,
+            "beta": beta,
+            "f": 0.5 * dtheta.T @ dtheta + (lr * p).T @ dtheta,
+            "p": cs.vertcat(theta, p, lr, mu0, beta),
+            "g": None,
+            "opts": {
+                "expand": True,  # False when using callback
+                "print_time": False,
+                "ipopt": {
+                    "max_iter": 500,
+                    "sb": "yes",
                     # for debugging
-                    'print_level': 0,
-                    'print_user_options': 'no',
-                    'print_options_documentation': 'no'
-                }
-            }
+                    "print_level": 0,
+                    "print_user_options": "no",
+                    "print_options_documentation": "no",
+                },
+            },
         }
 
     def _fit_gpr_and_create_qp_solver(self) -> tuple[cs.Function, float]:
@@ -549,7 +553,7 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
             gpr.kernel = gpr.kernel_
 
         # compute the symbolic posterior mean and std of the GP
-        theta_new = self._qp['theta+'].T
+        theta_new = self._qp["theta+"].T
         mean, var = [], []
         for gpr in self._gpr.estimators_:
             kernel_func = CasadiKernels.sklearn2func(gpr.kernel_)
@@ -561,16 +565,15 @@ class QuadRotorGPSafeLSTDQAgent(QuadRotorLSTDQAgent):
         mean, std = cs.vertcat(*mean), cs.sqrt(cs.vertcat(*var))
 
         # compute the constraint function for the new theta
-        mu0, beta = self._qp['mu0'], self._qp['beta']
-        self._qp['g'] = mean - mu0 + norm_ppf(beta) * std
+        mu0, beta = self._qp["mu0"], self._qp["beta"]
+        self._qp["g"] = mean - mu0 + norm_ppf(beta) * std
 
         # create QP solver
         qp = {
-            'x': theta_new,
-            'p': self._qp['p'],
-            'f': self._qp['f'],
-            'g': self._qp['g']
+            "x": theta_new,
+            "p": self._qp["p"],
+            "f": self._qp["f"],
+            "g": self._qp["g"],
         }
-        solver = cs.nlpsol(
-            f'QP_ipopt_{self.name}', 'ipopt', qp, self._qp['opts'])
+        solver = cs.nlpsol(f"QP_ipopt_{self.name}", "ipopt", qp, self._qp["opts"])
         return solver, fit_time

@@ -6,36 +6,33 @@ import numpy as np
 
 
 class RecordData(gym.Wrapper):
-    '''
+    """
     At each step, this wrapper records
         - observations
-        - actions 
+        - actions
         - costs/rewards (also cumulative)
         - episode length
         - episode execution time
     from the environment.
-    '''
+    """
 
     def __init__(
-        self,
-        env: gym.Env,
-        deque_size: int = None,
-        as_numpy: bool = True
+        self, env: gym.Env, deque_size: int = None, as_numpy: bool = True
     ) -> None:
-        '''
-        This wrapper will keep track of observations, actions and rewards as 
+        """
+        This wrapper will keep track of observations, actions and rewards as
         well as episode length and execution time.
 
         Parameters
         ----------
-        env : gym.Env 
+        env : gym.Env
             The environment to apply the wrapper to.
         deque_size : int, optional
             The maximum size of the historical data. By default, None.
         as_numpy : bool, optional
             Whether to save the data at the end of the episode as an array. By
             default, true.
-        '''
+        """
         super().__init__(env)
         self.as_numpy = as_numpy
         # long-term storages
@@ -54,16 +51,14 @@ class RecordData(gym.Wrapper):
         self.ep_length = None
 
     def reset(self, *args, **kwargs) -> np.ndarray:
-        '''Resets the environment and resets the current data accumulators.'''
+        """Resets the environment and resets the current data accumulators."""
         observation = self.env.reset(*args, **kwargs)
         self._clear_ep_data()
         self.ep_observations.append(observation)
         return observation
 
-    def step(
-        self, action: np.ndarray
-    ) -> tuple[np.ndarray, float, bool, bool, dict]:
-        '''Steps through the environment, accumulating the episode data.'''
+    def step(self, action: np.ndarray) -> tuple[np.ndarray, float, bool, bool, dict]:
+        """Steps through the environment, accumulating the episode data."""
         obs, reward, terminated, truncated, info = self.env.step(action)
 
         # accumulate data
