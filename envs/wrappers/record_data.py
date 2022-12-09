@@ -1,5 +1,6 @@
-from collections import deque
 import time
+from collections import deque
+
 import gym
 import numpy as np
 

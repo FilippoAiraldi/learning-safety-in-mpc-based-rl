@@ -1,22 +1,25 @@
+import logging
+import time
 from dataclasses import dataclass, field
 from itertools import chain
 from typing import Optional, Union
-import logging
-import time
+
 import casadi as cs
 import numpy as np
 from scipy.linalg import cho_solve
 from scipy.linalg.lapack import dtrtri
 from sklearn.gaussian_process import kernels
+
 from agents.quad_rotor_base_agents import QuadRotorBaseLearningAgent
 from envs import QuadRotorEnv
-from mpc import Solution, QuadRotorMPCConfig
+from mpc import QuadRotorMPCConfig, Solution
 from util.casadi import norm_ppf
 from util.configurations import BaseConfig, init_config
 from util.errors import MPCSolverError, UpdateError
-from util.gp import MultitGaussianProcessRegressor, CasadiKernels
-from util.math import NormalizationService, \
-    cholesky_added_multiple_identities, constraint_violation
+from util.gp import CasadiKernels, MultitGaussianProcessRegressor
+from util.math import (NormalizationService,
+                       cholesky_added_multiple_identities,
+                       constraint_violation)
 from util.rl import ReplayMemory
 
 

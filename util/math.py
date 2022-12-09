@@ -1,6 +1,7 @@
-from collections import UserDict, Mapping
+from collections import Mapping, UserDict
 from itertools import combinations
 from typing import Any, Iterable, Iterator, Union
+
 import numpy as np
 from scipy.special import comb
 

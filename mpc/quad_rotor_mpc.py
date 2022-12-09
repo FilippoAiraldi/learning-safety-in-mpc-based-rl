@@ -1,7 +1,9 @@
 from dataclasses import dataclass, field
 from typing import Union
+
 import casadi as cs
 import numpy as np
+
 from envs.quad_rotor_env import QuadRotorEnv
 from mpc.generic_mpc import GenericMPC
 from util.casadi import quad_form

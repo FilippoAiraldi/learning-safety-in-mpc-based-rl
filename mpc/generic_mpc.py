@@ -3,9 +3,9 @@ from functools import partial
 from inspect import getframeinfo, stack
 from itertools import count
 from typing import Any, Union
+
 import casadi as cs
 import numpy as _np
-
 
 # NOTE: np.flatten and cs.vec operate on row- and column-wise, respectively!
 

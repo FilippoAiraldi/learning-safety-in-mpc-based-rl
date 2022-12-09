@@ -1,8 +1,8 @@
+import pickle
 import re
 import unicodedata
 from datetime import datetime
 from typing import Any
-import pickle
 
 
 def is_pickleable(obj: Any) -> bool:

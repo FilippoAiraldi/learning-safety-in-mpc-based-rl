@@ -1,6 +1,7 @@
 import math
 from collections import UserDict
 from typing import Callable, Optional, Union
+
 import casadi as cs
 import numpy as np
 from gym.utils.seeding import np_random
@@ -9,8 +10,8 @@ from sklearn.gaussian_process import GaussianProcessRegressor, kernels
 from sklearn.multioutput import MultiOutputRegressor
 from sklearn.utils.fixes import delayed
 from sklearn.utils.validation import check_is_fitted
-from util.io import load_results
 
+from util.io import load_results
 
 KERNEL_PARAMS_DICT = {
     kernels.RBF: ('length_scale',),

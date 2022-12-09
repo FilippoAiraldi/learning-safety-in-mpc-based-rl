@@ -1,5 +1,6 @@
 from itertools import chain, product
 from typing import Iterable, Union
+
 import casadi as cs
 import matplotlib as mpl
 import matplotlib.gridspec as gridspec
@@ -11,13 +12,14 @@ from matplotlib.collections import LineCollection
 from matplotlib.figure import Figure
 from matplotlib.ticker import MaxNLocator, PercentFormatter
 from mpl_toolkits.mplot3d.art3d import Line3DCollection, Poly3DCollection
-from agents import \
-    QuadRotorPKAgent, QuadRotorLSTDQAgent, QuadRotorGPSafeLSTDQAgent
+
+from agents import (QuadRotorGPSafeLSTDQAgent, QuadRotorLSTDQAgent,
+                    QuadRotorPKAgent)
 from agents.wrappers import RecordLearningData
 from envs.wrappers import RecordData
-from util.math import \
-    constraint_violation as cv_, jaggedstack as jstack, logmean
-
+from util.math import constraint_violation as cv_
+from util.math import jaggedstack as jstack
+from util.math import logmean
 
 AGENTTYPE = Union[
     QuadRotorPKAgent,

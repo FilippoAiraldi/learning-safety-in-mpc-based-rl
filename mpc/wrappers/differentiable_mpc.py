@@ -1,8 +1,9 @@
 from typing import Any, Generic, TypeVar
+
 import casadi as cs
 import numpy as np
-from mpc.generic_mpc import GenericMPC
 
+from mpc.generic_mpc import GenericMPC
 
 MPCType = TypeVar('MPCType', bound=GenericMPC)
 

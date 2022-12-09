@@ -1,16 +1,16 @@
 import argparse
 import os
 from typing import Any, Type, TypeVar
+
 import numpy as np
 import optuna
-from agents import \
-    QuadRotorLSTDQAgent, QuadRotorGPSafeLSTDQAgent
+
+from agents import QuadRotorGPSafeLSTDQAgent, QuadRotorLSTDQAgent
 from agents.quad_rotor_base_agents import QuadRotorBaseLearningAgent
 from envs import QuadRotorEnv
 from util import io
 from util.errors import MPCSolverError, UpdateError
 from util.math import NormalizationService
-
 
 os.environ['PYTHONWARNINGS'] = 'ignore'
 EnvType = TypeVar('EnvType', bound=QuadRotorEnv)

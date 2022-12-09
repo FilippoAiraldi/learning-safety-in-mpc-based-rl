@@ -1,5 +1,6 @@
 import math
 from typing import Any, Union
+
 import casadi as cs
 
 

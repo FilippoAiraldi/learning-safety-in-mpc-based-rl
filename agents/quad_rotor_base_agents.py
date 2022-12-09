@@ -1,17 +1,19 @@
+import logging
 from abc import ABC, abstractmethod
 from itertools import count
-import logging
 from typing import Any, Optional, Union
+
 import numpy as np
 from gym import Env
 from gym.utils.seeding import np_random
+
 from envs import QuadRotorEnv
 from mpc import QuadRotorMPC, QuadRotorMPCConfig, Solution
 from mpc.wrappers import DifferentiableMPC
 from util.casadi import is_casadi_object
 from util.configurations import init_config
-from util.io import is_pickleable
 from util.errors import MPCSolverError, UpdateError
+from util.io import is_pickleable
 from util.math import NormalizationService
 from util.rl import RLParameter, RLParameterCollection
 

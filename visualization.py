@@ -1,6 +1,8 @@
 import argparse
+
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+
 from util import io, plot
 
 

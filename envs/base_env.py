@@ -1,9 +1,10 @@
 from abc import ABC
 from typing import Type, TypeVar
-import gym
-from gym.wrappers import TimeLimit, OrderEnforcing, NormalizeReward
-from envs.wrappers import RecordData, ClipActionIfClose
 
+import gym
+from gym.wrappers import NormalizeReward, OrderEnforcing, TimeLimit
+
+from envs.wrappers import ClipActionIfClose, RecordData
 
 ObsType = TypeVar('ObsType')
 ActType = TypeVar('ActType')
