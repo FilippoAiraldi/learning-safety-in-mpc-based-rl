@@ -13,10 +13,9 @@ from util.math import NormalizationService
 @dataclass
 class QuadRotorEnvConfig(BaseConfig):
     """
-    Quadrotor environment configuration parameters. The model parameters must
-    be nonnegative, whereas the disturbance parameter `winds` is a dictionary
-    with each gust's altitude and strength. Also the bounds on state and action
-    are included.
+    Quadrotor environment configuration parameters. The model parameters must be
+    nonnegative, whereas the disturbance parameter `winds` is a dictionary with each
+    gust's altitude and strength. Also the bounds on state and action are included.
     """
 
     # model parameters
@@ -105,16 +104,16 @@ class QuadRotorEnvConfig(BaseConfig):
 class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
     """
     ### Description
-    The QuadRotorEnv consists in control problem whose goal is to drive a
-    quadrotor to a specific terminal location. Altitude-dependent winds
-    stochastically disturb the dynamics. The model is most accurate when the
-    pitch and roll do not exceed 30° in both directions. However, these
-    constraints can be momentarily violated, so no hard limit is imposed within
-    the environment itself. On the contrary, the control authority is limited.
+    The QuadRotorEnv consists in control problem whose goal is to drive a quadrotor to a
+    specific terminal location. Altitude-dependent winds stochastically disturb the
+    dynamics. The model is most accurate when the pitch and roll do not exceed 30° in
+    both directions. However, these constraints can be momentarily violated, so no hard
+    limit is imposed within the environment itself. On the contrary, the control
+    authority is limited.
 
     ### Observation Space
-    The observation is a `ndarray` with shape `(10,)` where the elements
-    correspond to the following states of the quadrotor:
+    The observation is a `ndarray` with shape `(10,)` where the elements correspond to
+    the following states of the quadrotor:
     | N | Observation                          | Min    | Max | Unit          |
     |---|--------------------------------------|--------|-----|---------------|
     | 0 | position along the x-axis            | -0.5   | 3.5 | position (m)  |
@@ -127,8 +126,8 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
     | 7 | roll                                 | -30°   | 30° | angle (rad)   |
     | 8 | pitch rate                           | -Inf   | Inf | speed (rad/s) |
     | 8 | roll rate                            | -Inf   | Inf | speed (rad/s) |
-    The constraints can be changed, as well as made soft with the appropriate
-    flag. In this case, the observation space becomes unbounded.
+    The constraints can be changed, as well as made soft with the appropriate flag. In
+    this case, the observation space becomes unbounded.
 
     ### Action Space
     There are 3 continuous deterministic actions:
@@ -144,24 +143,22 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
     ```
     x+ = A*x + B*u + C*phi(s[2])*w + e
     ```
-    where `x` and `x+` are the current and next state, `u` is the control
-    action, `phi` is a nonlinear term modulating wind disturbance strength and
-    `w` is a uniformly distributed random variable. `A`, `B`, `C` and `e` are
-    system elements.
+    where `x` and `x+` are the current and next state, `u` is the control action, `phi`
+    is a nonlinear term modulating wind disturbance strength and `w` is a uniformly
+    distributed random variable. `A`, `B`, `C` and `e` are system elements.
 
     ### Cost:
-    The cost consists of three source: positional error (proportional to the
-    distance of the quadrotor to the final position), control action usage (
-    proportional to the magnitude of the control action), and constraint
-    violation (proportional to violations of both state and action bounds).
+    The cost consists of three source: positional error (proportional to the distance of
+    the quadrotor to the final position), control action usage (proportional to the
+    magnitude of the control action), and constraint violation (proportional to
+    violations of both state and action bounds).
 
     ### Initial And Final State
-    The initial and final states are constant across resets, unless manually
-    specified.
+    The initial and final states are constant across resets, unless manually specified.
 
     ### Episode End
-    The episode ends if the state approaches the final one within the specified
-    error and stays within this error bound for the specified amount of steps.
+    The episode ends if the state approaches the final one within the specified error
+    and stays within this error bound for the specified amount of steps.
     """
 
     spec: dict = None
@@ -174,15 +171,14 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
         normalization: NormalizationService = None,
     ) -> None:
         """
-        This environment simulates a 10-state quadrotor system with limited
-        input authority whose goal is to reach a target position, from an
-        initial position.
+        This environment simulates a 10-state quadrotor system with limited input
+        authority whose goal is to reach a target position, from an initial position.
 
         Parameters
         ----------
         config : {dict, QuadRotorPars}, optional
-            A set of parameters for the quadrotor model and disturbances. If
-            not given, the default ones are used.
+            A set of parameters for the quadrotor model and disturbances. If not given,
+            the default ones are used.
         """
 
         super().__init__()
@@ -281,10 +277,9 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
 
     def phi(self, alt: Union[float, np.ndarray]) -> np.ndarray:
         """
-        Computes the wind disturbance's radial basis functions at the given
-        altitude.
+        Computes the wind disturbance's radial basis functions at the given altitude.
 
-        # Parameters
+        Parameters
         ----------
         altitude : array_like
             Altitude value at which to evaluate the functions.
@@ -306,13 +301,13 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
         """
         Resets the quadrotor environment.
 
-        # Parameters
+        Parameters
         ----------
         seed : int, optional
             Random number generator seed.
         x0, xf : array_like, optional
-            Sets the initial and terminal states of the simulation. If not
-            passed, the conditions are chosen from default.
+            Sets the initial and terminal states of the simulation. If not passed, the
+            conditions are chosen from default.
 
         Returns
         -------
@@ -339,7 +334,7 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
         """
         Steps the quadrotor environment.
 
-        # Parameters
+        Parameters
         ----------
         u : array_like
             Action to apply to the quadrotor.
@@ -348,9 +343,9 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
         -------
         new_state, cost, truncated, terminated, info :
                                                 array_like, float, bool, dict
-            A tuple containing the new state of the quadrotor, the
-            instantenuous cost of taking this action in this state, the
-            truncation/termination flags and a dictionary of information.
+            A tuple containing the new state of the quadrotor, the instantenuous cost of
+            taking this action in this state, the runcation/termination flags and a
+            dictionary of information.
         """
         u = u.squeeze()  # in case a row or col was passed
         assert self.action_space.contains(u), "Invalid action."
@@ -411,9 +406,8 @@ class QuadRotorEnv(BaseEnv[np.ndarray, np.ndarray]):
         tuple[cs.SX, cs.SX, cs.SX],
     ]:
         """
-        If arguments are all numerical, returns the matrices of the system's
-        dynamics `A`, `B`, `C` and `e`; otherwise, returns the `A`, `B` and `e`
-        in symbolical form.
+        If arguments are all numerical, returns the matrices of the system's dynamics
+        `A`, `B`, `C` and `e`; otherwise, returns the `A`, `B` and `e` in symbolic form.
         """
         T = self.config.T
 

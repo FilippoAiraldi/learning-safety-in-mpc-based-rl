@@ -11,8 +11,9 @@ from scipy.linalg.lapack import dtrtri
 from sklearn.gaussian_process import kernels
 
 from agents.quad_rotor_base_agents import QuadRotorBaseLearningAgent
-from envs import QuadRotorEnv
-from mpc import QuadRotorMPCConfig, Solution
+from envs.quad_rotor_env import QuadRotorEnv
+from mpc.generic_mpc import Solution
+from mpc.quad_rotor_mpc import QuadRotorMPCConfig
 from util.casadi import norm_ppf
 from util.configurations import BaseConfig, init_config
 from util.errors import MPCSolverError, UpdateError

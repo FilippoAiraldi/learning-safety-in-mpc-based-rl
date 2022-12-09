@@ -7,9 +7,10 @@ import numpy as np
 from gym import Env
 from gym.utils.seeding import np_random
 
-from envs import QuadRotorEnv
-from mpc import QuadRotorMPC, QuadRotorMPCConfig, Solution
-from mpc.wrappers import DifferentiableMPC
+from envs.quad_rotor_env import QuadRotorEnv
+from mpc.generic_mpc import Solution
+from mpc.quad_rotor_mpc import QuadRotorMPC, QuadRotorMPCConfig
+from mpc.wrappers.differentiable_mpc import DifferentiableMPC
 from util.casadi import is_casadi_object
 from util.configurations import init_config
 from util.errors import MPCSolverError, UpdateError
@@ -359,7 +360,6 @@ class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
         gradient : array_like
             Gradient of the update.
         """
-        pass
 
     @abstractmethod
     def learn_one_epoch(
@@ -398,7 +398,6 @@ class QuadRotorBaseLearningAgent(QuadRotorBaseAgent, ABC):
             Agent's new set of weights after the update. Only returned if
             `return_info=True`.
         """
-        pass
 
     def learn(
         self,

@@ -31,8 +31,7 @@ def create_logger(run_name: str, to_file: bool = True) -> logging.Logger:
 @contextlib.contextmanager
 def tqdm_joblib(*args, **kwargs):
     """
-    Context manager to patch joblib to report into tqdm progress bar
-    given as argument.
+    Context manager to patch joblib to report into tqdm progress bar given as argument.
     Thanks to https://stackoverflow.com/questions/24983493/tracking-progress-of-joblib-parallel-execution/58936697#58936697
     """
     tqdm_object = tqdm(*args, **kwargs)

@@ -12,9 +12,8 @@ T = TypeVar("T")
 
 class ReplayMemory(deque[T]):
     """
-    Container class for RL traning to save and sample experience transitions.
-    The class inherits from collections.deque, adding a couple of simple
-    functionalities to it.
+    Container class for RL traning to save and sample experience transitions. The class
+    inherits from collections.deque, adding a couple of simple functionalities to it.
     """
 
     def __init__(
@@ -43,11 +42,11 @@ class ReplayMemory(deque[T]):
 
         Parameters
         n : int or float
-            Size of the sample to draw from memory, either as size or
-            percentage of the maximum capacity (if not None).
+            Size of the sample to draw from memory, either as size or percentage of the
+            maximum capacity (if not None).
         include_last_n : int or float
-            Size or percentage of the sample dedicated to including the last
-            elements added to the memory.
+            Size or percentage of the sample dedicated to including the last elements
+            added to the memory.
 
         Returns
         -------
@@ -76,8 +75,8 @@ class ReplayMemory(deque[T]):
 
 @dataclass
 class RLParameter:
-    """An RL parameter class for compactly managing information and the value
-    of a learnable parameter."""
+    """An RL parameter class for compactly managing information and the value of a
+    learnable parameter."""
 
     name: str
     value: np.ndarray
@@ -111,8 +110,8 @@ class RLParameter:
 
 
 class RLParameterCollection(Sequence[RLParameter]):
-    """Collection of learnable RL parameters, which can be accessed by string
-    as a dictionary or by index as a list."""
+    """Collection of learnable RL parameters, which can be accessed by string as a
+    dictionary or by index as a list."""
 
     def __init__(self, *parameters: RLParameter) -> None:
         """Instantiate the collection from another iterable, if provided."""
@@ -142,33 +141,33 @@ class RLParameterCollection(Sequence[RLParameter]):
         return self._dict.keys()
 
     def values(self, as_dict: bool = False) -> Union[np.ndarray, dict[str, np.ndarray]]:
-        """Returns the values of the parameters in the collection concatenated
-        into a single array, by default. Otherwise, if `as_dict=True`, a `dict`
-        with each value is returned."""
+        """Returns the values of the parameters in the collection concatenated into a
+        single array, by default. Otherwise, if `as_dict=True`, a `dict` with each value
+        is returned."""
         if as_dict:
             return {name: p.value for name, p in self.items()}
         return np.concatenate([p.value for p in self._list])
 
     def bounds(self, as_dict: bool = False) -> Union[np.ndarray, dict[str, np.ndarray]]:
-        """Returns the bounds of the parameters in the collection concatenated
-        into a single array, by default. Otherwise, if `as_dict=True`, a `dict`
-        with each bound is returned."""
+        """Returns the bounds of the parameters in the collection concatenated into a
+        single array, by default. Otherwise, if `as_dict=True`, a `dict` with each bound
+        is returned."""
         if as_dict:
             return {name: p.bounds for name, p in self.items()}
         return np.row_stack([p.bounds for p in self._list])
 
     def symV(self, as_dict: bool = False) -> Union[cs.SX, dict[str, cs.SX]]:
-        """Returns the symbols of the parameters in the collection concatenated
-        into a single array, by default. Otherwise, if `as_dict=True`, a `dict`
-        with each symbolical V variable is returned."""
+        """Returns the symbols of the parameters in the collection concatenated into a
+        single array, by default. Otherwise, if `as_dict=True`, a `dict` with each
+        symbolical V variable is returned."""
         if as_dict:
             return {name: p.symV for name, p in self.items()}
         return cs.vertcat(*(p.symV for p in self._list))
 
     def symQ(self, as_dict: bool = False) -> Union[cs.SX, dict[str, cs.SX]]:
-        """Returns the symbols of the parameters in the collection concatenated
-        into a single array, by default. Otherwise, if `as_dict=True`, a `dict`
-        with each symbolical Q variable is returned."""
+        """Returns the symbols of the parameters in the collection concatenated into a
+        single array, by default. Otherwise, if `as_dict=True`, a `dict` with each
+        symbolical Q variable is returned."""
         if as_dict:
             return {name: p.symQ for name, p in self.items()}
         return cs.vertcat(*(p.symQ for p in self._list))

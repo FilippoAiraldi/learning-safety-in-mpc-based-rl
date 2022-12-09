@@ -13,9 +13,13 @@ from matplotlib.figure import Figure
 from matplotlib.ticker import MaxNLocator, PercentFormatter
 from mpl_toolkits.mplot3d.art3d import Line3DCollection, Poly3DCollection
 
-from agents import QuadRotorGPSafeLSTDQAgent, QuadRotorLSTDQAgent, QuadRotorPKAgent
-from agents.wrappers import RecordLearningData
-from envs.wrappers import RecordData
+from agents.quad_rotor_lstdq_agents import (
+    QuadRotorGPSafeLSTDQAgent,
+    QuadRotorLSTDQAgent,
+)
+from agents.quad_rotor_pk_agent import QuadRotorPKAgent
+from agents.wrappers.record_learning_data import RecordLearningData
+from envs.wrappers.record_data import RecordData
 from util.math import constraint_violation as cv_
 from util.math import jaggedstack as jstack
 from util.math import logmean
@@ -134,10 +138,7 @@ def _set_empty_axis_off(axs: Iterable[Axes]) -> None:
 
 
 def _save2tikz(*figs: Figure) -> None:
-    """
-    Saves the figure to a tikz file.
-    See https://pypi.org/project/tikzplotlib/.
-    """
+    """Saves the figure to a tikz file. See https://pypi.org/project/tikzplotlib/."""
     import tikzplotlib
 
     for fig in figs:
@@ -380,9 +381,7 @@ def trajectory_time(env: RecordData, traj_num: int) -> Figure:
 def performance(
     agents: list[AGENTTYPE], fig: Figure = None, color: str = None, label: str = None
 ) -> Figure:
-    """
-    Plots the performance in each environment and the average performance.
-    """
+    """Plots the performance in each environment and the average performance."""
     if fig is None:
         fig, ax = plt.subplots(1, 1, constrained_layout=True)
     else:
@@ -407,10 +406,7 @@ def performance(
 def constraint_violation(
     agents: list[AGENTTYPE], fig: Figure = None, color: str = None, label: str = None
 ) -> Figure:
-    """
-    Plots the constraint violations in each environment and the average
-    violation.
-    """
+    """Plots the constraint violations in each environment and the average violation."""
     x_bnd, u_bnd = agents[0].env.config.x_bounds, agents[0].env.config.u_bounds
     N = (np.isfinite(x_bnd).sum(axis=1) > 0).sum() + (
         np.isfinite(u_bnd).sum(axis=1) > 0

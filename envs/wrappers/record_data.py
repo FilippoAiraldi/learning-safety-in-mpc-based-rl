@@ -20,8 +20,8 @@ class RecordData(gym.Wrapper):
         self, env: gym.Env, deque_size: int = None, as_numpy: bool = True
     ) -> None:
         """
-        This wrapper will keep track of observations, actions and rewards as
-        well as episode length and execution time.
+        This wrapper will keep track of observations, actions and rewards as well as
+        episode length and execution time.
 
         Parameters
         ----------
@@ -30,8 +30,8 @@ class RecordData(gym.Wrapper):
         deque_size : int, optional
             The maximum size of the historical data. By default, None.
         as_numpy : bool, optional
-            Whether to save the data at the end of the episode as an array. By
-            default, true.
+            Whether to save the data at the end of the episode as an array. By default,
+            true.
         """
         super().__init__(env)
         self.as_numpy = as_numpy

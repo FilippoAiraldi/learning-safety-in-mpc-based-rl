@@ -4,7 +4,8 @@ from typing import Type, TypeVar
 import gym
 from gym.wrappers import NormalizeReward, OrderEnforcing, TimeLimit
 
-from envs.wrappers import ClipActionIfClose, RecordData
+from envs.wrappers.clip_action_if_close import ClipActionIfClose
+from envs.wrappers.record_data import RecordData
 
 ObsType = TypeVar("ObsType")
 ActType = TypeVar("ActType")
@@ -27,9 +28,6 @@ class BaseEnv(gym.Env[ObsType, ActType], ABC):
     ) -> SuperEnvType:
         """
         Returns the environment properly encapsulated in some useful wrappers.
-        Passing `None` to an argument disables the corresponding wrapper, aside
-        from `OrderEnforcing` and .
-
         The wrappers are (from in to outward)
             - `OrderEnforcing`
             - `ClipActionIfClose`
@@ -46,11 +44,11 @@ class BaseEnv(gym.Env[ObsType, ActType], ABC):
         deque_size : int, optional
             Maximum number of episodic data saved (see `RecordData`).
         normalize_reward : tuple[bool, gamma], optional
-            Whether to apply reward normalization or not
-            (see `NormalizeReward`). `gamma` is the discount factor.
+            Whether to apply reward normalization or not (see `NormalizeReward`).
+            `gamma` is the discount factor.
         clip_action : bool, optional
-            Whether to clip actions that violates the action space
-            (see `ClipActionIfClose`).
+            Whether to clip actions that violates the action space (see
+            `ClipActionIfClose`).
         enforce_order : bool, optional
             Whether to apply order enforcing or not (see `OrderEnforcing`).
         env_kwargs : dict

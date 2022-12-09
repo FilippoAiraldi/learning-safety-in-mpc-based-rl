@@ -80,11 +80,10 @@ def load_results(filename: str) -> dict[str, Any]:
 def slugify(value: str, allow_unicode: bool = False) -> str:
     """
     Converts a string to a valid filename. Taken from
-    https://github.com/django/django/blob/master/django/utils/text.py. Converts
-    to ASCII if `allow_unicode=False.`; converts spaces or repeated dashes to
-    single dashes; removes characters that aren't alphanumerics, underscores,
-    or hyphens; converts to lowercase; strips leading and trailing whitespace,
-    dashes, and underscores.
+    https://github.com/django/django/blob/master/django/utils/text.py. Converts to ASCII
+    if `allow_unicode=False.`; converts spaces or repeated dashes to single dashes;
+    removes characters that aren't alphanumerics, underscores, or hyphens; converts to
+    lowercase; strips leading and trailing whitespace, dashes, and underscores.
     """
     if allow_unicode:
         value = unicodedata.normalize("NFKC", value)

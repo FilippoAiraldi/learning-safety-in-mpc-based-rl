@@ -88,9 +88,9 @@ class Solution:
 
 class GenericMPC:
     """
-    The generic MPC class is a controller that solves an optimization problem
-    to yield the (possibly, sub-) optimal action, according to the prediction
-    model, in the current state.
+    The generic MPC class is a controller that solves an optimization problem to yield
+    the (possibly, sub-) optimal action, according to the prediction model, in the
+    current state.
 
     This is a generic class in the sense that it does not solve one problem in
     particular, but only offers the general methods to do so.
@@ -183,16 +183,16 @@ class GenericMPC:
         dims : int...
             Dimensions of the new variable.
         lb, ub: array_like, optional
-            Lower and upper bounds of the new variable. By default, unbounded.
-            If provided, their dimension must be broadcastable.
+            Lower and upper bounds of the new variable. By default, unbounded. If
+            provided, their dimension must be broadcastable.
 
         Returns
         -------
         var : casadi.SX
             The symbol of the new variable.
         lam_lb : casadi.SX
-            The symbol corresponding to the new variable lower bound
-            constraint's multipliers.
+            The symbol corresponding to the new variable lower bound constraint's
+            multipliers.
         lam_ub : casadi.SX
             Same as above, for upper bound.
         """
@@ -294,11 +294,11 @@ class GenericMPC:
         Parameters
         ----------
         pars : dict[str, array_like]
-            Dictionary containing, for each parameter in the problem, the
-            corresponding numerical value.
+            Dictionary containing, for each parameter in the problem, the corresponding
+            numerical value.
         vals0 : dict[str, array_like], optional
-            Dictionary containing, for each variable in the problem, the
-            corresponding initial guess.
+            Dictionary containing, for each variable in the problem, the corresponding
+            initial guess.
 
         Returns
         -------
@@ -381,8 +381,8 @@ def subsevalf(
     eval: bool = True,
 ) -> Union[cs.SX, _np.ndarray]:
     """
-    Substitute in the expression the old variable with
-    the new one, evaluating the expression if required.
+    Substitute in the expression the old variable with the new one, evaluating the
+    expression if required.
 
     Parameters
     ----------

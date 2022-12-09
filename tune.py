@@ -5,11 +5,14 @@ from typing import Any, Type, TypeVar
 import numpy as np
 import optuna
 
-from agents import QuadRotorGPSafeLSTDQAgent, QuadRotorLSTDQAgent
 from agents.quad_rotor_base_agents import QuadRotorBaseLearningAgent
-from envs import QuadRotorEnv
-from util import io
+from agents.quad_rotor_lstdq_agents import (
+    QuadRotorGPSafeLSTDQAgent,
+    QuadRotorLSTDQAgent,
+)
+from envs.quad_rotor_env import QuadRotorEnv
 from util.errors import MPCSolverError, UpdateError
+from util.io import save_results
 from util.math import NormalizationService
 
 os.environ["PYTHONWARNINGS"] = "ignore"
@@ -167,15 +170,18 @@ if __name__ == "__main__":
         pruner=optuna.pruners.SuccessiveHalvingPruner(),
         direction="minimize",
     )
-    obj_fn = lambda trial: objective(
-        trial,
-        normalized=args.normalized,
-        agent_cls=agent_cls,
-        n_epochs=args.epochs,
-        n_agents=args.agents,
-        max_ep_steps=args.max_ep_steps,
-        seed=args.seed,
-    )
+
+    def obj_fn(trial: optuna.Trial) -> float:
+        return objective(
+            trial,
+            normalized=args.normalized,
+            agent_cls=agent_cls,
+            n_epochs=args.epochs,
+            n_agents=args.agents,
+            max_ep_steps=args.max_ep_steps,
+            seed=args.seed,
+        )
+
     study.optimize(
         obj_fn,
         n_trials=args.trials,
@@ -186,5 +192,5 @@ if __name__ == "__main__":
     )
 
     # save and show results
-    io.save_results(f"tune_{args.agents}.pkl", args=args, study=study)
+    save_results(f"tune_{args.agents}.pkl", args=args, study=study)
     show_study_stats(study)

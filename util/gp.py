@@ -26,8 +26,8 @@ KERNEL_PARAMS_DICT = {
 
 class CasadiKernels:
     """
-    Static class implementing in CasADi the GP kernels avaiable in sklearn.
-    Each kernel type retains the same nomenclature.
+    Static class implementing in CasADi the GP kernels avaiable in sklearn. Each kernel
+    type retains the same nomenclature.
     """
 
     @staticmethod
@@ -215,9 +215,9 @@ class MultitGaussianProcessRegressor(MultiOutputRegressor):
 
 class PriorSafetyKnowledge(UserDict[int, list[tuple[np.ndarray, np.ndarray]]]):
     """
-    Class for storing prior information on safety in the form of a list of
-    tuples of `(theta, safety)`, where `safety` is negative if `theta` yielded
-    a safe controller; otherwise, negative.
+    Class for storing prior information on safety in the form of a list of tuples of
+    `(theta, safety)`, where `safety` is negative if `theta` yielded a safe controller;
+    otherwise, positive.
     """
 
     def __init__(self, data, seed: int = None) -> None:
@@ -242,8 +242,8 @@ class PriorSafetyKnowledge(UserDict[int, list[tuple[np.ndarray, np.ndarray]]]):
             If `true`, raises if `target_seed` is not found; otherwise, picks
             information from another seed picked at random from avaiable ones.
         size : int or float, optional
-            How much samples from the information to return. If `None`, all
-            information is returned. If float, then it must be between 0 and 1.
+            How much samples from the information to return. If `None`, all information
+            is returned. If float, then it must be between 0 and 1.
 
         Returns
         -------

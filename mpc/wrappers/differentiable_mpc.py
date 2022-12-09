@@ -27,8 +27,8 @@ class DifferentiableMPC(Generic[MPCType]):
     @property
     def _non_redundant_x_bound_indices(self) -> tuple[np.ndarray, np.ndarray]:
         """
-        Gets the indices of lbx and ubx which are not redundant, i.e.,
-        different from `+/-inf`.
+        Gets the indices of lbx and ubx which are not redundant, i.e., different from
+        `+/-inf`.
         """
         return (
             np.where(self._mpc.lbx != -np.inf)[0],
@@ -57,8 +57,8 @@ class DifferentiableMPC(Generic[MPCType]):
                     [            dLdw             ]
                 K = [            G_eq             ],
                     [ diag(lam_ineq)*H_ineq + tau ]
-               where w = [x, u, slacks] are the primal decision variables, and
-               tau is the IPOPT barrier parameter.
+               where w = [x, u, slacks] are the primal decision variables, and tau is
+               the IPOPT barrier parameter.
 
             3) the collection y of primal-dual variables defined as
                     [    w     ]

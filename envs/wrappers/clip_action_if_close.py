@@ -7,22 +7,22 @@ from gym.wrappers import ClipAction
 class ClipActionIfClose(ClipAction):
     """
     Clips the continuous action within bounds even in spite of small numerical
-    violations. If the violations of the bounds is outside tolerace, then an
-    error is raised.
+    violations. If the violations of the bounds is outside tolerace, then an error is
+    raised.
     """
 
     def __init__(self, env: gym.Env, **np_isclose_kwargs) -> None:
         """
-        A wrapper for clipping continuous actions within the valid bound only
-        if the actions is numerically close to the bounds.
+        A wrapper for clipping continuous actions within the valid bound only if the
+        actions is numerically close to the bounds.
 
         Parameters
         ----------
         env : gym.Env
             The environment to apply the wrapper
         np_isclose_kwargs : dict
-            Optional arguments passed to `numpy.isclose` function to check if
-            the action is numerically close to the bounds.
+            Optional arguments passed to `numpy.isclose` function to check if the action
+            is numerically close to the bounds.
         """
         super().__init__(env)
         self._kw = np_isclose_kwargs
@@ -44,8 +44,7 @@ class ClipActionIfClose(ClipAction):
         Raises
         ------
         InvalidAction
-            The action is both outside bounds and numerically not close enough
-            to them.
+            The action is both outside bounds and numerically not close enough to them.
         """
         low = self.env.action_space.low
         high = self.env.action_space.high

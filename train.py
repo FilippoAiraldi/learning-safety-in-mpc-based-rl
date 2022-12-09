@@ -4,11 +4,17 @@ from typing import Any, Optional
 
 import joblib as jl
 
-import agents
-import envs
-from util import io, log
+from agents.quad_rotor_lstdq_agents import (
+    QuadRotorGPSafeLSTDQAgent,
+    QuadRotorLSTDQAgent,
+)
+from agents.quad_rotor_pk_agent import QuadRotorPKAgent
+from agents.wrappers.record_learning_data import RecordLearningData
+from envs.quad_rotor_env import QuadRotorEnv
 from util.configurations import parse_args
 from util.gp import PriorSafetyKnowledge
+from util.io import save_results
+from util.log import create_logger, tqdm_joblib
 from util.math import NormalizationService
 
 
@@ -37,12 +43,12 @@ def eval_pk_agent(
         Data resulting from the simulation.
     """
     normalization = NormalizationService() if normalized_env else None
-    env = envs.QuadRotorEnv.get_wrapped(
+    env = QuadRotorEnv.get_wrapped(
         max_episode_steps=max_ep_steps,
         normalize_reward=(False,),
         normalization=normalization,
     )
-    agent = agents.QuadRotorPKAgent(env=env, agentname=f"PK_{agent_n}", seed=seed)
+    agent = QuadRotorPKAgent(env=env, agentname=f"PK_{agent_n}", seed=seed)
     agent.eval(env=env, n_eval_episodes=episodes, deterministic=True, seed=seed + 1)
     return {"success": True, "agent": agent}
 
@@ -69,8 +75,7 @@ def train_lstdq_agent(
     agent_n : int
         Number of the agent.
     epochs : int
-        Number of training epochs. At the end of each epoch, an RL update
-        is carried out.
+        Number of training epochs. At the end of each epoch, an RL updat is carried out.
     train_episodes : int
         Episodes per training epochs.
     max_ep_steps : int
@@ -97,15 +102,15 @@ def train_lstdq_agent(
     dict[str, Any]
         Data resulting from the simulation.
     """
-    logger = log.create_logger(runname, to_file=False) if verbose else None
+    logger = create_logger(runname, to_file=False) if verbose else None
     normalization = NormalizationService() if normalized_env else None
-    env = envs.QuadRotorEnv.get_wrapped(
+    env = QuadRotorEnv.get_wrapped(
         max_episode_steps=max_ep_steps,
         normalize_reward=(True, agent_config["gamma"]),
         normalization=normalization,
     )
-    agent = agents.wrappers.RecordLearningData(
-        (agents.QuadRotorGPSafeLSTDQAgent if safe else agents.QuadRotorLSTDQAgent)(
+    agent = RecordLearningData(
+        (QuadRotorGPSafeLSTDQAgent if safe else QuadRotorLSTDQAgent)(
             env=env, agentname=f"LSTDQ_{agent_n}", agent_config=agent_config, seed=seed
         )
     )
@@ -132,13 +137,16 @@ if __name__ == "__main__":
         else PriorSafetyKnowledge.from_sim(args.prior, seed=args.seed)
     )
     if args.pk:
-        func = lambda n: eval_pk_agent(
-            agent_n=n,
-            episodes=tot_episodes,
-            max_ep_steps=args.max_ep_steps,
-            normalized_env=args.normalized,
-            seed=args.seed + (tot_episodes + 1) * n,
-        )
+
+        def func(n: int) -> dict[str, Any]:
+            return eval_pk_agent(
+                agent_n=n,
+                episodes=tot_episodes,
+                max_ep_steps=args.max_ep_steps,
+                normalized_env=args.normalized,
+                seed=args.seed + (tot_episodes + 1) * n,
+            )
+
     else:
         agent_config = {
             "gamma": args.gamma,
@@ -151,20 +159,23 @@ if __name__ == "__main__":
             "kernel_cls": args.gp_kernel,
             "average_violation": args.average_violation,
         }
-        func = lambda n: train_lstdq_agent(
-            agent_n=n,
-            epochs=args.epochs,
-            train_episodes=args.episodes,
-            max_ep_steps=args.max_ep_steps,
-            agent_config=agent_config,
-            perturbation_decay=args.perturbation_decay,
-            runname=args.runname,
-            normalized_env=args.normalized,
-            safe=args.safe_lstdq,
-            prior_knowledge=prior_knowledge,
-            seed=args.seed + (tot_episodes + 1) * n,
-            verbose=args.verbose,
-        )
+
+        def func(n: int) -> dict[str, Any]:
+            return train_lstdq_agent(
+                agent_n=n,
+                epochs=args.epochs,
+                train_episodes=args.episodes,
+                max_ep_steps=args.max_ep_steps,
+                agent_config=agent_config,
+                perturbation_decay=args.perturbation_decay,
+                runname=args.runname,
+                normalized_env=args.normalized,
+                safe=args.safe_lstdq,
+                prior_knowledge=prior_knowledge,
+                seed=args.seed + (tot_episodes + 1) * n,
+                verbose=args.verbose,
+            )
+
     date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     start = time.perf_counter()
 
@@ -174,7 +185,7 @@ if __name__ == "__main__":
     sim_iter, agent_cnt = 0, 0
     while len(data) < args.agents:
         n_agents = args.agents - len(data)
-        with log.tqdm_joblib(desc=f"Simulation {sim_iter}", total=n_agents):
+        with tqdm_joblib(desc=f"Simulation {sim_iter}", total=n_agents):
             batch = jl.Parallel(n_jobs=args.n_jobs)(
                 jl.delayed(func)(agent_cnt + n) for n in range(n_agents)
             )
@@ -184,7 +195,7 @@ if __name__ == "__main__":
 
     # save results
     print(f"[Simulated {agent_cnt} agents: {agent_cnt - args.agents} failed]")
-    fn = io.save_results(
+    fn = save_results(
         filename=args.runname,
         date=date,
         args=args,

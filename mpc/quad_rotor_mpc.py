@@ -12,9 +12,7 @@ from util.configurations import BaseConfig, init_config
 
 @dataclass
 class QuadRotorMPCConfig(BaseConfig):
-    """
-    Quadrotor MPC configuration, such as horizons and CasADi/IPOPT options.
-    """
+    """Quadrotor MPC configuration, such as horizons and CasADi/IPOPT options."""
 
     # horizon
     N: int = 15
@@ -55,11 +53,11 @@ class QuadRotorMPC(GenericMPC):
         env : QuadRotorEnv
             Environment for which to create the MPC.
         config : dict, QuadRotorMPCConfig
-            A set of configuration parameters for the MPC. If not given, the
-            default ones are used.
+            A set of configuration parameters for the MPC. If not given, the default
+            ones are used.
         mpctype : 'Q' or 'V'
-            Type of MPC to instantiate, either state value function or action
-            value function.
+            Type of MPC to instantiate, either state value function or action value
+            function.
         """
         assert mpctype in {
             "V",
