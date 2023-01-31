@@ -1,0 +1,29 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: >-
+  Source code for the publication: Learning safety in
+  model-based Reinforcement Learning using MPC and Gaussian
+  Processes
+message: >-
+  Source code for a safety-aware MPC-based RL framework via
+  Gaussian Processes
+type: software
+authors:
+  - given-names: Filippo
+    family-names: Airaldi
+    email: f.airaldi@tudelft.nl
+    orcid: 'https://orcid.org/0000-0001-6595-2932'
+    affiliation: Delft University of Technology
+identifiers:
+  - type: doi
+    value: 10.4121/21493782.v1
+    description: Repository snapshot at 4TY.ResearchData
+repository-code: >-
+  https://github.com/FilippoAiraldi/learning-safety-in-mpc-based-rl
+keywords:
+  - Model Predictive Control
+  - Reinforcement Learning
+  - Gaussian Processes
+license: GPL-3.0
