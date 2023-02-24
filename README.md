@@ -95,7 +95,8 @@ The repository is provided under the GNU General Public License. See the LICENSE
 
 > [Delft Center for Systems and Control](https://www.tudelft.nl/en/3me/about/departments/delft-center-for-systems-and-control/) in [Delft University of Technology](https://www.tudelft.nl/en/)
 
-> This research is part of a project that has received funding
-from the European Research Council (ERC) under the
-European Union’s Horizon 2020 research and innovation
-programme ([Grant agreement No. 101018826 - CLariNet](https://cordis.europa.eu/project/id/101018826)).
+> This research is part of a project that has received funding from the European Research Council (ERC) under the European Union’s Horizon 2020 research and innovation programme ([Grant agreement No. 101018826 - CLariNet](https://cordis.europa.eu/project/id/101018826)).
+
+Copyright (c) 2023 Filippo Airaldi.
+
+Copyright notice: Technische Universiteit Delft hereby disclaims all copyright interest in the program “learning-safety-in-mpc-based-rl” (Learning safety in model-based Reinforcement Learning using MPC and Gaussian Processes) written by the Author(s). Prof. Dr. Ir. Fred van Keulen, Dean of 3mE.
