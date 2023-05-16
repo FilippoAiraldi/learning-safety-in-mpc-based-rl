@@ -1,6 +1,6 @@
 casadi==3.5.5
 gym==0.26.0
-joblib==1.1.0
+joblib==1.1.1
 matplotlib==3.5.2
 numpy==1.23.1
 scikit-learn==1.1.2
