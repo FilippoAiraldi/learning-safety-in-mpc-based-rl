@@ -7,21 +7,23 @@
 
 ![results-image](./resources/img.png)
 
-This repository contains the source code used to produce the results obtained in [our paper](https://arxiv.org/abs/2211.01860/) submitted to the 2023 IFAC WC.
+This repository contains the source code used to produce the results obtained in [our 2023 IFAC WC submission](https://www.sciencedirect.com/science/article/pii/S2405896323009308) (extended version [here](https://arxiv.org/abs/2211.01860/)).
 
 In this work, we propose a straightforward yet effective algorithm for enabling safety in the context of Safe Reinforcement Learning (RL) using Model Predictive Control (MPC) as function approximation. The unknown constraints encoding safety are learnt from observed MPC trajectories via Gaussian Process (GP) regression, and are then enforced onto the RL agent to guarantee that the MPC controller is safe with high probability.
 
 If you find the paper or this repository helpful in your publications, please consider citing it.
 
 ```latex
-article{airaldi2022learning,
-  author = {Airaldi, Filippo and De Schutter, Bart and Dabiri, Azita},
+@article{airaldi20235759,
   title = {Learning safety in model-based Reinforcement Learning using MPC and Gaussian Processes},
-  publisher = {arXiv},
-  journal={arXiv preprint arXiv:2211.01860},
-  year = {2022},
-  doi = {10.48550/ARXIV.2211.01860},
-  url = {https://arxiv.org/abs/2211.01860}
+  journal = {IFAC-PapersOnLine},
+  volume = {56},
+  number = {2},
+  pages = {5759-5764},
+  year = {2023},
+  note = {22nd IFAC World Congress},
+  doi = {https://doi.org/10.1016/j.ifacol.2023.10.563},
+  author = {Filippo Airaldi and Bart De Schutter and Azita Dabiri},
 }
 ```
 
