@@ -13,7 +13,7 @@ In this work, we propose a straightforward yet effective algorithm for enabling 
 
 If you find the paper or this repository helpful in your publications, please consider citing it.
 
-```latex
+```bibtex
 @article{airaldi20235759,
   title = {Learning safety in model-based Reinforcement Learning using MPC and Gaussian Processes},
   journal = {IFAC-PapersOnLine},
